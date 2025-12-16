@@ -1,0 +1,11 @@
+database:
+  host: localhost
+  port: tbd
+  user: your_username
+  password: your_password
+  name: finia_db
+
+import:
+  account1:
+    data_folder: ./data
+    file_type: csv
