@@ -1,9 +1,8 @@
 database:
-  host: localhost
-  port: tbd
-  user: your_username
-  password: your_password
-  name: finia_db
+  host: 192.168.42.32
+  port: 3306
+  name: sandbox_finia_test1
+  sql_file: ./db/finia_draft.sql
 
 import:
   account1:
