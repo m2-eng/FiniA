@@ -14,7 +14,13 @@ class TransactionRepository(BaseRepository):
       iban: str | None = None,
       bic: str | None = None,
       recipient_applicant: str | None = None,
-   ) -> bool:
+   ) -> int | None:
+      """
+      Insert transaction with INSERT IGNORE for duplicate detection.
+      
+      Returns:
+         Transaction ID if newly inserted, None if duplicate or failure.
+      """
       sql = (
          """INSERT IGNORE INTO tbl_transaction
                (dateImport, iban, bic, description, amount, dateValue, recipientApplicant, account)
@@ -32,4 +38,6 @@ class TransactionRepository(BaseRepository):
             account_id,
          ),
       )
-      return self.cursor.rowcount == 1
+      if self.cursor.rowcount == 1:
+         return self.cursor.lastrowid
+      return None
