@@ -7,6 +7,7 @@ from services.import_service import ImportService
 from services.import_steps.account_types import AccountTypesStep
 from services.import_steps.planning_cycles import PlanningCyclesStep
 from services.import_steps.accounts import AccountsStep
+from services.import_steps.categories import CategoriesStep
 
 
 class DataImporter:
@@ -75,6 +76,8 @@ class DataImporter:
          steps.append(AccountTypesStep())
       if 'planningCycle' in data:
          steps.append(PlanningCyclesStep())
+      if 'categories' in data:
+         steps.append(CategoriesStep())
       if 'account_data' in data:
          steps.append(AccountsStep())
 

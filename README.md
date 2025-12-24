@@ -179,4 +179,4 @@ See the Issues tab of this repository.
 Contributions are welcome! Please fork the repository and submit a pull request.
 
 ## [Licence](./LICENSE)
-GPL-3.0 license
+AGPL-3.0 license
