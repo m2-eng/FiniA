@@ -1,3 +1,7 @@
 cmd
 
+*.backup
+
+/.vscode/
 /.venv/
+**/__pycache__/

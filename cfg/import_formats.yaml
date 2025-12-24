@@ -1,0 +1,54 @@
+formats:
+  csv-cb:
+    encoding: utf-8
+    delimiter: ';'
+    decimal: ','
+    date_format: '%d.%m.%Y'
+    columns:
+      dateValue: Valuta
+      amount: Betrag
+      description:
+        join:
+          - Buchungstext
+          - Verwendungszweck
+        separator: ' | '
+      iban: IBAN
+      bic: BIC
+      recipientApplicant: 'Sender / Empfänger'
+
+  csv-spk:
+    encoding: utf-8
+    delimiter: ';'
+    decimal: ','
+    date_format: '%d.%m.%Y'
+    columns:
+      dateValue: Valutadatum
+      amount: Betrag
+      description:
+        join:
+          - Buchungstext
+          - Verwendungszweck
+          - Info
+        separator: ' | '
+      iban: Kontonummer
+      bic: BLZ
+      recipientApplicant: 'Beguenstigter/Zahlungspflichtiger'
+
+  csv-mintos:
+    encoding: utf-8
+    delimiter: ','
+    decimal: '.'
+    date_format: '%Y-%m-%d %H:%M:%S'
+    columns:
+      dateValue: Datum
+      amount: Umsatz
+      description: 
+        join:
+          - Details
+          - 'Transaktions-Nr.:'
+        separator: ' | '
+      iban:
+        regex: 'ISIN:\s*([A-Z0-9]{10,20})|Darlehen\s*([0-9\-]+)'
+        source: Details
+      bic: null
+      recipientApplicant: null
