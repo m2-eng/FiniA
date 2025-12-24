@@ -12,6 +12,7 @@ from Database import Database
 from infrastructure.unit_of_work import UnitOfWork
 from repositories.account_import_repository import AccountImportRepository
 from repositories.transaction_repository import TransactionRepository
+from repositories.accounting_entry_repository import AccountingEntryRepository
 
 
 @dataclass
@@ -87,7 +88,7 @@ class AccountDataImporter:
    def _parse_date(self, raw: str, date_format: str) -> datetime:
       return datetime.strptime(raw, date_format)
 
-   def _import_file(self, csv_path: Path, mapping: dict, job: ImportJob, repo: TransactionRepository) -> tuple[int, int]:
+   def _import_file(self, csv_path: Path, mapping: dict, job: ImportJob, tx_repo: TransactionRepository, ae_repo: AccountingEntryRepository) -> tuple[int, int]:
       delimiter = mapping.get("delimiter", ";")
       encoding = mapping.get("encoding", "utf-8")
       decimal_sep = mapping.get("decimal", ".")
@@ -112,7 +113,7 @@ class AccountDataImporter:
                date_value = self._parse_date(date_value_raw, date_format)
                amount = self._parse_amount(amount_raw, decimal_sep)
 
-               if repo.insert_ignore(
+               transaction_id = tx_repo.insert_ignore(
                   account_id=job.account_id,
                   description=description,
                   amount=amount,
@@ -120,7 +121,17 @@ class AccountDataImporter:
                   iban=iban,
                   bic=bic,
                   recipient_applicant=recipient,
-               ):
+               )
+               
+               if transaction_id:
+                  # Automatically create accounting entry for new transaction
+                  ae_repo.insert(
+                     amount=amount,
+                     transaction_id=transaction_id,
+                     checked=False,
+                     accounting_planned_id=None,
+                     category_id=None,
+                  )
                   inserted += 1
             except Exception as exc:  # keep importing but report
                print(f"  Warning: skipping row {total} in {csv_path.name}: {exc}")
@@ -180,7 +191,8 @@ class AccountDataImporter:
          for csv_file in files:
             with UnitOfWork(self.db.connection) as uow:
                tx_repo = TransactionRepository(uow)
-               inserted, total = self._import_file(csv_file, mapping, job, tx_repo)
+               ae_repo = AccountingEntryRepository(uow)
+               inserted, total = self._import_file(csv_file, mapping, job, tx_repo, ae_repo)
                overall_inserted += inserted
                overall_total += total
                print(

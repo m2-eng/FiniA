@@ -785,6 +785,36 @@ ALTER TABLE `tbl_shareTransaction`
 --
 ALTER TABLE `tbl_transaction`
   ADD CONSTRAINT `tbl_transaction_idx_tbl_account_account` FOREIGN KEY (`account`) REFERENCES `tbl_account` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- Trigger: Auto-create accounting entry for each transaction
+--
+DELIMITER $$
+CREATE TRIGGER `trg_transaction_create_accounting_entry`
+AFTER INSERT ON `tbl_transaction`
+FOR EACH ROW
+BEGIN
+  INSERT INTO `tbl_accountingEntry` (
+    `dateImport`,
+    `checked`,
+    `amount`,
+    `transaction`,
+    `accountingPlanned`,
+    `category`
+  )
+  VALUES (
+    NOW(),
+    0,
+    NEW.`amount`,
+    NEW.`id`,
+    NULL,
+    NULL
+  );
+END$$
+DELIMITER ;
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
