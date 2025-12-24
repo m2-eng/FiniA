@@ -268,7 +268,8 @@ CREATE TABLE `tbl_transaction` (
   `amount` decimal(20,10) NOT NULL,
   `dateValue` datetime NOT NULL,
   `recipientApplicant` text DEFAULT NULL,
-  `account` bigint(20) NOT NULL
+  `account` bigint(20) NOT NULL,
+  `duplicateHashComputed` varchar(32) GENERATED ALWAYS AS (MD5(CONCAT(COALESCE(`iban`,''),'|',`description`,'|',CAST(`amount` AS CHAR),'|',CAST(`dateValue` AS CHAR),'|',CAST(`account` AS CHAR)))) VIRTUAL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 -- --------------------------------------------------------
@@ -511,7 +512,7 @@ ALTER TABLE `tbl_shareTransaction`
 --
 ALTER TABLE `tbl_transaction`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `duplicateHash` (`iban`,`description`,`amount`,`dateValue`,`account`),
+  ADD UNIQUE KEY `duplicateHash` (`duplicateHashComputed`),
   ADD KEY `tbl_transaction_idx_tbl_account_account` (`account`);
 
 --
