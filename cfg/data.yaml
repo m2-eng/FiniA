@@ -1,0 +1,77 @@
+# YAML 1.1
+accountType:
+  'Girokonto': 1
+  'Wertpapierdepot': 2
+  'Darlehen': 3
+  'Krypto': 4
+
+planningCycle:
+  'einmalig': 1
+  'täglich': 2
+  'wöchentlich': 3
+  '14-tägig': 4
+  'monatlich': 5
+  'vierteljährlich': 6
+  'halbjährlich': 7
+  'jährlich': 8
+
+account_data:
+  - account:
+      name: 'Consorsbank - Girokonto'
+      iban_accountNumber: 'DE89370400440532013000'
+      bic_market: "ABCDE123456"
+      startAmount: 42.24
+      dateStart: "2023-01-01 00:00:00"
+      type: 'Girokonto'
+      clearingAccount: null
+      importFolder: ./test/data/CB
+      importFileEnding: csv
+      importType: csv-cb
+  - account:
+      name: 'SpK - Girokonto'
+      iban_accountNumber: 'DE8433490320012345678'
+      bic_market: 'SPK123456XX'
+      startAmount: 1420.4200000000
+      dateStart: "2000-01-01 00:00:00"
+      dateEnd: "2023-02-27 00:00:00"
+      type: 'Girokonto'
+      clearingAccount: null
+      importFolder: ./test/data/SpK
+      importFileEnding: csv
+      importType: csv-spk
+  - account:
+      name: 'Mintos'
+      iban_accountNumber: '12345678'
+      bic_market: ''
+      startAmount: 0.00
+      dateStart: "2022-01-01 00:00:00"
+      dateEnd: null
+      type: 'Darlehen'
+      clearingAccount: null
+      importFolder: ./test/data/Mintos
+      importFileEnding: csv
+      importType: csv-mintos
+  - account:
+      name: 'CB - Verrechnungskonto'
+      iban_accountNumber: 'DE8433490320098765432'
+      bic_market: ''
+      startAmount: 0.00
+      dateStart: "2022-01-01 00:00:00"
+      dateEnd: null
+      type: 'Girokonto'
+      clearingAccount: null
+      importFolder: null
+      importFileEnding: csv
+      importType: csv-cb
+  - account:
+      name: 'CB - Wertpapierdepot'
+      iban_accountNumber: '487134'
+      bic_market: ''
+      startAmount: 0.00
+      dateStart: "2022-01-01 00:00:00"
+      dateEnd: null
+      type: 'Wertpapierdepot'
+      clearingAccount: 'CB - Verrechnungskonto'
+      importFolder: null
+      importFileEnding: csv
+      importType: csv-cb

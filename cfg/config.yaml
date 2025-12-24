@@ -3,8 +3,4 @@ database:
   port: 3306
   name: sandbox_finia_test1
   sql_file: ./db/finia_draft.sql
-
-import:
-  account1:
-    data_folder: ./data
-    file_type: csv
+  init_data: ./cfg/data.yaml
