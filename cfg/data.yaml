@@ -75,3 +75,74 @@ account_data:
       importFolder: null
       importFileEnding: csv
       importType: csv-cb
+
+categories:
+  - name: 'Auto'
+    subcategories:
+      - name: 'Treibstoff'
+      - name: 'Versicherung (Auto)'
+      - name: 'Steuer (Auto)'
+      - name: 'Wartung'
+  - name: 'Telekommunikation'
+    subcategories:
+      - name: 'Handy'
+      - name: 'Internet'
+  - name: 'Haus/Wohnung'
+    subcategories:
+      - name: 'Müllgebühren'
+      - name: 'Miete'
+      - name: 'GEZ'
+      - name: 'Strom'
+      - name: 'Ab-/Wasser'
+      - name: 'Wartung/Umbau'
+  - name: 'Ausgaben'
+    subcategories:
+      - name: 'Barentnahme'
+      - name: 'Kontoführung'
+      - name: 'Lebenshaltung'
+      - name: 'Medien (z.B. Zeitung, Streaming, ...)'
+      - name: 'Nicht kategorisierte Ausgaben'
+      - name: 'Büro und IT'
+  - name: 'Shopping'
+    subcategories:
+      - name: 'Amazon'
+  - name: 'Einnahmen'
+    subcategories:
+      - name: 'Gehalt'
+      - name: 'Einzahlung'
+      - name: 'Nicht kategorisierte Einnahmen'
+  - name: 'Darlehen'
+    subcategories:
+      - name: 'Belohnung (Darlehen)'
+      - name: 'Gebühren (Darlehen)'
+      - name: 'Zinsen (Darlehen)'
+      - name: 'Tilgung (Darlehen)'
+      - name: 'Investment (Darlehen)'
+      - name: 'Kredit (Darlehen)'
+      - name: 'Steuer (Darlehen)'
+      - name: 'Abschreibung (Darlehen)'
+  - name: 'Versicherungen'
+    subcategories:
+      - name: 'Auslandskrankenversicherung'
+      - name: 'Berufunfähigkeitsversicherung'
+      - name: 'Haftpflichtversicherung'
+      - name: 'Hausratversicherung'
+      - name: 'Rentenversicherung'
+      - name: 'Unfallversicherung'
+  - name: 'Investments'
+    subcategories:
+      - name: 'Bausparvertrag'
+      - name: 'Projekte'
+      - name: 'Wertpapiere'
+        subcategories:
+          - name: 'Kauf (Wertpapiere)'
+          - name: 'Verkauf (Wertpapiere)'
+          - name: 'Dividende (Wertpapiere)'
+          - name: 'Steuern (Wertpapiere)'
+  - name: 'Fortbildung'
+  - name: 'Hobby'
+  - name: 'Vereine'
+  - name: 'Staat'
+    subcategories:
+      - name: 'Einkommenssteuer'
+      - name: 'Zuschüsse (z.B. KfW)'
