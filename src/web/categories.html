@@ -6,6 +6,262 @@
   <title>FiniA - Kategorien</title>
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .category-tree {
+      list-style: none;
+      padding: 0;
+      margin: 10px auto;
+      max-width: 1000px;
+    }
+
+    .category-item {
+      margin: 5px 0;
+      padding: 10px;
+      background-color: var(--detail-background, #f9f9f9);
+      border: 1px solid var(--border, #ddd);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .category-item.parent {
+      margin-left: 0;
+      font-weight: 500;
+    }
+
+    .category-item.child {
+      margin-left: 30px;
+      font-size: 0.95em;
+    }
+
+    .category-item.child-level-2 {
+      margin-left: 60px;
+    }
+
+    .category-item.child-level-3 {
+      margin-left: 90px;
+    }
+
+    .category-name {
+      flex: 1;
+      padding-right: 10px;
+    }
+
+    .category-actions {
+      display: flex;
+      gap: 5px;
+    }
+
+    .btn-small {
+      padding: 5px 10px;
+      font-size: 0.85em;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      background-color: var(--primary-accent, #007bff);
+      color: white;
+      transition: background-color 0.2s;
+    }
+
+    .btn-small:hover {
+      background-color: var(--primary-accent-hover, #0056b3);
+    }
+
+    .btn-small.delete {
+      background-color: #dc3545;
+    }
+
+    .btn-small.delete:hover {
+      background-color: #c82333;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal.show {
+      display: block;
+    }
+
+    .modal-content {
+      background-color: var(--base-background, #fff);
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid var(--border, #888);
+      border-radius: 8px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .modal-header h3 {
+      margin: 0;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.5em;
+      cursor: pointer;
+      color: var(--text-color, #333);
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: var(--text-color, #333);
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--input-border, #ddd);
+      border-radius: 4px;
+      font-size: 1em;
+      box-sizing: border-box;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary-accent, #007bff);
+      box-shadow: 0 0 5px var(--primary-accent, #007bff);
+    }
+
+    .modal-footer {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .btn-modal {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.2s;
+    }
+
+    .btn-modal.primary {
+      background-color: var(--primary-accent, #007bff);
+      color: white;
+    }
+
+    .btn-modal.primary:hover {
+      background-color: var(--primary-accent-hover, #0056b3);
+    }
+
+    .btn-modal.secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .btn-modal.secondary:hover {
+      background-color: #5a6268;
+    }
+
+    .error {
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+      padding: 12px;
+      margin: 10px auto;
+      border-radius: 4px;
+      max-width: 1000px;
+    }
+
+    .success {
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+      padding: 12px;
+      margin: 10px auto;
+      border-radius: 4px;
+      max-width: 1000px;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 20px;
+      margin: 0 auto 30px auto;
+      align-items: center;
+      padding-bottom: 15px;
+      max-width: 1000px;
+    }
+
+    .search-section {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-section input {
+      flex: 1;
+      min-width: 250px;
+      padding: 10px;
+      border: 1px solid var(--border, #ddd);
+      border-radius: 4px;
+      font-size: 1em;
+    }
+
+    .search-section input:focus {
+      outline: none;
+      border-color: var(--primary-accent, #007bff);
+      box-shadow: 0 0 5px var(--primary-accent, #007bff);
+    }
+
+    .action-section {
+      display: flex;
+      gap: 25px;
+      align-items: center;
+    }
+
+    .toolbar .btn {
+      white-space: nowrap;
+      padding: 10px 20px;
+      font-size: 1em;
+    }
+
+    @media (max-width: 768px) {
+      .toolbar {
+        grid-template-columns: 1fr;
+        gap: 15px;
+      }
+
+      .search-section input {
+        min-width: auto;
+      }
+
+      .action-section {
+        width: 100%;
+        justify-content: flex-end;
+      }
+    }
+  </style>
 </head>
 <body>
   <header>
@@ -15,64 +271,316 @@
   <div class="container">
     <div class="page-card">
       <h2>Kategorien</h2>
-      <p class="details-meta">Alle verfügbaren Kategorien aus dem System.</p>
+      <p class="details-meta">Verwalten Sie Ihre Kategorien in hierarchischer Form.</p>
     </div>
 
-    <div class="search-bar">
-      <input type="text" id="categorySearch" placeholder="Nach Kategorie suchen...">
-      <button class="btn" id="refreshCategories">Aktualisieren</button>
+    <div class="toolbar">
+      <div class="search-section">
+        <input type="text" id="categorySearch" placeholder="Nach Kategorie suchen...">
+      </div>
+      <div class="action-section">
+        <button class="btn" id="refreshCategories">Aktualisieren</button>
+        <button class="btn" id="addCategoryBtn">+ Neue Kategorie</button>
+      </div>
     </div>
 
     <div id="catError" class="error" style="display:none"></div>
+    <div id="catSuccess" class="success" style="display:none"></div>
 
-    <table class="simple-table" id="categoriesTable">
-      <thead>
-        <tr>
-          <th>Kategorie</th>
-        </tr>
-      </thead>
-      <tbody id="categoriesBody"></tbody>
-    </table>
+    <div id="categoriesContainer" class="category-tree"></div>
+  </div>
+
+  <!-- Modal for Add/Edit Category -->
+  <div id="categoryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle">Neue Kategorie</h3>
+        <button class="close-btn" onclick="closeCategoryModal()">&times;</button>
+      </div>
+      <form id="categoryForm">
+        <div class="form-group">
+          <label for="categoryName">Kategoriename:</label>
+          <input type="text" id="categoryName" required placeholder="z.B. Lebensmittel">
+        </div>
+        <div class="form-group">
+          <label for="parentCategory">Übergeordnete Kategorie (optional):</label>
+          <select id="parentCategory">
+            <option value="">-- Keine (Hauptkategorie) --</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-modal secondary" onclick="closeCategoryModal()">Abbrechen</button>
+          <button type="submit" class="btn-modal primary">Speichern</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script src="app.js"></script>
   <script>
     let allCategories = [];
+    let currentEditingId = null;
+
+    function hideMessage(elementId, delay = 5000) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        setTimeout(() => {
+          element.style.display = 'none';
+        }, delay);
+      }
+    }
+
+    function showError(message) {
+      const err = document.getElementById('catError');
+      err.textContent = message;
+      err.style.display = 'block';
+      hideMessage('catError');
+    }
+
+    function showSuccess(message) {
+      const success = document.getElementById('catSuccess');
+      success.textContent = message;
+      success.style.display = 'block';
+      hideMessage('catSuccess');
+    }
 
     async function loadCategoriesPage() {
       const err = document.getElementById('catError');
       err.style.display = 'none';
       try {
-        const res = await fetch(`${API_BASE}/categories/`);
+        const res = await fetch(`${API_BASE}/categories/hierarchy`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         allCategories = data.categories || [];
         renderCategories();
+        populateParentCategorySelect();
       } catch (e) {
         console.error(e);
-        err.textContent = `Fehler beim Laden der Kategorien: ${e.message}`;
-        err.style.display = 'block';
+        showError(`Fehler beim Laden der Kategorien: ${e.message}`);
       }
+    }
+
+    function buildCategoryTree() {
+      // Create a map for faster lookups
+      const categoryMap = {};
+      const childrenMap = {};
+
+      allCategories.forEach(cat => {
+        categoryMap[cat.id] = { ...cat, children: [] };
+        if (!childrenMap[cat.parent_id]) {
+          childrenMap[cat.parent_id] = [];
+        }
+        childrenMap[cat.parent_id].push(cat.id);
+      });
+
+      // Build tree structure
+      const rootCategories = allCategories.filter(c => c.parent_id === null);
+      
+      function buildTree(categoryId, depth = 0) {
+        const children = childrenMap[categoryId] || [];
+        return children.map(childId => ({
+          ...categoryMap[childId],
+          depth: depth + 1,
+          children: buildTree(childId, depth + 1)
+        }));
+      }
+
+      return rootCategories.map(cat => ({
+        ...cat,
+        depth: 0,
+        children: buildTree(cat.id, 0)
+      }));
     }
 
     function renderCategories() {
       const term = (document.getElementById('categorySearch').value || '').toLowerCase();
-      const tbody = document.getElementById('categoriesBody');
-      tbody.innerHTML = '';
-      const filtered = allCategories.filter(c => (c.fullname || '').toLowerCase().includes(term));
-      filtered.forEach(cat => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${cat.fullname}</td>`;
-        tbody.appendChild(tr);
+      const container = document.getElementById('categoriesContainer');
+      container.innerHTML = '';
+
+      const tree = buildCategoryTree();
+
+      function renderTreeNode(node, parentMatches = false) {
+        const matches = (node.name || '').toLowerCase().includes(term) || parentMatches;
+        const html = [];
+
+        if (matches) {
+          const depthClass = node.depth === 0 ? 'parent' : `child child-level-${Math.min(node.depth, 3)}`;
+          html.push(`
+            <div class="category-item ${depthClass}">
+              <span class="category-name">${escapeHtml(node.name)}</span>
+              <div class="category-actions">
+                <button class="btn-small" onclick="editCategory(${node.id})">Bearbeiten</button>
+                <button class="btn-small delete" onclick="deleteCategory(${node.id})">Löschen</button>
+              </div>
+            </div>
+          `);
+        }
+
+        // Recursively render children
+        if (node.children && node.children.length > 0) {
+          node.children.forEach(child => {
+            html.push(renderTreeNode(child, matches));
+          });
+        }
+
+        return html.join('');
+      }
+
+      tree.forEach(rootNode => {
+        container.innerHTML += renderTreeNode(rootNode);
       });
     }
+
+    function populateParentCategorySelect() {
+      const select = document.getElementById('parentCategory');
+      const currentValue = select.value;
+
+      // Keep the "No parent" option
+      select.innerHTML = '<option value="">-- Keine (Hauptkategorie) --</option>';
+
+      allCategories.forEach(cat => {
+        // Don't show the current category being edited as a parent option
+        if (currentEditingId === null || cat.id !== currentEditingId) {
+          const option = document.createElement('option');
+          option.value = cat.id;
+          option.textContent = cat.name;
+          select.appendChild(option);
+        }
+      });
+
+      select.value = currentValue;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function openCategoryModal() {
+      document.getElementById('categoryModal').classList.add('show');
+    }
+
+    function closeCategoryModal() {
+      document.getElementById('categoryModal').classList.remove('show');
+      currentEditingId = null;
+      document.getElementById('categoryForm').reset();
+      document.getElementById('modalTitle').textContent = 'Neue Kategorie';
+      populateParentCategorySelect();
+    }
+
+    async function editCategory(categoryId) {
+      const category = allCategories.find(c => c.id === categoryId);
+      if (!category) return;
+
+      currentEditingId = categoryId;
+      document.getElementById('modalTitle').textContent = 'Kategorie bearbeiten';
+      document.getElementById('categoryName').value = category.name;
+      document.getElementById('parentCategory').value = category.parent_id || '';
+      
+      populateParentCategorySelect();
+      openCategoryModal();
+    }
+
+    async function deleteCategory(categoryId) {
+      const category = allCategories.find(c => c.id === categoryId);
+      if (!category) return;
+
+      if (!confirm(`Möchten Sie die Kategorie "${category.name}" wirklich löschen? Unterkategorien werden der übergeordneten Kategorie zugeordnet.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/categories/${categoryId}`, {
+          method: 'DELETE'
+        });
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.detail || `HTTP ${res.status}`);
+        }
+
+        showSuccess(`Kategorie "${category.name}" wurde gelöscht.`);
+        loadCategoriesPage();
+      } catch (e) {
+        console.error(e);
+        showError(`Fehler beim Löschen der Kategorie: ${e.message}`);
+      }
+    }
+
+    document.getElementById('categoryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const name = document.getElementById('categoryName').value.trim();
+      const parentId = document.getElementById('parentCategory').value;
+
+      if (!name) {
+        showError('Kategoriename ist erforderlich.');
+        return;
+      }
+
+      try {
+        let res;
+        if (currentEditingId) {
+          // Update existing category
+          res = await fetch(`${API_BASE}/categories/${currentEditingId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name,
+              parent_id: parentId ? parseInt(parentId) : null
+            })
+          });
+        } else {
+          // Create new category
+          res = await fetch(`${API_BASE}/categories/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: name,
+              parent_id: parentId ? parseInt(parentId) : null
+            })
+          });
+        }
+
+        if (!res.ok) {
+          const error = await res.json();
+          throw new Error(error.detail || `HTTP ${res.status}`);
+        }
+
+        const message = currentEditingId ? 'Kategorie aktualisiert.' : 'Kategorie erstellt.';
+        showSuccess(message);
+        closeCategoryModal();
+        loadCategoriesPage();
+      } catch (e) {
+        console.error(e);
+        showError(`Fehler beim Speichern der Kategorie: ${e.message}`);
+      }
+    });
 
     document.addEventListener('DOMContentLoaded', () => {
       loadTopNav('categories');
       document.getElementById('categorySearch').addEventListener('input', renderCategories);
       document.getElementById('refreshCategories').addEventListener('click', loadCategoriesPage);
+      document.getElementById('addCategoryBtn').addEventListener('click', () => {
+        currentEditingId = null;
+        document.getElementById('categoryForm').reset();
+        document.getElementById('modalTitle').textContent = 'Neue Kategorie';
+        populateParentCategorySelect();
+        openCategoryModal();
+      });
+      
+      // Close modal when clicking outside of it
+      window.addEventListener('click', (event) => {
+        const modal = document.getElementById('categoryModal');
+        if (event.target === modal) {
+          closeCategoryModal();
+        }
+      });
+
       loadCategoriesPage();
     });
   </script>
 </body>
 </html>
+
