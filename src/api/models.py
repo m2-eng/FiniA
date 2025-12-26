@@ -83,3 +83,31 @@ class ColorPaletteResponse(BaseModel):
 
     class Config:
         populate_by_name = True
+
+class CategoryResponse(BaseModel):
+    """Category response model"""
+    id: int
+    name: str
+    parent_id: Optional[int] = None
+    fullname: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryCreateRequest(BaseModel):
+    """Request model for creating a new category"""
+    name: str
+    parent_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CategoryUpdateRequest(BaseModel):
+    """Request model for updating a category"""
+    name: Optional[str] = None
+    parent_id: Optional[int] = None
+
+    class Config:
+        from_attributes = True

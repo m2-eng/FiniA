@@ -68,8 +68,11 @@ class TransactionRepository(BaseRepository):
       """
       self.cursor.execute(sql)
       
+      # Fetch all results first to avoid cursor conflicts
+      rows = self.cursor.fetchall()
+      
       transactions = []
-      for row in self.cursor.fetchall():
+      for row in rows:
          transaction = {
             "id": row[0],
             "dateImport": row[1],
