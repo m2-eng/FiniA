@@ -68,3 +68,22 @@ class CategoryRepository(BaseRepository):
       """
       sql = "INSERT INTO tbl_category (id, name, category, dateImport) VALUES (%s, %s, %s, NOW())"
       self.cursor.execute(sql, (category_id, category_name, parent_category_id))
+
+   def get_all_fullnames(self) -> list[dict]:
+      """
+      Get all categories with their full hierarchical names from view_categoryFullname.
+      
+      Returns:
+         List of dicts with 'id', 'name', and 'fullname' keys
+      """
+      sql = "SELECT id, name, fullname FROM view_categoryFullname ORDER BY fullname"
+      self.cursor.execute(sql)
+      results = self.cursor.fetchall()
+      return [
+         {
+            'id': row[0],
+            'name': row[1],
+            'fullname': row[2]
+         }
+         for row in results
+      ]

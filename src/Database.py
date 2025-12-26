@@ -60,3 +60,14 @@ class Database:
       if self.connection and self.connection.is_connected():
          self.connection.close()
          print("Database connection closed")
+
+   def get_cursor(self):
+      """Return a live cursor, reconnecting if needed."""
+      if not self.connection or not self.connection.is_connected():
+         self.connect()
+      return self.connection.cursor()
+
+   def commit(self) -> None:
+      """Commit current transaction if connection is active."""
+      if self.connection and self.connection.is_connected():
+         self.connection.commit()
