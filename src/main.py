@@ -2,6 +2,7 @@
 """
 Database creation script for FiniA
 Creates the database structure from the SQL dump file on a specified MySQL/MariaDB server.
+Can also launch the GUI application.
 """
 
 import sys
@@ -20,13 +21,14 @@ if __name__ == "__main__":
    """Main function with argument parsing"""
    # Argument parser setup
    parser = argparse.ArgumentParser(
-      description='Create FiniA database from SQL dump file (uses config.yaml for defaults)',
+      description='FiniA - Finanzverwaltungssystem (uses config.yaml for defaults)',
       formatter_class=argparse.RawDescriptionHelpFormatter,
       epilog="""
    Examples:
      python main.py --user root --password secret --setup
      python main.py -u dbuser -p dbpass --init-database
      python main.py --user root --password secret --config custom_config.yaml --import-account-data
+     python main.py --api --user root --password secret --config cfg/config.yaml
   
    Note: Most parameters are read from config.yaml by default.
       Use command-line arguments to override config values.
@@ -50,11 +52,52 @@ if __name__ == "__main__":
    parser.add_argument('--import-account-data',
                        action="store_true",
                        help='Import account transactions from CSV files based on tbl_accountImportPath')
+   parser.add_argument('--api',
+                       action="store_true",
+                       help='Launch the web API server (FastAPI)')
+   parser.add_argument('--host',
+                       default='127.0.0.1',
+                       help='API server host (default: 127.0.0.1)')
+   parser.add_argument('--port',
+                       type=int,
+                       default=8000,
+                       help='API server port (default: 8000)')
     
    args = parser.parse_args()
 
    # Load configuration from config.yaml
-   db_config = load_config( args.config )
+   db_config = load_config(args.config)
+
+   # Launch API server if requested
+   if args.api:
+      import uvicorn
+      from api.dependencies import set_database_credentials
+      
+      print(f"Starting FiniA API server on http://{args.host}:{args.port}")
+      print(f"API Documentation: http://{args.host}:{args.port}/api/docs")
+      print(f"Web Interface: http://{args.host}:{args.port}/")
+      
+      # Set database credentials in dependencies module for API startup
+      set_database_credentials(
+         user=args.user,
+         password=args.password,
+         host=db_config.get('host', 'localhost'),
+         name=db_config.get('name', 'FiniA'),
+         port=db_config.get('port', 3306)
+      )
+      
+      uvicorn.run(
+         "api.main:app",
+         host=args.host,
+         port=args.port,
+         reload=False,
+         log_level="info"
+      )
+      sys.exit(0)
+
+   # For database operations, user and password are required
+   if not args.api and (not args.user or not args.password):
+      parser.error("--user and --password are required for database operations")
 
    db = Database(
       host=db_config.get('host', 'localhost'),

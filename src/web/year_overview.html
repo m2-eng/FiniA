@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FiniA - Jahresübersicht</title>
+  <style id="dynamic-theme">/* Theme variables loaded from API */</style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>FiniA - Finanzverwaltung</h1>
+    <div id="top-nav"></div>
+  </header>
+  <div class="container">
+    <div class="page-card">
+      <h2>Jahresübersicht</h2>
+      <p class="details-meta">Zusammenfassung des ausgewählten Jahres. (Platzhalter)</p>
+    </div>
+
+    <div class="details-panel">
+      <div class="details-header">
+        <h2>Auswahl</h2>
+      </div>
+      <div class="search-bar" style="max-width:520px;">
+        <input type="number" id="yearInput" placeholder="Jahr" min="2000" max="2100" value="2025" class="input-sm">
+        <button class="btn" id="loadYearBtn">Laden</button>
+      </div>
+      <p class="details-meta">Künftige Inhalte: Summen, Einnahmen/Ausgaben, Diagramme, Top-Kategorien.</p>
+    </div>
+
+    <table class="simple-table" id="yearSummary" style="margin-top:16px;">
+      <thead>
+        <tr>
+          <th>Merkmal</th>
+          <th>Wert</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Gesamteinnahmen</td><td>—</td></tr>
+        <tr><td>Gesamtausgaben</td><td>—</td></tr>
+        <tr><td>Saldo</td><td>—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTopNav('year-overview');
+      const btn = document.getElementById('loadYearBtn');
+      btn.addEventListener('click', () => {
+        const year = parseInt(document.getElementById('yearInput').value || '0', 10);
+        // Platzhalter: Später API-Call, z.B. `${API_BASE}/overview/year/${year}`
+        console.log('Lade Jahresübersicht für', year);
+        alert(`Jahresübersicht für ${year} wird geladen (Platzhalter).`);
+      });
+    });
+  </script>
+</body>
+</html>

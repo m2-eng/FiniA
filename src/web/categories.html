@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FiniA - Kategorien</title>
+  <style id="dynamic-theme">/* Theme variables loaded from API */</style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>FiniA - Finanzverwaltung</h1>
+    <div id="top-nav"></div>
+  </header>
+  <div class="container">
+    <div class="page-card">
+      <h2>Kategorien</h2>
+      <p class="details-meta">Alle verfügbaren Kategorien aus dem System.</p>
+    </div>
+
+    <div class="search-bar">
+      <input type="text" id="categorySearch" placeholder="Nach Kategorie suchen...">
+      <button class="btn" id="refreshCategories">Aktualisieren</button>
+    </div>
+
+    <div id="catError" class="error" style="display:none"></div>
+
+    <table class="simple-table" id="categoriesTable">
+      <thead>
+        <tr>
+          <th>Kategorie</th>
+        </tr>
+      </thead>
+      <tbody id="categoriesBody"></tbody>
+    </table>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    let allCategories = [];
+
+    async function loadCategoriesPage() {
+      const err = document.getElementById('catError');
+      err.style.display = 'none';
+      try {
+        const res = await fetch(`${API_BASE}/categories/`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        allCategories = data.categories || [];
+        renderCategories();
+      } catch (e) {
+        console.error(e);
+        err.textContent = `Fehler beim Laden der Kategorien: ${e.message}`;
+        err.style.display = 'block';
+      }
+    }
+
+    function renderCategories() {
+      const term = (document.getElementById('categorySearch').value || '').toLowerCase();
+      const tbody = document.getElementById('categoriesBody');
+      tbody.innerHTML = '';
+      const filtered = allCategories.filter(c => (c.fullname || '').toLowerCase().includes(term));
+      filtered.forEach(cat => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${cat.fullname}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTopNav('categories');
+      document.getElementById('categorySearch').addEventListener('input', renderCategories);
+      document.getElementById('refreshCategories').addEventListener('click', loadCategoriesPage);
+      loadCategoriesPage();
+    });
+  </script>
+</body>
+</html>

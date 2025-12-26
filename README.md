@@ -1,71 +1,68 @@
-# Financial Assistant (FiniA)
+# FiniA - Financial Assistant
 
 ## Overview
 
-Financial Assistant (FiniA) replaces an advanced Excel-based household ledger. Built on MariaDB for data storage, uses Grafana for visualization, and Python scripts for automated data import. Future plans include AI integration for smart insights and predictive analytics.
+FiniA is a modern financial management tool for household and personal finance. It replaces complex Excel ledgers with a database-backed, web-based solution. Data import, visualization, and automation are core features.
 
 ## Features
 
-- **Database**: Built on MariaDB with layered architecture (Domain, Repository, Service layers)
-- **Visualization**: Grafana dashboard for financial insights
-- **Data Import**: Automated Python scripts for CSV transaction imports from multiple bank formats
-- **Flexible Configuration**: Centralized format definitions supporting Consorsbank, Sparkasse, Mintos, and extensible to other formats
-- **Delta Imports**: Automatic duplicate detection for incremental data loads
-- **Future Roadmap**: AI-powered analytics and recommendations
+- MariaDB/MySQL database backend
+- Web API and browser-based UI
+- Automated CSV transaction import
+- Duplicate detection for incremental imports
+- Grafana dashboard integration
 
 ## Installation
 
-### Prerequisites
+**Requirements:**
+- Python 3.8+
+- MariaDB or MySQL
+- Grafana (optional)
 
-- Python 3.8 or higher
-- MariaDB or MySQL server
-- Grafana (for visualization)
-- Required Python packages (see requirements.txt)
-
-### Steps
-
+**Steps:**
 1. Clone the repository:
-```bash
-git clone https://github.com/m2-eng/FiniA.git
-cd FiniA
-```
-
+  ```bash
+  git clone https://github.com/m2-eng/FiniA.git
+  cd FiniA
+  ```
 2. Install dependencies:
-```bash
-python3 -m pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-3. Configure database connection in `config.yaml`
+  ```bash
+  pip install -r requirements.txt
+  ```
+3. Configure your database connection in `cfg/config.yaml`.
 
 ## Usage
 
-### Database Setup
-
-Navigate to the src directory:
+Start the API server and open the web UI:
 ```bash
-cd src
+python src/main.py --api --user <db_user> --password <db_pass>
+```
+- Web UI: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+- API docs: [http://127.0.0.1:8000/api/docs](http://127.0.0.1:8000/api/docs)
+
+### Command-line options
+
+```
+--api                 Start API server (web UI)
+--user <db_user>      Database user
+--password <db_pass>  Database password
+--setup               Create database schema
+--init-database       Import initial configuration data
+--import-accounts     Import account transactions from CSV
+--config <file>       Path to config file
 ```
 
-#### 1. Create Database Schema
+## Security Notice
 
-Create the database structure from SQL dump file:
+Keep your database credentials secure. Do not share your config files or passwords.
 
-```bash
-python main.py --user root --password your_password --setup
-```
+## Contributing
 
-#### 2. Import Initial Configuration Data
+Contributions are welcome! Please open issues or pull requests on GitHub.
 
-Import account types, planning cycles, and account metadata:
+## License
 
-```bash
-python main.py --user root --password your_password --init-database
-```
-
-#### 3. Import Account Transaction Data
-
-Import transactions from CSV files (requires accounts configured with import paths):
+This project is licensed under the MIT License.
 
 ```bash
 python main.py --user root --password your_password --import-account-data
@@ -150,12 +147,16 @@ The project follows a layered architecture for clean separation of concerns:
 
 ```
 FiniA/
-├── config.yaml              # Database configuration
+├── cfg/
+│   └── config.yaml          # Database configuration
 ├── requirements.txt         # Python dependencies
 ├── db/
 │   └── finia_draft.sql     # Database schema
 ├── src/
 │   ├── main.py             # CLI entry point
+│   ├── api/                # FastAPI application and routers
+│   ├── web/                # Static web UI served by the API
+│   ├── config/             # Theme and UI config for web
 │   ├── import_formats.yaml # CSV format definitions
 │   ├── domain/             # Domain models
 │   ├── repositories/       # Data access layer
