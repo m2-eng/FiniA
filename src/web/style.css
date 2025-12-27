@@ -20,7 +20,32 @@ header {
 h1 { font-size: 24px; font-weight: bold; }
 
 /* Top navigation */
-.top-nav { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.top-nav { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+
+.top-nav .year-dropdown {
+  padding: 8px 14px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 6px;
+  background-color: var(--color-bg-base, #ffffff);
+  color: var(--color-text, #111111);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  margin-right: 12px;
+}
+
+.top-nav .year-dropdown:hover {
+  background-color: var(--color-bg-detail, #f7f7f7);
+  border-color: var(--color-accent, #0078d4);
+}
+
+.top-nav .year-dropdown:focus {
+  outline: none;
+  border-color: var(--color-accent, #0078d4);
+  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+}
+
 .top-nav .nav-item {
   display: inline-block; padding: 8px 14px; border: 1px solid var(--color-border, #e0e0e0);
   border-radius: 6px; background-color: var(--color-bg-base, #ffffff);
@@ -52,6 +77,13 @@ h1 { font-size: 24px; font-weight: bold; }
 .transactions-table td, .details-table td, .simple-table td { padding: 12px; border-bottom: 1px solid var(--color-border, #e0e0e0); }
 .transactions-table tbody tr:hover { background-color: var(--color-bg-detail, #f7f7f7); cursor: pointer; }
 .transactions-table tbody tr.selected { background-color: rgba(0, 120, 212, 0.08); }
+
+/* Zebra-Striping für bessere Lesbarkeit */
+.transactions-table tbody tr:nth-child(even),
+.details-table tbody tr:nth-child(even),
+.simple-table tbody tr:nth-child(even) {
+  background-color: var(--color-row-alt, #d4d4d4);
+}
 
 /* Pagination */
 .pagination { display: flex; justify-content: center; gap: 10px; margin-top: 20px; }
@@ -89,6 +121,12 @@ h1 { font-size: 24px; font-weight: bold; }
 .error { background-color: #ffebee; color: #c62828; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
 .amount-negative { color: var(--color-amount-negative, #d32f2f); font-weight: bold; }
 .amount-positive { color: var(--color-amount-positive, #388e3c); font-weight: bold; }
+
+/* Equal column width tables (used on Jahresübersicht) */
+.equal-cols { table-layout: fixed; }
+.equal-cols th:first-child, .equal-cols td:first-child { width: 14%; }  /* Erste Spalte (Konto) */
+.equal-cols th:last-child, .equal-cols td:last-child { width: 8%; }  /* Letzte Spalte (Jahresbilanz) */
+.equal-cols th:not(:first-child):not(:last-child), .equal-cols td:not(:first-child):not(:last-child) { width: calc(78% / 12); }  /* Monatsspalten */
 
 /* Page cards */
 .page-card { background-color: var(--color-bg-base, #ffffff); border: 1px solid var(--color-border, #e0e0e0); border-radius: 8px; padding: 16px; margin-bottom: 16px; }

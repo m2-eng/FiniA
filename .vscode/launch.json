@@ -8,9 +8,8 @@
          "name": "Py-Debugger: src/main mit Argumenten",
          "type": "debugpy",
          "request": "launch",
-         "program": "${workspaceFolder}/src/main.py",
-         "console": "integratedTerminal",
-         "args": "${command:pickArgs}"
+         "program": "${workspaceFolder}/.vscode/launch_api.py",
+         "console": "integratedTerminal"
       }
    ]
 }
