@@ -17,8 +17,8 @@
     .category-item {
       margin: 5px 0;
       padding: 10px;
-      background-color: var(--detail-background, #f9f9f9);
-      border: 1px solid var(--border, #ddd);
+      background-color: var(--color-bg-detail) !important;
+      border: 1px solid var(--color-border);
       border-radius: 4px;
       display: flex;
       align-items: center;
@@ -46,6 +46,7 @@
     .category-name {
       flex: 1;
       padding-right: 10px;
+      color: var(--color-text) !important;
     }
 
     .category-actions {
@@ -59,13 +60,13 @@
       border: none;
       border-radius: 3px;
       cursor: pointer;
-      background-color: var(--primary-accent, #007bff);
-      color: white;
+      background-color: var(--color-accent);
+      color: var(--color-text-selected);
       transition: background-color 0.2s;
     }
 
     .btn-small:hover {
-      background-color: var(--primary-accent-hover, #0056b3);
+      background-color: var(--color-accent-hover);
     }
 
     .btn-small.delete {
@@ -92,10 +93,10 @@
     }
 
     .modal-content {
-      background-color: var(--base-background, #fff);
+      background-color: var(--color-bg-base);
       margin: 10% auto;
       padding: 20px;
-      border: 1px solid var(--border, #888);
+      border: 1px solid var(--color-border);
       border-radius: 8px;
       width: 90%;
       max-width: 500px;
@@ -118,7 +119,7 @@
       border: none;
       font-size: 1.5em;
       cursor: pointer;
-      color: var(--text-color, #333);
+      color: var(--color-text);
     }
 
     .form-group {
@@ -129,24 +130,31 @@
       display: block;
       margin-bottom: 5px;
       font-weight: 500;
-      color: var(--text-color, #333);
+      color: var(--color-text);
     }
 
     .form-group input,
     .form-group select {
       width: 100%;
       padding: 8px;
-      border: 1px solid var(--input-border, #ddd);
+      border: 1px solid var(--color-border);
       border-radius: 4px;
       font-size: 1em;
       box-sizing: border-box;
+      background-color: var(--color-bg-base) !important;
+      color: var(--color-text) !important;
+    }
+
+    .form-group input::placeholder {
+      color: var(--color-text) !important;
+      opacity: 0.5;
     }
 
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: var(--primary-accent, #007bff);
-      box-shadow: 0 0 5px var(--primary-accent, #007bff);
+      border-color: var(--color-accent) !important;
+      box-shadow: 0 0 5px var(--color-accent);
     }
 
     .modal-footer {
@@ -166,12 +174,12 @@
     }
 
     .btn-modal.primary {
-      background-color: var(--primary-accent, #007bff);
-      color: white;
+      background-color: var(--color-accent);
+      color: var(--color-text-selected);
     }
 
     .btn-modal.primary:hover {
-      background-color: var(--primary-accent-hover, #0056b3);
+      background-color: var(--color-accent-hover);
     }
 
     .btn-modal.secondary {
@@ -223,15 +231,28 @@
       flex: 1;
       min-width: 250px;
       padding: 10px;
-      border: 1px solid var(--border, #ddd);
+      border: 1px solid var(--color-border);
       border-radius: 4px;
       font-size: 1em;
+      background-color: var(--color-bg-base) !important;
+      color: var(--color-text) !important;
+      transition: background-color 0.3s ease, color 0.3s ease;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+    }
+
+    .search-section input::placeholder {
+      color: var(--color-text) !important;
+      opacity: 0.5;
     }
 
     .search-section input:focus {
       outline: none;
-      border-color: var(--primary-accent, #007bff);
-      box-shadow: 0 0 5px var(--primary-accent, #007bff);
+      border-color: var(--color-accent) !important;
+      box-shadow: 0 0 5px var(--color-accent);
+      background-color: var(--color-bg-base) !important;
+      color: var(--color-text) !important;
     }
 
     .action-section {
