@@ -9,13 +9,15 @@ from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
 from api.dependencies import get_db_cursor, get_db_connection
 from api.models import TransactionResponse, TransactionListResponse, TransactionEntriesUpdate
+from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from decimal import Decimal
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
 @router.get("/", response_model=TransactionListResponse)
-def get_transactions(
+@handle_db_errors("fetch transactions")
+async def get_transactions(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=100, description="Items per page"),
     search: Optional[str] = Query(None, description="Search in description, recipient, IBAN"),
@@ -74,7 +76,8 @@ def get_transactions(
 
 
 @router.get("/{transaction_id}", response_model=TransactionResponse)
-def get_transaction(
+@handle_db_errors("fetch transaction")
+async def get_transaction(
     transaction_id: int,
     cursor = Depends(get_db_cursor)
 ):
@@ -96,7 +99,8 @@ def get_transaction(
 
 
 @router.put("/{transaction_id}/entries", response_model=TransactionResponse)
-def update_transaction_entries(
+@handle_db_errors("update transaction entries")
+async def update_transaction_entries(
     transaction_id: int,
     entries_update: TransactionEntriesUpdate,
     cursor = Depends(get_db_cursor),
@@ -109,24 +113,24 @@ def update_transaction_entries(
     - **transaction_id**: Transaction ID
     - **entries_update**: List of accounting entries to save
     """
+    # Verify transaction exists
+    tx_repo = TransactionRepository(cursor)
+    transaction = tx_repo.get_transaction_by_id(transaction_id)
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Transaction with ID {transaction_id} not found"
+        )
+    
+    entry_repo = AccountingEntryRepository(cursor)
+    category_repo = CategoryRepository(cursor)
+    
+    # Get existing entry IDs for this transaction
+    existing_entries = entry_repo.get_all_by_transaction(transaction_id)
+    existing_ids = {e['id'] for e in existing_entries}
+    updated_ids = {e.id for e in entries_update.entries if e.id is not None}
+    
     try:
-        # Verify transaction exists
-        tx_repo = TransactionRepository(cursor)
-        transaction = tx_repo.get_transaction_by_id(transaction_id)
-        if not transaction:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Transaction with ID {transaction_id} not found"
-            )
-        
-        entry_repo = AccountingEntryRepository(cursor)
-        category_repo = CategoryRepository(cursor)
-        
-        # Get existing entry IDs for this transaction
-        existing_entries = entry_repo.get_all_by_transaction(transaction_id)
-        existing_ids = {e['id'] for e in existing_entries}
-        updated_ids = {e.id for e in entries_update.entries if e.id is not None}
-        
         # Delete entries that are no longer in the list
         for entry_id in existing_ids - updated_ids:
             entry_repo.delete(entry_id)
@@ -166,15 +170,15 @@ def update_transaction_entries(
                 )
         
         # Commit the transaction
-        connection.commit()
+        safe_commit(connection, "update transaction entries")
         
         # Return updated transaction
         updated_transaction = tx_repo.get_transaction_by_id(transaction_id)
         return updated_transaction
         
+    except HTTPException:
+        safe_rollback(connection, "update transaction entries")
+        raise
     except Exception as e:
-        connection.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating entries: {str(e)}"
-        )
+        safe_rollback(connection, "update transaction entries")
+        raise

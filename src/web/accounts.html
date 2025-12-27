@@ -13,18 +13,89 @@
     <div id="top-nav"></div>
   </header>
   <div class="container">
+    <!-- Filter: Jahr & Konto Auswahl -->
     <div class="page-card">
-      <h2>Konten</h2>
-      <p class="details-meta">Diese Seite wird demnächst mit Kontenverwaltung befüllt.</p>
-    </div>
-    <div class="details-panel">
-      <div class="details-header">
-        <h2>Übersicht</h2>
+      <h2>Kontenübersicht</h2>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom: 16px; align-items:center;">
+        <div>
+          <label for="year-selector" style="margin-right: 8px; font-weight: 500;">Jahr auswählen:</label>
+          <select id="year-selector" class="form-select" style="padding: 8px; border: 1px solid var(--color-border, #e0e0e0); border-radius: 4px; min-width: 160px;">
+            <option value="">Lädt...</option>
+          </select>
+        </div>
+        <div>
+          <label for="account-selector" style="margin-right: 8px; font-weight: 500;">Konto auswählen:</label>
+          <select id="account-selector" class="form-select" style="padding: 8px; border: 1px solid var(--color-border, #e0e0e0); border-radius: 4px; min-width: 300px;">
+            <option value="">Lädt...</option>
+          </select>
+        </div>
       </div>
-      <p class="details-meta">Noch kein Inhalt vorhanden.</p>
+      <p class="details-meta">Wählen Sie Jahr und Konto, um die Einnahmen und Ausgaben nach Kategorien anzuzeigen.</p>
+    </div>
+
+    <!-- Haben (Income) Table -->
+    <div class="page-card" id="income-card">
+      <div class="details-header">
+        <div>
+          <h3>Haben <span class="details-meta" id="income-year-label"></span></h3>
+          <p class="details-meta">Einnahmen nach Kategorien für das ausgewählte Konto und Jahr.</p>
+        </div>
+      </div>
+      <div id="income-feedback" class="details-meta"></div>
+      <div class="details-toolbar" style="margin-bottom:8px;">
+        <button class="btn" id="income-refresh">Aktualisieren</button>
+      </div>
+      <div class="table-wrapper" style="overflow-x:auto;">
+        <table class="simple-table equal-cols" id="income-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Soll (Expenses) Table -->
+    <div class="page-card" id="expenses-card">
+      <div class="details-header">
+        <div>
+          <h3>Soll <span class="details-meta" id="expenses-year-label"></span></h3>
+          <p class="details-meta">Ausgaben nach Kategorien für das ausgewählte Konto und Jahr.</p>
+        </div>
+      </div>
+      <div id="expenses-feedback" class="details-meta"></div>
+      <div class="details-toolbar" style="margin-bottom:8px;">
+        <button class="btn" id="expenses-refresh">Aktualisieren</button>
+      </div>
+      <div class="table-wrapper" style="overflow-x:auto;">
+        <table class="simple-table equal-cols" id="expenses-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Gesamtbilanz Summary Table -->
+    <div class="page-card" id="summary-card">
+      <div class="details-header">
+        <div>
+          <h3>Gesamtbilanz <span class="details-meta" id="summary-year-label"></span></h3>
+          <p class="details-meta">Monatliche Summen: Haben, Soll und Netto (Gesamt).</p>
+        </div>
+      </div>
+      <div id="summary-feedback" class="details-meta"></div>
+      <div class="details-toolbar" style="margin-bottom:8px;">
+        <button class="btn" id="summary-refresh">Aktualisieren</button>
+      </div>
+      <div class="table-wrapper" style="overflow-x:auto;">
+        <table class="simple-table equal-cols" id="summary-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
   </div>
   <script src="app.js"></script>
-  <script>document.addEventListener('DOMContentLoaded', ()=> loadTopNav('accounts'));</script>
+  <script src="table_config.js"></script>
+  <script src="table_engine.js"></script>
+  <script src="accounts.js"></script>
 </body>
 </html>

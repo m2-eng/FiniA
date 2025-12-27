@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from api.routers import transactions, theme, categories
+from api.routers import transactions, theme, categories, years, year_overview, accounts
 from api.dependencies import set_database_instance, get_database_config, get_database_credentials
 from Database import Database
 
@@ -33,8 +33,20 @@ app.add_middleware(
 app.include_router(transactions.router, prefix="/api")
 app.include_router(theme.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
+app.include_router(years.router, prefix="/api")
+app.include_router(year_overview.router, prefix="/api")
+app.include_router(accounts.router, prefix="/api")
 
-# Mount static files for web frontend
+@app.get("/api/health")
+def health_check():
+    """Health check endpoint"""
+    return {
+        "status": "healthy",
+        "service": "FiniA API",
+        "version": "1.0.0"
+    }
+
+# Mount static files for web frontend (registered AFTER API routes + health)
 web_path = Path(__file__).parent.parent / "web"
 if web_path.exists():
     app.mount("/", StaticFiles(directory=str(web_path), html=True), name="web")
@@ -74,11 +86,4 @@ async def shutdown_event():
         pass
 
 
-@app.get("/api/health")
-def health_check():
-    """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "service": "FiniA API",
-        "version": "1.0.0"
-    }
+    

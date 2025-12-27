@@ -6,11 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from repositories.category_repository import CategoryRepository
 from api.dependencies import get_db_cursor, get_db_connection
 from api.models import CategoryResponse, CategoryCreateRequest, CategoryUpdateRequest
+from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 
 router = APIRouter(prefix="/categories", tags=["categories"])
 
 
 @router.get("/")
+@handle_db_errors("fetch categories")
 async def get_categories(cursor=Depends(get_db_cursor)):
     """
     Get all categories with their full hierarchical names.
@@ -23,6 +25,7 @@ async def get_categories(cursor=Depends(get_db_cursor)):
 
 
 @router.get("/hierarchy")
+@handle_db_errors("fetch category hierarchy")
 async def get_categories_hierarchy(cursor=Depends(get_db_cursor)):
     """
     Get all categories with parent information for building a tree structure.
@@ -35,6 +38,7 @@ async def get_categories_hierarchy(cursor=Depends(get_db_cursor)):
 
 
 @router.get("/{category_id}")
+@handle_db_errors("fetch category")
 async def get_category(category_id: int, cursor=Depends(get_db_cursor)):
     """
     Get a specific category by ID.
@@ -47,6 +51,7 @@ async def get_category(category_id: int, cursor=Depends(get_db_cursor)):
 
 
 @router.post("/")
+@handle_db_errors("create category")
 async def create_category(request: CategoryCreateRequest, cursor=Depends(get_db_cursor), connection=Depends(get_db_connection)):
     """
     Create a new category.
@@ -73,21 +78,22 @@ async def create_category(request: CategoryCreateRequest, cursor=Depends(get_db_
     
     try:
         repo.insert_category(next_id, request.name, request.parent_id)
-        connection.commit()
+        safe_commit(connection, "create category")
         return {
             "id": next_id,
             "name": request.name,
             "parent_id": request.parent_id
         }
+    except HTTPException:
+        safe_rollback(connection, "create category")
+        raise
     except Exception as e:
-        connection.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error creating category: {str(e)}"
-        )
+        safe_rollback(connection, "create category")
+        raise
 
 
 @router.put("/{category_id}")
+@handle_db_errors("update category")
 async def update_category(
     category_id: int,
     request: CategoryUpdateRequest,
@@ -126,21 +132,22 @@ async def update_category(
     
     try:
         repo.update_category(category_id, new_name, new_parent_id)
-        connection.commit()
+        safe_commit(connection, "update category")
         return {
             "id": category_id,
             "name": new_name,
             "parent_id": new_parent_id
         }
+    except HTTPException:
+        safe_rollback(connection, "update category")
+        raise
     except Exception as e:
-        connection.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error updating category: {str(e)}"
-        )
+        safe_rollback(connection, "update category")
+        raise
 
 
 @router.delete("/{category_id}")
+@handle_db_errors("delete category")
 async def delete_category(category_id: int, cursor=Depends(get_db_cursor), connection=Depends(get_db_connection)):
     """
     Delete a category and reassign its children to its parent.
@@ -160,11 +167,11 @@ async def delete_category(category_id: int, cursor=Depends(get_db_cursor), conne
     
     try:
         repo.delete_category(category_id)
-        connection.commit()
+        safe_commit(connection, "delete category")
         return {"message": f"Category {category_id} deleted successfully"}
+    except HTTPException:
+        safe_rollback(connection, "delete category")
+        raise
     except Exception as e:
-        connection.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error deleting category: {str(e)}"
-        )
+        safe_rollback(connection, "delete category")
+        raise
