@@ -1,6 +1,42 @@
 // Shared app utilities
 const API_BASE = '/api';
 
+// Theme Management
+function initTheme() {
+  // Load saved theme or default to light
+  const savedTheme = localStorage.getItem('theme') || 'light';
+  applyTheme(savedTheme);
+  updateThemeIcon(savedTheme);
+}
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  localStorage.setItem('theme', theme);
+}
+
+function toggleTheme() {
+  const currentTheme = localStorage.getItem('theme') || 'light';
+  const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+  applyTheme(newTheme);
+  updateThemeIcon(newTheme);
+}
+
+function updateThemeIcon(theme) {
+  const icon = document.getElementById('theme-icon');
+  if (icon) {
+    icon.textContent = theme === 'light' ? '🌙' : '☀️';
+  }
+}
+
+// Initialize theme on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initTheme();
+});
+
 async function loadTheme() {
   try {
     const response = await fetch(`${API_BASE}/theme/css`);
@@ -75,6 +111,12 @@ async function loadTopNav(currentRoute) {
     const html = await res.text();
     placeholder.innerHTML = html;
     setActiveNav(currentRoute);
+    
+    // Add event listener to theme toggle button after nav is loaded
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', toggleTheme);
+    }
   } catch (e) {
     console.error('Failed to load top nav:', e);
   }
