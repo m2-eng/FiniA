@@ -142,8 +142,20 @@ class AccountDataImporter:
          repo = AccountImportRepository(uow)
          rows = repo.list_import_paths()
       jobs = []
+      
+      # Get project root directory (2 levels up from this file: services -> src -> root)
+      project_root = Path(__file__).resolve().parents[2]
+      
       for row in rows:
-         path = Path(row["path"]).resolve()
+         path_str = row["path"]
+         path = Path(path_str)
+         
+         # If path is relative, resolve it from project root
+         if not path.is_absolute():
+            path = (project_root / path).resolve()
+         else:
+            path = path.resolve()
+         
          jobs.append(
             ImportJob(
                account_id=row["account_id"],

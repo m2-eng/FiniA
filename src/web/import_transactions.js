@@ -5,6 +5,7 @@ let currentFilter = 'all';
 let selectedTransactionId = null;
 let detailsEntries = [];
 let allCategories = [];
+let importAccounts = [];
 let currentTransactionAmount = 0;
 let currentSortColumn = null;
 let currentSortDirection = 'asc';
@@ -272,6 +273,10 @@ async function showTransactionDetails(transactionId) {
       accountingPlanned: entry.accountingPlanned ?? false,
       checked: entry.checked ?? false
     }));
+    
+    // Debug: Log entries to console
+    console.log('Loaded entries:', detailsEntries);
+    
     renderEntries();
     const detailsPanel = document.getElementById('detailsPanel');
     detailsPanel.style.display = 'block';
@@ -288,8 +293,18 @@ function renderEntries() {
   detailsEntries.forEach((entry, index) => {
     const tr = document.createElement('tr');
     const cls = (entry.amount || 0) < 0 ? 'amount-negative' : 'amount-positive';
-    const categoryOptions = [`<option value="">Kategorie wählen</option>`]
-      .concat(allCategories.map(cat => `<option value="${cat.fullname}" ${entry.category_name === cat.fullname ? 'selected' : ''}>${cat.fullname}</option>`));
+    
+    // Build category options
+    const categoryOptions = [];
+    
+    // Add empty option
+    categoryOptions.push(`<option value=""${!entry.category_name || entry.category_name === '' ? ' selected' : ''}>Kategorie wählen</option>`);
+    
+    // Add all categories
+    allCategories.forEach(cat => {
+      const isSelected = entry.category_name && entry.category_name === cat.fullname;
+      categoryOptions.push(`<option value="${cat.fullname}"${isSelected ? ' selected' : ''}>${cat.fullname}</option>`);
+    });
 
     const isFirstEntry = index === 0;
     const amountInput = isFirstEntry
@@ -387,9 +402,170 @@ async function saveEntries() {
   }
 }
 
+// Import functionality
+async function loadImportAccounts() {
+  try {
+    const response = await fetch(`${API_BASE}/accounts/list?page_size=1000`);
+    const data = await response.json();
+    importAccounts = data.accounts || [];
+    
+    const select = document.getElementById('importAccountSelect');
+    if (!select) return;
+    
+    select.innerHTML = '<option value="">-- Alle Konten --</option>';
+    
+    importAccounts.forEach(account => {
+      const option = document.createElement('option');
+      option.value = account.id;
+      option.textContent = account.name;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Failed to load import accounts:', error);
+    const select = document.getElementById('importAccountSelect');
+    if (select) {
+      select.innerHTML = '<option value="">Fehler beim Laden</option>';
+    }
+  }
+}
+
+async function startImport() {
+  const select = document.getElementById('importAccountSelect');
+  const button = document.getElementById('importButton');
+  const statusDiv = document.getElementById('importStatus');
+  
+  if (!select || !button || !statusDiv) return;
+  
+  const accountId = select.value ? parseInt(select.value) : null;
+  const accountName = accountId 
+    ? importAccounts.find(a => a.id === accountId)?.name || 'Unbekannt'
+    : 'Alle Konten';
+  
+  // Confirm import
+  const confirmMsg = accountId
+    ? `Import für Konto "${accountName}" starten?`
+    : 'Import für ALLE Konten starten? Dies kann mehrere Minuten dauern.';
+  
+  if (!confirm(confirmMsg)) return;
+  
+  // Disable button and show status
+  button.disabled = true;
+  button.textContent = 'Import läuft...';
+  statusDiv.style.display = 'block';
+  statusDiv.textContent = accountId 
+    ? `Import für ${accountName} wird durchgeführt...`
+    : 'Import für alle Konten wird durchgeführt...';
+  statusDiv.style.color = 'var(--color-text-base)';
+  
+  try {
+    const response = await fetch(`${API_BASE}/transactions/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: accountId })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unbekannter Fehler' }));
+      throw new Error(errorData.detail || `HTTP ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    // Show success message
+    statusDiv.style.color = 'var(--color-amount-positive)';
+    let message = `✓ ${result.message}`;
+    
+    if (result.files && result.files.length > 0) {
+      const filesSummary = result.files.map(f => 
+        `${f.file} (${f.account}): ${f.inserted}/${f.total}`
+      ).join(', ');
+      message += `. Dateien: ${filesSummary}`;
+    }
+    
+    // Show warnings if any
+    if (result.warnings && result.warnings.length > 0) {
+      message += `\n⚠ Warnungen: ${result.warnings.join('; ')}`;
+      statusDiv.style.color = 'var(--color-text-base)';
+    }
+    
+    // Show auto-categorization results
+    if (result.auto_categorized !== undefined) {
+      message += `\n✓ Automatische Kategorisierung: ${result.auto_categorized} von ${result.auto_categorized_total} Einträgen`;
+    }
+    
+    statusDiv.textContent = message;
+    statusDiv.style.whiteSpace = 'pre-wrap';
+    
+    // Reload transactions to show newly imported data
+    setTimeout(() => {
+      loadTransactions(1);
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    statusDiv.style.color = 'var(--color-amount-negative)';
+    statusDiv.textContent = `✗ Import fehlgeschlagen: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Import starten';
+  }
+}
+
+async function startAutoCategorization() {
+  const button = document.getElementById('autoCategorizeButton');
+  const statusDiv = document.getElementById('importStatus');
+  
+  if (!button || !statusDiv) return;
+  
+  // Confirm action
+  if (!confirm('Möchten Sie die automatische Kategorisierung für alle unkategorisierten Einträge durchführen?')) {
+    return;
+  }
+  
+  // Disable button and show status
+  button.disabled = true;
+  button.textContent = 'Kategorisiert...';
+  statusDiv.style.display = 'block';
+  statusDiv.textContent = 'Automatische Kategorisierung läuft...';
+  statusDiv.style.color = 'var(--color-text-base)';
+  
+  try {
+    const response = await fetch(`${API_BASE}/transactions/auto-categorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ account_id: null })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unbekannter Fehler' }));
+      throw new Error(errorData.detail || `HTTP ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    // Show success message
+    statusDiv.style.color = 'var(--color-amount-positive)';
+    statusDiv.textContent = `✓ ${result.message} (${result.categorized} von ${result.total_checked} Einträgen kategorisiert)`;
+    
+    // Reload transactions to show updated data
+    setTimeout(() => {
+      loadTransactions(1);
+    }, 1000);
+    
+  } catch (error) {
+    console.error('Auto-categorization error:', error);
+    statusDiv.style.color = 'var(--color-amount-negative)';
+    statusDiv.textContent = `✗ Kategorisierung fehlgeschlagen: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Automatisch kategorisieren';
+  }
+}
+
 // Page init
 window.addEventListener('DOMContentLoaded', async () => {
   await loadCategories();
+  await loadImportAccounts();
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadTransactions(1); });

@@ -76,30 +76,33 @@ async function loadAccountDropdown() {
     const response = await fetch(`${API_BASE}/accounts/list`);
     const data = await response.json();
     const accountSelector = document.getElementById('account-selector');
-    
+
     if (!accountSelector || !data.accounts || data.accounts.length === 0) return;
-    
+
+    // Extract account names from objects
+    const accountNames = data.accounts.map(acc => acc.name).filter(Boolean);
+
     // Clear existing options
     accountSelector.innerHTML = '';
-    
-    // Get currently selected account from localStorage or use first account
+
+    // Get currently selected account from localStorage or use first account name
     const savedAccount = localStorage.getItem('selectedAccount');
-    const defaultAccount = savedAccount || data.accounts[0];
-    
-    // Add account options
-    data.accounts.forEach(account => {
+    const defaultAccountName = savedAccount || accountNames[0];
+
+    // Add account options (use names for value and label)
+    accountNames.forEach(name => {
       const option = document.createElement('option');
-      option.value = account;
-      option.textContent = account;
-      if (account === defaultAccount) {
+      option.value = name;
+      option.textContent = name;
+      if (name === defaultAccountName) {
         option.selected = true;
       }
       accountSelector.appendChild(option);
     });
-    
-    // Save default account if none was saved before
-    if (!savedAccount && data.accounts.length > 0) {
-      localStorage.setItem('selectedAccount', data.accounts[0]);
+
+    // Save default account name if none was saved before
+    if (!savedAccount && accountNames.length > 0) {
+      localStorage.setItem('selectedAccount', accountNames[0]);
     }
     
     // Add change event listener
