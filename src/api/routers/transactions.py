@@ -4,6 +4,7 @@ Transaction API router
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import Optional
+from pydantic import BaseModel
 from repositories.transaction_repository import TransactionRepository
 from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
@@ -11,6 +12,86 @@ from api.dependencies import get_db_cursor, get_db_connection
 from api.models import TransactionResponse, TransactionListResponse, TransactionEntriesUpdate
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from decimal import Decimal
+from Database import Database
+from services.account_data_importer import AccountDataImporter
+from infrastructure.unit_of_work import UnitOfWork
+from repositories.account_import_repository import AccountImportRepository
+from services.category_automation import get_all_account_rules, apply_rules_to_transaction
+
+
+class ImportRequest(BaseModel):
+    """Request model for import operation"""
+    account_id: Optional[int] = None  # None means import all accounts
+
+
+class AutoCategorizeRequest(BaseModel):
+    """Request model for auto-categorization"""
+    account_id: Optional[int] = None  # None means all accounts
+
+
+def auto_categorize_entries(cursor, connection) -> dict:
+    """
+    Apply automation rules to uncategorized accounting entries.
+    
+    Returns:
+        Dict with categorization statistics
+    """
+    # Get all rules
+    rules = get_all_account_rules(cursor)
+    if not rules:
+        return {"categorized": 0, "total_checked": 0, "message": "Keine Kategorisierungsregeln gefunden"}
+    
+    # Get all uncategorized entries with their transaction details
+    query = """
+        SELECT 
+            ae.id as entry_id,
+            ae.transaction as transaction_id,
+            t.description,
+            t.recipientApplicant,
+            t.amount,
+            t.iban,
+            t.account as account_id
+        FROM tbl_accountingEntry ae
+        INNER JOIN tbl_transaction t ON ae.transaction = t.id
+        WHERE ae.category IS NULL
+        ORDER BY t.dateValue DESC
+    """
+    
+    cursor.execute(query)
+    entries = cursor.fetchall()
+    
+    if not entries:
+        return {"categorized": 0, "total_checked": 0, "message": "Keine unkategorisierten Einträge gefunden"}
+    
+    categorized_count = 0
+    
+    for entry in entries:
+        entry_id = entry[0]
+        transaction_data = {
+            "description": entry[2],
+            "recipientApplicant": entry[3],
+            "amount": float(entry[4]),
+            "iban": entry[5]
+        }
+        account_id = entry[6]
+        
+        # Apply rules
+        category_id = apply_rules_to_transaction(transaction_data, rules, account_id)
+        
+        if category_id:
+            # Update entry with category
+            update_query = "UPDATE tbl_accountingEntry SET category = %s WHERE id = %s"
+            cursor.execute(update_query, (category_id, entry_id))
+            categorized_count += 1
+    
+    connection.commit()
+    
+    return {
+        "categorized": categorized_count,
+        "total_checked": len(entries),
+        "message": f"{categorized_count} von {len(entries)} Einträgen kategorisiert"
+    }
+
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
@@ -182,3 +263,184 @@ async def update_transaction_entries(
     except Exception as e:
         safe_rollback(connection, "update transaction entries")
         raise
+
+
+@router.post("/import")
+@handle_db_errors("import transactions")
+async def import_transactions(
+    request: ImportRequest,
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Import transactions from configured import paths.
+    
+    - **account_id**: If provided, imports only for this account. If None, imports all accounts.
+    """
+    from api.dependencies import get_database_credentials, get_database_config
+    
+    # Get database credentials that were set on API startup
+    credentials = get_database_credentials()
+    db_config = get_database_config()
+    
+    if not credentials or not credentials.get('user') or not credentials.get('password'):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database credentials not configured"
+        )
+    
+    # Create Database instance for importer
+    db = Database(
+        user=credentials['user'],
+        password=credentials['password'],
+        host=credentials.get('host') or db_config.get('host', 'localhost'),
+        port=credentials.get('port') or db_config.get('port', 3306),
+        database_name=credentials.get('name') or db_config.get('name', 'FiniA')
+    )
+    
+    try:
+        # Connect to database
+        if not db.connect(use_database=True):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to connect to database"
+            )
+        
+        # Create importer instance
+        importer = AccountDataImporter(db)
+        
+        # If account_id is specified, filter jobs
+        if request.account_id:
+            # Get all jobs
+            jobs = importer._collect_jobs()
+            
+            # Filter for specific account
+            jobs = [job for job in jobs if job.account_id == request.account_id]
+            
+            if not jobs:
+                db.close()
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No import configuration found for account ID {request.account_id}"
+                )
+            
+            # Import only for this account
+            overall_inserted = 0
+            overall_total = 0
+            imported_files = []
+            skipped_info = []
+            
+            for job in jobs:
+                if not job.path.exists():
+                    skipped_info.append(f"Pfad nicht gefunden: {job.path}")
+                    continue
+                    
+                try:
+                    mapping = importer._get_mapping(job.format)
+                except Exception as exc:
+                    skipped_info.append(f"Mapping-Fehler für {job.account_name}: {exc}")
+                    continue
+                
+                files = sorted(job.path.glob(f"*.{job.file_ending}"))
+                if not files:
+                    skipped_info.append(f"Keine *.{job.file_ending} Dateien in {job.path}")
+                    continue
+                
+                for csv_file in files:
+                    with UnitOfWork(db.connection) as uow:
+                        from repositories.transaction_repository import TransactionRepository
+                        from repositories.accounting_entry_repository import AccountingEntryRepository
+                        tx_repo = TransactionRepository(uow)
+                        ae_repo = AccountingEntryRepository(uow)
+                        inserted, total = importer._import_file(csv_file, mapping, job, tx_repo, ae_repo)
+                        overall_inserted += inserted
+                        overall_total += total
+                        imported_files.append({
+                            "file": csv_file.name,
+                            "account": job.account_name,
+                            "inserted": inserted,
+                            "total": total
+                        })
+            
+            # Apply auto-categorization after import
+            categorization_result = {"categorized": 0, "total_checked": 0}
+            try:
+                if overall_inserted > 0:
+                    categorization_result = auto_categorize_entries(cursor, db.connection)
+            except Exception as cat_error:
+                skipped_info.append(f"Automatische Kategorisierung fehlgeschlagen: {cat_error}")
+            
+            db.close()
+            
+            result = {
+                "success": True,
+                "message": f"Import abgeschlossen: {overall_inserted} von {overall_total} Transaktionen importiert",
+                "account_id": request.account_id,
+                "inserted": overall_inserted,
+                "total": overall_total,
+                "files": imported_files,
+                "auto_categorized": categorization_result.get("categorized", 0),
+                "auto_categorized_total": categorization_result.get("total_checked", 0)
+            }
+            
+            if skipped_info:
+                result["warnings"] = skipped_info
+            
+            return result
+        else:
+            # Import all accounts
+            success = importer.import_account_data()
+            db.close()
+            
+            if success:
+                return {
+                    "success": True,
+                    "message": "Import für alle Konten abgeschlossen"
+                }
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Import fehlgeschlagen"
+                )
+    
+    except HTTPException:
+        if db:
+            db.close()
+        raise
+    except Exception as e:
+        if db:
+            db.close()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Import fehlgeschlagen: {str(e)}"
+        )
+
+
+@router.post("/auto-categorize")
+@handle_db_errors("auto categorize transactions")
+async def auto_categorize_transactions(
+    request: AutoCategorizeRequest,
+    cursor = Depends(get_db_cursor),
+    connection = Depends(get_db_connection)
+):
+    """
+    Apply automation rules to uncategorized accounting entries.
+    
+    - **account_id**: If provided, only categorizes entries for this account. If None, all accounts.
+    """
+    try:
+        # Apply categorization
+        result = auto_categorize_entries(cursor, connection)
+        
+        return {
+            "success": True,
+            "categorized": result["categorized"],
+            "total_checked": result["total_checked"],
+            "message": result["message"]
+        }
+    
+    except Exception as e:
+        safe_rollback(connection, "auto categorize transactions")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Kategorisierung fehlgeschlagen: {str(e)}"
+        )

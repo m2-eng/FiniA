@@ -5,6 +5,59 @@ from repositories.base import BaseRepository
 
 
 class TransactionRepository(BaseRepository):
+   def __init__(self, cursor):
+      """Initialize repository with cursor and category cache."""
+      super().__init__(cursor)
+      self._category_cache = None
+   
+   def _build_category_name_map(self) -> dict:
+      """
+      Build a map of category IDs to their full hierarchical names.
+      Uses a single query and builds the hierarchy in Python.
+      
+      Returns:
+         Dictionary mapping category ID to full category name
+      """
+      if self._category_cache is not None:
+         return self._category_cache
+      
+      # Load all categories
+      sql = "SELECT id, name, category FROM tbl_category ORDER BY id"
+      self.cursor.execute(sql)
+      categories = {row[0]: {"name": row[1], "parent_id": row[2]} for row in self.cursor.fetchall()}
+      
+      # Build full names
+      category_names = {}
+      
+      def build_full_name(cat_id):
+         if cat_id not in categories:
+            return None
+         if cat_id in category_names:
+            return category_names[cat_id]
+         
+         cat = categories[cat_id]
+         name = cat["name"]
+         parent_id = cat["parent_id"]
+         
+         if parent_id and parent_id in categories:
+            parent_name = build_full_name(parent_id)
+            if parent_name:
+               full_name = f"{parent_name} > {name}"
+            else:
+               full_name = name
+         else:
+            full_name = name
+         
+         category_names[cat_id] = full_name
+         return full_name
+      
+      # Build names for all categories
+      for cat_id in categories:
+         build_full_name(cat_id)
+      
+      self._category_cache = category_names
+      return category_names
+   
    def insert_ignore(
       self,
       account_id: int,
@@ -159,16 +212,19 @@ class TransactionRepository(BaseRepository):
             ae.amount,
             ae.accountingPlanned,
             ae.category,
-            c.name as category_name
+            vcf.fullname as category_name
          FROM tbl_accountingEntry ae
-         LEFT JOIN tbl_category c ON ae.category = c.id
+         LEFT JOIN view_categoryFullname vcf ON ae.category = vcf.id
          WHERE ae.transaction = %s
          ORDER BY ae.dateImport DESC
       """
       self.cursor.execute(sql, (transaction_id,))
       
+      # Fetch all results
+      rows = self.cursor.fetchall()
+      
       entries = []
-      for row in self.cursor.fetchall():
+      for row in rows:
          entry = {
             "id": row[0],
             "dateImport": row[1],

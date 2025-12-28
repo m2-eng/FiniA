@@ -14,6 +14,22 @@
   </header>
 
   <div class="container">
+    <!-- Import Section -->
+    <div class="page-card" style="margin-bottom: 16px;">
+      <h3>Transaktionen importieren</h3>
+      <p class="details-meta">Importieren Sie Transaktionen aus den konfigurierten Importpfaden.</p>
+      <div style="display: flex; gap: 16px; align-items: center; margin-top: 12px;">
+        <div>
+          <select id="importAccountSelect" class="input-sm" style="min-width: 250px;">
+            <option value="">Lädt...</option>
+          </select>
+        </div>
+        <button class="btn" onclick="startImport()" id="importButton">Import starten</button>
+        <button class="btn btn-secondary" onclick="startAutoCategorization()" id="autoCategorizeButton">Automatisch kategorisieren</button>
+      </div>
+      <div id="importStatus" class="details-meta" style="margin-top: 12px; display: none;"></div>
+    </div>
+
     <div class="content-split">
       <div class="list-pane">
         <div class="filter-bar">
