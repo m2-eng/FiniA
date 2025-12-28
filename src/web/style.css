@@ -180,6 +180,38 @@ h1 { font-size: 24px; font-weight: bold; }
 .transactions-table tbody tr:hover { background-color: var(--color-bg-detail); cursor: pointer; }
 .transactions-table tbody tr.selected { background-color: rgba(0, 120, 212, 0.15); }
 
+/* Sortier-Indikatoren für Tabellenspalten */
+.transactions-table th[onclick] {
+  position: relative;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.transactions-table th[onclick]:hover {
+  background-color: rgba(0, 120, 212, 0.1);
+}
+
+.transactions-table th[onclick]::after {
+  content: '';
+  display: inline-block;
+  margin-left: 6px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  opacity: 0.3;
+}
+
+.transactions-table th.sort-asc::after {
+  border-bottom: 6px solid var(--color-text);
+  opacity: 1;
+}
+
+.transactions-table th.sort-desc::after {
+  border-top: 6px solid var(--color-text);
+  opacity: 1;
+}
+
 /* Zebra-Striping für bessere Lesbarkeit */
 .transactions-table tbody tr:nth-child(even),
 .details-table tbody tr:nth-child(even),
@@ -234,3 +266,4 @@ h1 { font-size: 24px; font-weight: bold; }
 .page-card { background-color: var(--color-bg-base); border: 1px solid var(--color-border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .page-card h2 { font-size: 18px; margin-bottom: 8px; }
 .page-card p { font-size: 14px; opacity: 0.85; }
+
