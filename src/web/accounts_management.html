@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FiniA - Kontenbearbeitung</title>
+  <style id="dynamic-theme">/* Theme variables loaded from API */</style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>FiniA - Finanzverwaltung</h1>
+    <div id="top-nav"></div>
+  </header>
+
+  <div class="container">
+    <div class="content-split">
+      <!-- Left Pane: Account List -->
+      <div class="list-pane">
+        <div class="search-bar">
+          <input type="text" id="searchInput" class="input-sm" placeholder="Nach Kontoname oder IBAN suchen...">
+          <button class="btn" onclick="loadAccounts()">Aktualisieren</button>
+          <button class="btn btn-secondary" onclick="resetSearch()">Zurücksetzen</button>
+        </div>
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        <div id="loadingIndicator" class="loading">Lade Konten...</div>
+        <table class="transactions-table" id="accountsTable" style="display: none; table-layout: fixed;">
+          <colgroup>
+            <col style="width: 30%;">   <!-- Name -->
+            <col style="width: 35%;">   <!-- IBAN -->
+            <col style="width: 20%;">   <!-- Typ -->
+            <col style="width: 15%;">   <!-- Status -->
+          </colgroup>
+          <thead>
+            <tr>
+              <th onclick="sortAccounts('name')" style="cursor: pointer;">Kontoname</th>
+              <th onclick="sortAccounts('iban')" style="cursor: pointer;">IBAN</th>
+              <th onclick="sortAccounts('type')" style="cursor: pointer;">Kontotyp</th>
+              <th onclick="sortAccounts('status')" style="cursor: pointer; text-align: center;">Status</th>
+            </tr>
+          </thead>
+          <tbody id="accountsBody"></tbody>
+        </table>
+        <div class="pagination" id="pagination"></div>
+      </div>
+
+      <!-- Right Pane: Account Details -->
+      <div class="detail-pane">
+        <div id="detailsPanel" class="details-panel" style="display: none;">
+          
+          <!-- Account Info Section -->
+          <div class="details-header">
+            <h3>Kontoinformationen</h3>
+          </div>
+          <div class="details-section">
+            <div class="form-group">
+              <label for="accountName">Kontoname:</label>
+              <input type="text" id="accountName" class="input-sm" placeholder="Name des Kontos">
+            </div>
+            <div class="form-group">
+              <label for="accountIban">IBAN:</label>
+              <input type="text" id="accountIban" class="input-sm" placeholder="IBAN">
+            </div>
+            <div class="form-group">
+              <label for="accountBic">BIC/Markt:</label>
+              <input type="text" id="accountBic" class="input-sm" placeholder="BIC oder Marktbezeichnung">
+            </div>
+            <div class="form-group">
+              <label for="accountType">Kontotyp:</label>
+              <select id="accountType" class="input-sm">
+                <option value="">-- Typ wählen --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="startAmount">Startbetrag:</label>
+              <input type="number" id="startAmount" class="input-sm" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label for="startDate">Startdatum:</label>
+              <input type="date" id="startDate" class="input-sm">
+            </div>
+            <div class="form-group">
+              <label for="endDate">Enddatum:</label>
+              <input type="date" id="endDate" class="input-sm">
+            </div>
+            <div class="form-group">
+              <label for="clearingAccount">Verrechnungskonto:</label>
+              <select id="clearingAccount" class="input-sm">
+                <option value="">-- Keine Auswahl --</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Import Format Section -->
+          <div class="details-header" style="margin-top: 24px;">
+            <h3>Import-Einstellungen</h3>
+          </div>
+          <div class="details-section">
+            <div class="form-group">
+              <label for="importFormat">Import-Format:</label>
+              <select id="importFormat" class="input-sm">
+                <option value="">-- Format wählen --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="importPath">Import-Pfad:</label>
+              <input type="text" id="importPath" class="input-sm" placeholder="z.B. C:\Kontoexporte\Konto1">
+            </div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="details-toolbar" style="margin-top: 24px;">
+            <div style="display:flex; gap:8px;">
+              <button class="btn" onclick="saveAccount()" id="saveButton">Speichern</button>
+              <button class="btn btn-danger" onclick="deleteAccount()" id="deleteButton">Löschen</button>
+              <button class="btn btn-secondary" onclick="resetForm()">Abbrechen</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="accounts_management.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTopNav('accounts-management');
+    });
+  </script>
+</body>
+</html>
