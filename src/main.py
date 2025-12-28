@@ -71,12 +71,22 @@ if __name__ == "__main__":
    # Launch API server if requested
    if args.api:
       import uvicorn
+      import asyncio
+      import platform
       from api.dependencies import set_database_credentials
       
       print(f"Starting FiniA API server on http://{args.host}:{args.port}")
       print(f"API Documentation: http://{args.host}:{args.port}/api/docs")
       print(f"Web Interface: http://{args.host}:{args.port}/")
       
+      # Windows: use SelectorEventLoop to avoid Proactor connection_lost errors (WinError 10054)
+      if platform.system() == "Windows":
+         try:
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+         except Exception:
+            # If setting the policy fails, continue with default
+            pass
+
       # Set database credentials in dependencies module for API startup
       set_database_credentials(
          user=args.user,

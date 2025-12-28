@@ -6,6 +6,9 @@ let selectedTransactionId = null;
 let detailsEntries = [];
 let allCategories = [];
 let currentTransactionAmount = 0;
+let currentSortColumn = null;
+let currentSortDirection = 'asc';
+let cachedTransactions = [];
 
 async function loadCategories() {
   try {
@@ -33,12 +36,80 @@ function formatCurrency(amount) {
 
 function formatDate(dateString) {
   const date = new Date(dateString);
-  return date.toLocaleDateString('de-DE');
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 function truncateText(text, maxLength = 50) {
   if (!text) return '-';
   return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;
+}
+
+function sortTransactions(column) {
+  if (currentSortColumn === column) {
+    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSortColumn = column;
+    currentSortDirection = 'asc';
+  }
+
+  const sorted = [...cachedTransactions].sort((a, b) => {
+    let valA, valB;
+    
+    switch(column) {
+      case 'date':
+        valA = new Date(a.dateValue);
+        valB = new Date(b.dateValue);
+        break;
+      case 'description':
+        valA = (a.description || '').toLowerCase();
+        valB = (b.description || '').toLowerCase();
+        break;
+      case 'amount':
+        valA = parseFloat(a.amount) || 0;
+        valB = parseFloat(b.amount) || 0;
+        break;
+      case 'account':
+        valA = (a.account_name || '').toLowerCase();
+        valB = (b.account_name || '').toLowerCase();
+        break;
+      case 'entries':
+        valA = a.entries.length;
+        valB = b.entries.length;
+        break;
+      default:
+        return 0;
+    }
+
+    if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
+    if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  displayTransactions(sorted);
+  updateSortIndicators();
+}
+
+function updateSortIndicators() {
+  document.querySelectorAll('.transactions-table th').forEach(th => {
+    th.classList.remove('sort-asc', 'sort-desc');
+  });
+  
+  if (currentSortColumn) {
+    const columnMap = {
+      'date': 0,
+      'description': 1,
+      'amount': 2,
+      'account': 3,
+      'entries': 4
+    };
+    const columnIndex = columnMap[currentSortColumn];
+    if (columnIndex !== undefined) {
+      const th = document.querySelectorAll('.transactions-table th')[columnIndex];
+      if (th) {
+        th.classList.add(currentSortDirection === 'asc' ? 'sort-asc' : 'sort-desc');
+      }
+    }
+  }
 }
 
 function toDateInputValue(value) {
@@ -71,7 +142,7 @@ async function loadTransactions(page = 1) {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
     const data = await response.json();
-    displayTransactions(data.transactions);
+    displayTransactions(data.transactions, true);
     displayPagination(data.page, Math.ceil(data.total / data.page_size));
 
     if (loadingIndicator) loadingIndicator.style.display = 'none';
@@ -89,9 +160,18 @@ async function loadTransactions(page = 1) {
   }
 }
 
-function displayTransactions(transactions) {
+function displayTransactions(transactions, isInitialLoad = false) {
   const tbody = document.getElementById('transactionsBody');
   if (!tbody) return;
+  
+  if (isInitialLoad) {
+    cachedTransactions = transactions;
+    if (currentSortColumn) {
+      sortTransactions(currentSortColumn);
+      return;
+    }
+  }
+  
   tbody.innerHTML = '';
 
   transactions.forEach(transaction => {
@@ -101,8 +181,7 @@ function displayTransactions(transactions) {
     const amountClass = transaction.amount < 0 ? 'amount-negative' : 'amount-positive';
     row.innerHTML = `
       <td>${formatDate(transaction.dateValue)}</td>
-      <td>${truncateText(transaction.description, 40)}</td>
-      <td>${truncateText(transaction.recipientApplicant, 30)}</td>
+      <td>${truncateText(transaction.description, 60)}</td>
       <td class="${amountClass}" style="text-align: right;">${formatCurrency(transaction.amount)}</td>
       <td>${transaction.account_name}</td>
       <td style="text-align: center;">${transaction.entries.length}</td>

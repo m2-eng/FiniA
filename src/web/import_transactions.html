@@ -22,21 +22,27 @@
           <button class="filter-btn" data-filter="no_entries" onclick="setFilter('no_entries')">Ohne Einträge</button>
         </div>
         <div class="search-bar">
-          <input type="text" id="searchInput" class="input-sm" placeholder="Nach Beschreibung, Empfänger oder IBAN suchen...">
+          <input type="text" id="searchInput" class="input-sm" placeholder="Nach Beschreibung oder IBAN suchen...">
           <button class="btn" onclick="loadTransactions()">Aktualisieren</button>
           <button class="btn btn-secondary" onclick="resetSearch()">Zurücksetzen</button>
         </div>
         <div id="errorMessage" class="error" style="display: none;"></div>
         <div id="loadingIndicator" class="loading">Lade Transaktionen...</div>
-        <table class="transactions-table" id="transactionsTable" style="display: none;">
+        <table class="transactions-table" id="transactionsTable" style="display: none; table-layout: fixed;">
+          <colgroup>
+            <col style="width: 15%;">   <!-- Datum -->
+            <col style="width: 40%;">   <!-- Beschreibung -->
+            <col style="width: 15%;">   <!-- Betrag -->
+            <col style="width: 18%;">   <!-- Konto -->
+            <col style="width: 12%;">   <!-- Einträge -->
+          </colgroup>
           <thead>
             <tr>
-              <th>Datum</th>
-              <th>Beschreibung</th>
-              <th>Empfänger</th>
-              <th style="text-align: right;">Betrag</th>
-              <th>Konto</th>
-              <th style="text-align: center;">Einträge</th>
+              <th onclick="sortTransactions('date')" style="cursor: pointer;">Datum</th>
+              <th onclick="sortTransactions('description')" style="cursor: pointer;">Beschreibung</th>
+              <th onclick="sortTransactions('amount')" style="cursor: pointer; text-align: right;">Betrag</th>
+              <th onclick="sortTransactions('account')" style="cursor: pointer;">Konto</th>
+              <th onclick="sortTransactions('entries')" style="cursor: pointer; text-align: center;">Einträge</th>
             </tr>
           </thead>
           <tbody id="transactionsBody"></tbody>
