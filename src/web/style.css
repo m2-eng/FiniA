@@ -235,7 +235,33 @@ h1 { font-size: 24px; font-weight: bold; }
 .details-panel { margin-top: 24px; background-color: var(--color-bg-detail); border: 1px solid var(--color-border); border-radius: 6px; padding: 16px; }
 .details-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
 .details-header h2 { font-size: 18px; font-weight: 600; }
+.details-header h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
 .details-meta { color: var(--color-text); opacity: 0.8; font-size: 14px; }
+.details-section { background-color: var(--color-bg-base); border: 1px solid var(--color-border); border-radius: 4px; padding: 12px; margin-bottom: 8px; }
+
+/* Status badges */
+.status-active { display: inline-block; padding: 4px 8px; background-color: var(--color-amount-positive); color: var(--color-bg-base); border-radius: 3px; font-size: 12px; font-weight: 600; }
+.status-inactive { display: inline-block; padding: 4px 8px; background-color: var(--color-amount-negative); color: white; border-radius: 3px; font-size: 12px; font-weight: 600; }
+
+/* Forms */
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; margin-bottom: 4px; font-weight: 500; font-size: 14px; }
+.form-group input, .form-group select { display: block; width: 100%; }
+.input-sm { padding: 8px; border: 1px solid var(--color-border); border-radius: 4px; background-color: var(--color-bg-base); color: var(--color-text); font-size: 14px; }
+.input-sm:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.1); }
+
+/* Buttons */
+.btn { padding: 8px 16px; background-color: var(--color-accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 500; transition: background-color 0.2s; }
+.btn:hover { background-color: var(--color-accent-hover); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary { background-color: var(--color-bg-detail); color: var(--color-text); border: 1px solid var(--color-border); }
+.btn-secondary:hover { background-color: rgba(0, 120, 212, 0.1); }
+.btn-danger { background-color: var(--color-amount-negative); color: white; }
+.btn-danger:hover { background-color: #b71c1c; }
+.btn-ghost { background-color: transparent; color: var(--color-accent); border: 1px solid var(--color-accent); }
+.btn-ghost:hover { background-color: rgba(0, 120, 212, 0.1); }
+
+.details-toolbar { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
 .details-info { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
 .info-row { display: flex; gap: 8px; align-items: baseline; font-size: 14px; }
 .info-label { min-width: 80px; color: var(--color-text); opacity: 0.7; font-weight: 600; }
