@@ -111,3 +111,89 @@ class CategoryUpdateRequest(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PlanningCycleResponse(BaseModel):
+    """Planning cycle response model"""
+    id: int
+    cycle: str
+
+    class Config:
+        from_attributes = True
+
+
+class PlanningResponse(BaseModel):
+    """Planning response model"""
+    id: int
+    dateImport: datetime
+    description: Optional[str] = None
+    amount: Decimal
+    dateStart: datetime
+    dateEnd: Optional[datetime] = None
+    account_id: int
+    account_name: str
+    category_id: int
+    category_name: Optional[str] = None
+    cycle_id: int
+    cycle_name: str
+
+    class Config:
+        from_attributes = True
+
+
+class PlanningListResponse(BaseModel):
+    """Planning list response"""
+    plannings: list[PlanningResponse]
+    total: int
+
+    class Config:
+        from_attributes = True
+
+
+class PlanningCreateRequest(BaseModel):
+    """Request model for creating a new planning"""
+    description: Optional[str] = None
+    amount: Decimal
+    dateStart: datetime
+    dateEnd: Optional[datetime] = None
+    account_id: int
+    category_id: int
+    cycle_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class PlanningUpdateRequest(BaseModel):
+    """Request model for updating a planning"""
+    description: Optional[str] = None
+    amount: Decimal
+    dateStart: datetime
+    dateEnd: Optional[datetime] = None
+    account_id: int
+    category_id: int
+    cycle_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class PlanningEntryResponse(BaseModel):
+    """Planning entry response model"""
+    id: int
+    dateImport: datetime
+    dateValue: datetime
+    planning_id: int
+
+    class Config:
+        from_attributes = True
+
+
+class PlanningEntriesResponse(BaseModel):
+    """Collection of planning entries for a planning"""
+    planning_id: int
+    entries: list[PlanningEntryResponse]
+    total: int
+
+    class Config:
+        from_attributes = True

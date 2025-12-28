@@ -192,7 +192,9 @@ CREATE TABLE `tbl_planning` (
 CREATE TABLE `tbl_planningCycle` (
   `id` bigint(20) NOT NULL,
   `dateImport` datetime NOT NULL,
-  `cycle` varchar(128) NOT NULL
+  `cycle` varchar(128) NOT NULL,
+  `periodValue` decimal(10,2) NOT NULL DEFAULT 1.00,
+  `periodUnit` char(1) NOT NULL DEFAULT 'm' -- d=Tag, m=Monat, y=Jahr
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 -- --------------------------------------------------------
@@ -785,6 +787,48 @@ ALTER TABLE `tbl_shareTransaction`
 --
 ALTER TABLE `tbl_transaction`
   ADD CONSTRAINT `tbl_transaction_idx_tbl_account_account` FOREIGN KEY (`account`) REFERENCES `tbl_account` (`id`);
+
+-- --------------------------------------------------------
+
+--
+-- Populate planning cycles with standard values
+-- Ensures correct interval interpretation for planning entry generation
+--
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 1.00, `periodUnit` = 'm' 
+WHERE LOWER(`cycle`) LIKE '%monat%' OR LOWER(`cycle`) LIKE '%month%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 7.00, `periodUnit` = 'd' 
+WHERE LOWER(`cycle`) LIKE '%woche%' OR LOWER(`cycle`) LIKE '%week%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 3.00, `periodUnit` = 'm' 
+WHERE LOWER(`cycle`) LIKE '%quart%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 6.00, `periodUnit` = 'm' 
+WHERE LOWER(`cycle`) LIKE '%halb%' OR LOWER(`cycle`) LIKE '%semi%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 1.00, `periodUnit` = 'y' 
+WHERE LOWER(`cycle`) LIKE '%jahr%' OR LOWER(`cycle`) LIKE '%year%' OR LOWER(`cycle`) LIKE '%jährlich%' OR LOWER(`cycle`) LIKE '%annual%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 1.00, `periodUnit` = 'd' 
+WHERE LOWER(`cycle`) LIKE '%tag%' OR LOWER(`cycle`) LIKE '%day%' OR LOWER(`cycle`) LIKE '%täglich%' OR LOWER(`cycle`) LIKE '%daily%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 0.00, `periodUnit` = 'd' 
+WHERE LOWER(`cycle`) LIKE '%einmal%' OR LOWER(`cycle`) LIKE '%once%' OR LOWER(`cycle`) LIKE '%single%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 14.00, `periodUnit` = 'd' 
+WHERE LOWER(`cycle`) LIKE '%zweiwoche%' OR LOWER(`cycle`) LIKE '%biweek%' OR LOWER(`cycle`) LIKE '%14-t%';
+
+UPDATE `tbl_planningCycle` 
+SET `periodValue` = 2.00, `periodUnit` = 'm' 
+WHERE LOWER(`cycle`) LIKE '%zwei-monat%' OR LOWER(`cycle`) LIKE '%bimonth%';
 
 -- --------------------------------------------------------
 

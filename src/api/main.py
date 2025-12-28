@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation
+from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning
 from api.dependencies import set_database_instance, get_database_config, get_database_credentials
 from Database import Database
 
@@ -37,6 +37,7 @@ app.include_router(years.router, prefix="/api")
 app.include_router(year_overview.router, prefix="/api")
 app.include_router(accounts.router, prefix="/api")
 app.include_router(category_automation.router, prefix="/api")
+app.include_router(planning.router, prefix="/api")
 
 @app.get("/api/health")
 def health_check():
