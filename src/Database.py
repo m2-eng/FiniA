@@ -89,34 +89,18 @@ class Database:
 
    def get_cursor(self):
       """
-      Return cursor with global lock - nur EIN Request gleichzeitig.
-      Stellt sicher, dass Verbindung aktiv ist.
+      Return cursor. Verbindung wird in get_db_cursor() gemanagt (dependencies.py).
+      Lock wird von get_db_cursor() gehalten.
       """
-      Database._global_lock.acquire()  # Lock wird in dependencies.py freigegeben
-      
       try:
-         # Prüfe und stelle Verbindung wieder her wenn nötig
-         if not self.connection or not self.connection.is_connected():
-            print("Connection lost, reconnecting...")
-            if not self.connect():
-               Database._global_lock.release()
-               raise RuntimeError("Failed to establish database connection")
+         # Erstelle Cursor - Verbindung wurde bereits in get_db_cursor() validiert
+         if not self.connection:
+            raise RuntimeError("Connection not available")
          
-         # Ping um sicherzustellen, dass Verbindung noch aktiv ist
-         try:
-            self.connection.ping(reconnect=True)
-         except:
-            print("Ping failed, reconnecting...")
-            if not self.connect():
-               Database._global_lock.release()
-               raise RuntimeError("Failed to reconnect to database")
-         
-         # Erstelle Cursor
          cursor = self.connection.cursor(buffered=True)
          return cursor
          
       except Exception as e:
-         Database._global_lock.release()
          raise RuntimeError(f"Failed to get cursor: {e}")
 
    def commit(self) -> None:

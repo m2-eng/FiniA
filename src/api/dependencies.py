@@ -8,6 +8,7 @@ from mysql.connector.errors import OperationalError, InterfaceError, DatabaseErr
 from Database import Database
 from utils import load_config
 import traceback
+from api.error_handling import get_cursor_with_retry
 
 
 # Global database instance (initialized on startup)
@@ -78,37 +79,78 @@ def get_db_cursor():
     db = get_database()
     cursor = None
     
+    # Lock ZUERST erwerben - ALLE Datenbankzugriffe sind serialisiert
+    Database._global_lock.acquire()
+    
     try:
-        # Hole Cursor (Lock wird in get_cursor() gesetzt)
-        cursor = db.get_cursor()
-        # Session-Timeouts erhöhen, um Abbrüche während großer Abfragen zu vermeiden
+        connection_valid = False
+        
+        # Stelle sicher, dass Verbindung noch aktiv ist
+        for attempt in range(3):
+            try:
+                if not db.connection or not db.connection.is_connected():
+                    print(f"Connection inactive, reconnecting... (attempt {attempt + 1})")
+                    if not db.connect():
+                        if attempt == 2:
+                            raise RuntimeError("Failed to establish database connection after 3 attempts")
+                        continue
+                
+                # Ping um Verbindung zu validieren
+                try:
+                    db.connection.ping(reconnect=True)
+                except Exception:
+                    print(f"Ping failed, reconnecting... (attempt {attempt + 1})")
+                    if not db.connect():
+                        if attempt == 2:
+                            raise RuntimeError("Failed to reconnect to database after 3 attempts")
+                        continue
+                
+                # Hole Cursor
+                cursor = db.get_cursor()
+                connection_valid = True
+                break
+                
+            except Exception as e:
+                print(f"Cursor creation failed (attempt {attempt + 1}/3): {e}")
+                if attempt == 2:
+                    raise
+        
+        if not connection_valid:
+            raise RuntimeError("Failed to establish valid database connection")
+        
+        # Session-Timeouts erhöhen (max_execution_time wird möglicherweise nicht unterstützt)
         try:
             cursor.execute("SET SESSION net_read_timeout=120")
             cursor.execute("SET SESSION net_write_timeout=120")
-            cursor.execute("SET SESSION max_execution_time=120000")  # 120s
-        except Exception:
-            # Falls der Server einzelne Variablen nicht unterstützt, ignorieren
-            pass
+            # max_execution_time nur versuchen, falls unterstützt
+            try:
+                cursor.execute("SET SESSION max_execution_time=120000")
+            except:
+                pass
+        except Exception as e:
+            print(f"Warning: Could not set session timeouts: {e}")
+        
         yield cursor
+        
     except Exception as e:
-        print(f"Database error: {e}")
+        print(f"Database error in get_db_cursor: {e}")
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection error"
+            detail="Database connection error. Please try again."
         )
     finally:
-        # Cursor schließen und Lock freigeben
+        # Cursor schließen
         if cursor:
             try:
                 cursor.close()
-            except:
-                pass
+            except Exception as e:
+                print(f"Warning: Error closing cursor: {e}")
         # Lock IMMER freigeben
         try:
             Database._global_lock.release()
-        except:
-            pass  # Falls Lock nicht gehalten wurde
+        except Exception:
+            pass
 
 
 def get_db_connection():

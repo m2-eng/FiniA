@@ -6,25 +6,256 @@
   <title>FiniA - Planung</title>
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .btn-small {
+      padding: 5px 10px;
+      font-size: 0.85em;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      background-color: var(--color-accent);
+      color: var(--color-text-selected);
+      transition: background-color 0.2s;
+    }
+
+    .btn-small:hover {
+      background-color: var(--color-accent-hover);
+    }
+
+    .btn-small.delete {
+      background-color: #dc3545;
+    }
+
+    .btn-small.delete:hover {
+      background-color: #c82333;
+    }
+
+    .planning-actions {
+      display: flex;
+      gap: 5px;
+      justify-content: center;
+    }
+
+    .planning-layout {
+      display: grid;
+      grid-template-columns: 2fr 1.1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .planning-row.selected {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+    }
+
+    .detail-item span {
+      display: block;
+      color: var(--color-text-secondary, #555);
+      font-size: 0.9em;
+      margin-bottom: 4px;
+    }
+
+    .detail-value {
+      font-weight: 600;
+    }
+
+    .detail-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 1100px) {
+      .planning-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
   <header>
     <h1>FiniA - Finanzverwaltung</h1>
     <div id="top-nav"></div>
   </header>
+  
   <div class="container">
+    <!-- Planning Management Section -->
     <div class="page-card">
-      <h2>Planung</h2>
-      <p class="details-meta">Diese Seite wird demnächst mit Planungsfunktionen befüllt.</p>
-    </div>
-    <div class="details-panel">
-      <div class="details-header">
-        <h2>Übersicht</h2>
+      <h2>Planungsverwaltung</h2>
+      <p class="details-meta">Verwalten Sie Ihre wiederkehrenden Planungseinträge für Budget und Finanzplanung.</p>
+      <div style="margin-top: 16px;">
+        <button class="btn" onclick="showCreateDialog()">+ Neue Planung erstellen</button>
       </div>
-      <p class="details-meta">Noch kein Inhalt vorhanden.</p>
+    </div>
+
+    <div class="planning-layout">
+      <!-- Planning List -->
+      <div class="page-card">
+        <h3>Planungseinträge</h3>
+        <div style="margin-bottom: 12px; display: flex; gap: 12px; align-items: center;">
+          <input type="text" id="planningSearch" class="input-sm" placeholder="Suche nach Konto, Kategorie oder Beschreibung..." oninput="filterPlannings()" style="flex: 1;">
+          <label style="display: flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;">
+            <input type="checkbox" id="hideInactive" onchange="filterPlannings()" style="cursor: pointer;">
+            <span>Inaktive ausblenden</span>
+          </label>
+          <button class="btn-small" id="reloadAllButton" onclick="refreshAll()" title="Alle Tabellen neu laden">Neu laden</button>
+        </div>
+        <div id="errorMessage" class="error" style="display: none;"></div>
+        <div id="loadingIndicator" class="loading">Lade Planungen...</div>
+        <table class="transactions-table" id="planningsTable" style="display: none;">
+          <thead>
+            <tr>
+              <th class="sortable" onclick="sortPlannings('account_name')" style="cursor: pointer;">Konto <span id="sort-account_name" class="sort-indicator"></span></th>
+              <th class="sortable" onclick="sortPlannings('category_name')" style="cursor: pointer;">Kategorie <span id="sort-category_name" class="sort-indicator"></span></th>
+              <th class="sortable" onclick="sortPlannings('amount')" style="cursor: pointer; text-align: right;">Betrag <span id="sort-amount" class="sort-indicator"></span></th>
+              <th class="sortable" onclick="sortPlannings('cycle_name')" style="cursor: pointer;">Zyklus <span id="sort-cycle_name" class="sort-indicator"></span></th>
+              <th class="sortable" onclick="sortPlannings('status')" style="cursor: pointer;">Status <span id="sort-status" class="sort-indicator"></span></th>
+              <th style="text-align: center;">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="planningsBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Detail and entries -->
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div class="page-card" id="planningDetails">
+          <h3>Details</h3>
+          <div class="detail-grid" style="margin-top: 8px;">
+            <div class="detail-item">
+              <span>Beschreibung</span>
+              <input type="text" id="detailDescription" class="input-sm" placeholder="-" disabled>
+            </div>
+            <div class="detail-item">
+              <span>Betrag</span>
+              <input type="number" id="detailAmount" class="input-sm" step="0.01" placeholder="-" disabled>
+            </div>
+            <div class="detail-item">
+              <span>Konto</span>
+              <select id="detailAccount" class="input-sm" disabled>
+                <option value="">-</option>
+              </select>
+            </div>
+            <div class="detail-item">
+              <span>Kategorie</span>
+              <select id="detailCategory" class="input-sm" disabled>
+                <option value="">-</option>
+              </select>
+            </div>
+            <div class="detail-item">
+              <span>Zyklus</span>
+              <select id="detailCycle" class="input-sm" disabled>
+                <option value="">-</option>
+              </select>
+            </div>
+            <div class="detail-item">
+              <span>Start</span>
+              <input type="date" id="detailStart" class="input-sm" disabled>
+            </div>
+            <div class="detail-item">
+              <span>Ende</span>
+              <input type="date" id="detailEnd" class="input-sm" disabled>
+            </div>
+          </div>
+          <div class="detail-actions">
+            <button class="btn" id="saveDetailsButton" onclick="saveDetailsChanges()" style="display: none;">Änderungen speichern</button>
+            <button class="btn" id="generateEntriesButton" onclick="generatePlanningEntries()">Planungseinträge aktualisieren</button>
+          </div>
+        </div>
+
+        <div class="page-card">
+          <h3>Planungseinträge</h3>
+          <div id="entriesError" class="error" style="display: none;"></div>
+          <div id="entriesLoading" class="loading" style="display: none;">Lade Planungseinträge...</div>
+          <table class="transactions-table" id="planningEntriesTable" style="display: none;">
+            <thead>
+              <tr>
+                <th>Fälligkeit</th>
+                <th style="text-align: right;">Geplanter Betrag</th>
+              </tr>
+            </thead>
+            <tbody id="planningEntriesBody">
+              <tr><td colspan="2" style="text-align:center; padding:12px;">Keine Planung ausgewählt</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </div>
+
+  <!-- Create/Edit Planning Dialog -->
+  <div id="planningDialog" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="dialogTitle">Neue Planung erstellen</h3>
+        <button class="btn-ghost" onclick="closePlanningDialog()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="planningForm" onsubmit="savePlanning(event)">
+          <input type="hidden" id="planningId" value="">
+          
+          <div class="form-group">
+            <label for="description">Beschreibung (optional)</label>
+            <input type="text" id="description" class="input-sm" placeholder="z.B. Monatsmiete">
+          </div>
+          
+          <div class="form-group">
+            <label for="amount">Betrag *</label>
+            <input type="number" id="amount" class="input-sm" step="0.01" required placeholder="0.00">
+          </div>
+          
+          <div class="form-group">
+            <label for="accountSelect">Konto *</label>
+            <select id="accountSelect" class="input-sm" required>
+              <option value="">Lädt...</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="categorySelect">Kategorie *</label>
+            <select id="categorySelect" class="input-sm" required>
+              <option value="">Lädt...</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="cycleSelect">Zyklus *</label>
+            <select id="cycleSelect" class="input-sm" required>
+              <option value="">Lädt...</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="dateStart">Startzeitpunkt *</label>
+            <input type="date" id="dateStart" class="input-sm" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="dateEnd">Endzeitpunkt (optional)</label>
+            <input type="date" id="dateEnd" class="input-sm">
+          </div>
+          
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closePlanningDialog()">Abbrechen</button>
+            <button type="submit" class="btn" id="saveButton">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
-  <script>document.addEventListener('DOMContentLoaded', ()=> loadTopNav('planning'));</script>
+  <script src="planning.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTopNav('planning');
+      initPlanning();
+    });
+  </script>
 </body>
 </html>
