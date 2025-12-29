@@ -1,7 +1,7 @@
 // Import transactions page logic
 let currentPage = 1;
 let searchTerm = '';
-let currentFilter = 'all';
+let currentFilter = 'unchecked';
 let selectedTransactionId = null;
 let detailsEntries = [];
 let allCategories = [];
