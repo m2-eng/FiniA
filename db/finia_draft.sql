@@ -252,7 +252,7 @@ CREATE TABLE `tbl_shareTransaction` (
   `dateTransaction` datetime NOT NULL,
   `checked` tinyint(4) NOT NULL DEFAULT 0,
   `share` bigint(20) NOT NULL,
-  `accountingEntry` bigint(20) NOT NULL
+  `accountingEntry` bigint(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 -- --------------------------------------------------------
@@ -326,6 +326,22 @@ CREATE TABLE `view_balancesTransactions` (
 ,`accountID` bigint(20)
 ,`dateValue` datetime
 ,`categoryName` varchar(128)
+);
+
+-- --------------------------------------------------------
+
+--
+-- Placeholder structure for view `view_sharePortfolioValue`
+-- (See below for the actual view)
+--
+CREATE TABLE `view_sharePortfolioValue` (
+`id` bigint(20)
+,`name` text
+,`isin` varchar(12)
+,`wkn` varchar(6)
+,`currentVolume` decimal(20,10)
+,`currentPrice` decimal(20,10)
+,`portfolioValue` decimal(31,10)
 );
 
 -- --------------------------------------------------------
@@ -499,7 +515,8 @@ ALTER TABLE `tbl_share`
 --
 ALTER TABLE `tbl_shareHistory`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `tbl_shareHistory_idx_tbl_share_share` (`share`);
+  ADD KEY `tbl_shareHistory_idx_tbl_share_share` (`share`),
+  ADD UNIQUE KEY `tbl_shareHistory_unique_share_date` (`share`,`date`);
 
 --
 -- Indexes for table `tbl_shareTransaction`
@@ -658,6 +675,77 @@ CREATE VIEW `view_balancesPlanning` AS SELECT sum(`tbl_planning`.`amount`) AS `a
 DROP TABLE IF EXISTS `view_balancesTransactions`;
 
 CREATE VIEW `view_balancesTransactions` AS SELECT sum(`tbl_accountingEntry`.`amount`) AS `amountSum`, `tbl_accountingEntry`.`category` AS `categoryID`, `tbl_transaction`.`account` AS `accountID`, `tbl_transaction`.`dateValue` AS `dateValue`, `tbl_category`.`name` AS `categoryName` FROM ((`tbl_accountingEntry` left join `tbl_category` on(`tbl_accountingEntry`.`category` = `tbl_category`.`id`)) left join `tbl_transaction` on(`tbl_accountingEntry`.`transaction` = `tbl_transaction`.`id`)) GROUP BY `tbl_category`.`name`, `tbl_transaction`.`account`, year(`tbl_transaction`.`dateValue`), month(`tbl_transaction`.`dateValue`) ;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `view_sharePortfolioValue`
+-- Calculates current portfolio value for each share:
+-- currentVolume = sum of all share transactions
+-- currentPrice = latest price from shareHistory (or most recent if current month is empty)
+-- portfolioValue = currentVolume * currentPrice
+--
+DROP TABLE IF EXISTS `view_sharePortfolioValue`;
+
+CREATE VIEW `view_sharePortfolioValue` AS
+SELECT
+  s.id,
+  s.name,
+  s.isin,
+  s.wkn,
+  COALESCE(SUM(t.tradingVolume), 0) AS currentVolume,
+  COALESCE(latest_history.amount, 0) AS currentPrice,
+  COALESCE(SUM(t.tradingVolume), 0) * COALESCE(latest_history.amount, 0) AS portfolioValue
+FROM tbl_share s
+LEFT JOIN tbl_shareTransaction t ON t.share = s.id
+LEFT JOIN (
+  SELECT h.share, h.amount, h.date
+  FROM tbl_shareHistory h
+  INNER JOIN (
+    SELECT share, MAX(date) AS latest_date
+    FROM tbl_shareHistory
+    GROUP BY share
+  ) latest ON h.share = latest.share AND h.date = latest.latest_date
+) latest_history ON s.id = latest_history.share
+GROUP BY s.id, s.name, s.isin, s.wkn, latest_history.amount;
+
+-- --------------------------------------------------------
+
+--
+-- Structure for view `view_shareMonthlySnapshot`
+-- Calculates historical portfolio values for each share and month-end:
+-- Uses the latest price per month and cumulative transactions up to month-end
+-- Only includes (share, month) combinations where a price exists
+-- share_id, share_name, YYYY-MM-DD (month-end date), price (course at month-end), 
+-- volume (cumulative transactions until month-end), portfolio_value (price × volume)
+--
+DROP TABLE IF EXISTS `view_shareMonthlySnapshot`;
+
+CREATE VIEW `view_shareMonthlySnapshot` AS
+WITH latest_prices AS (
+  SELECT
+    share,
+    LAST_DAY(date) AS month_end_date,
+    MAX(date) AS latest_price_date
+  FROM tbl_shareHistory
+  WHERE amount IS NOT NULL
+  GROUP BY share, LAST_DAY(date)
+)
+SELECT
+  h.share AS share_id,
+  s.name AS share_name,
+  lp.month_end_date,
+  h.amount AS price,
+  COALESCE(SUM(t.tradingVolume), 0) AS volume,
+  h.amount * COALESCE(SUM(t.tradingVolume), 0) AS portfolio_value
+FROM latest_prices lp
+INNER JOIN tbl_shareHistory h ON h.share = lp.share 
+  AND DATE(h.date) = DATE(lp.latest_price_date)
+  AND h.amount IS NOT NULL
+INNER JOIN tbl_share s ON s.id = h.share
+LEFT JOIN tbl_shareTransaction t ON t.share = h.share 
+  AND DATE(t.dateTransaction) <= DATE(lp.month_end_date)
+GROUP BY h.share, s.name, lp.month_end_date, h.amount;
 
 -- --------------------------------------------------------
 

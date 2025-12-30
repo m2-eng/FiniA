@@ -18,6 +18,12 @@ const TABLE_CONFIGS = {
     feedbackId: 'loans-feedback',
     title: 'Darlehen'
   },
+  'securities-table': {
+    endpoint: '/year-overview/securities',
+    yearLabelId: 'securities-year-label',
+    feedbackId: 'securities-feedback',
+    title: 'Wertpapiere'
+  },
   'income-table': {
     endpoint: '/accounts/income',
     yearLabelId: 'income-year-label',
