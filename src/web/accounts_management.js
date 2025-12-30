@@ -35,46 +35,11 @@ async function loadImportFormats() {
 }
 
 function populateAccountTypeDropdown() {
-  const dropdown = document.getElementById('accountType');
-  if (!dropdown) return;
-  const currentValue = dropdown.value;
-  dropdown.innerHTML = '<option value="">-- Typ wählen --</option>';
-  allAccountTypes.forEach(type => {
-    const option = document.createElement('option');
-    option.value = type.id;
-    option.textContent = type.type;
-    dropdown.appendChild(option);
-  });
-  if (currentValue) dropdown.value = currentValue;
+  populateDropdown('accountType', allAccountTypes, 'type', '-- Typ wählen --');
 }
 
 function populateImportFormatDropdown() {
-  const dropdown = document.getElementById('importFormat');
-  if (!dropdown) return;
-  const currentValue = dropdown.value;
-  dropdown.innerHTML = '<option value="">-- Format wählen --</option>';
-  allImportFormats.forEach(format => {
-    const option = document.createElement('option');
-    option.value = format.id;
-    option.textContent = format.type;
-    dropdown.appendChild(option);
-  });
-  if (currentValue) dropdown.value = currentValue;
-}
-
-function formatDate(dateString) {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
-function toDateInputValue(dateString) {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  populateDropdown('importFormat', allImportFormats, 'type', '-- Format wählen --');
 }
 
 function sortAccounts(column) {

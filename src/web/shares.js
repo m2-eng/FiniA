@@ -8,6 +8,12 @@ const transactionsSort = { by: 'dateTransaction', dir: 'desc' };
 const historySort = { by: 'date', dir: 'desc' };
 let historyFilter = 'unchecked';
 
+// Local formatDate as fallback (also defined in utils.js)
+function formatDate(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 // Initialize shares page
 async function initSharesPage() {
   console.log('Initializing shares page...');
@@ -621,15 +627,6 @@ function parseNumberInput(valueStr) {
   const normalized = String(valueStr).replace(',', '.');
   const parsed = parseFloat(normalized);
   return Number.isNaN(parsed) ? null : parsed;
-}
-
-function formatDate(dateValue) {
-  if (!dateValue) return '';
-  const d = new Date(dateValue);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
-  return `${day}.${month}.${year}`;
 }
 
 function formatCurrency(value) {
