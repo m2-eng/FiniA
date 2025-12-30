@@ -9,11 +9,34 @@ class PlanningRepository(BaseRepository):
     
     def get_all_plannings(self) -> list[dict]:
         """
-        Get all planning entries with their details.
+        Get all planning entries with their details (legacy: returns all, use get_plannings_paginated for large datasets).
         
         Returns:
             List of planning dictionaries with account, category, and cycle info
         """
+        return self.get_plannings_paginated(page=1, page_size=1000000)  # Fallback to paginated method
+
+    def get_plannings_paginated(self, page: int = 1, page_size: int = 100) -> dict:
+        """
+        Get paginated planning entries with their details.
+        
+        Args:
+            page: Page number (1-based)
+            page_size: Number of records per page (max 1000)
+            
+        Returns:
+            Dict with 'plannings' list, 'page', 'page_size', and 'total' count
+        """
+        page = max(1, page)
+        page_size = min(max(1, page_size), 1000)
+        offset = (page - 1) * page_size
+        
+        # Get total count
+        count_sql = "SELECT COUNT(*) FROM tbl_planning"
+        self.cursor.execute(count_sql)
+        total = self.cursor.fetchone()[0]
+        
+        # Get paginated data
         sql = """
             SELECT 
                 p.id,
@@ -33,8 +56,9 @@ class PlanningRepository(BaseRepository):
             LEFT JOIN view_categoryFullname vcf ON p.category = vcf.id
             JOIN tbl_planningCycle pc ON p.cycle = pc.id
             ORDER BY p.dateStart DESC, p.id DESC
+            LIMIT %s OFFSET %s
         """
-        self.cursor.execute(sql)
+        self.cursor.execute(sql, (page_size, offset))
         
         plannings = []
         for row in self.cursor.fetchall():
@@ -54,7 +78,12 @@ class PlanningRepository(BaseRepository):
             }
             plannings.append(planning)
         
-        return plannings
+        return {
+            "plannings": plannings,
+            "page": page,
+            "page_size": page_size,
+            "total": total
+        }
 
     def get_planning_entries(self, planning_id: int) -> list[dict]:
         """Return all planning entries for a planning ordered by date."""

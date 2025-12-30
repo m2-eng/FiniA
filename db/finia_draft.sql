@@ -833,6 +833,36 @@ WHERE LOWER(`cycle`) LIKE '%zwei-monat%' OR LOWER(`cycle`) LIKE '%bimonth%';
 -- --------------------------------------------------------
 
 --
+-- Indexes for performance optimization
+--
+-- Planning table indexes for common queries
+CREATE INDEX IF NOT EXISTS `idx_planning_dateStart` ON `tbl_planning` (`dateStart`);
+CREATE INDEX IF NOT EXISTS `idx_planning_account` ON `tbl_planning` (`account`);
+CREATE INDEX IF NOT EXISTS `idx_planning_category` ON `tbl_planning` (`category`);
+CREATE INDEX IF NOT EXISTS `idx_planning_cycle` ON `tbl_planning` (`cycle`);
+CREATE INDEX IF NOT EXISTS `idx_planning_account_dateStart` ON `tbl_planning` (`account`, `dateStart`);
+
+-- Planning entry indexes
+CREATE INDEX IF NOT EXISTS `idx_planningEntry_planning` ON `tbl_planningEntry` (`planning`);
+CREATE INDEX IF NOT EXISTS `idx_planningEntry_dateValue` ON `tbl_planningEntry` (`dateValue`);
+
+-- Transaction indexes
+CREATE INDEX IF NOT EXISTS `idx_transaction_account` ON `tbl_transaction` (`account`);
+CREATE INDEX IF NOT EXISTS `idx_transaction_dateValue` ON `tbl_transaction` (`dateValue`);
+CREATE INDEX IF NOT EXISTS `idx_transaction_amount` ON `tbl_transaction` (`amount`);
+
+-- Accounting entry indexes
+CREATE INDEX IF NOT EXISTS `idx_accountingEntry_transaction` ON `tbl_accountingEntry` (`transaction`);
+CREATE INDEX IF NOT EXISTS `idx_accountingEntry_checked` ON `tbl_accountingEntry` (`checked`);
+CREATE INDEX IF NOT EXISTS `idx_accountingEntry_category` ON `tbl_accountingEntry` (`category`);
+
+-- Account indexes
+CREATE INDEX IF NOT EXISTS `idx_account_type` ON `tbl_account` (`type`);
+CREATE INDEX IF NOT EXISTS `idx_account_name` ON `tbl_account` (`name`);
+
+-- --------------------------------------------------------
+
+--
 -- Trigger: Auto-create accounting entry for each transaction
 --
 DELIMITER $$

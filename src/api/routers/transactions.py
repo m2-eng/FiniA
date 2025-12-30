@@ -100,20 +100,36 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 @handle_db_errors("fetch transactions")
 async def get_transactions(
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    page_size: int = Query(50, ge=1, le=1000, description="Items per page (max 1000)"),
     search: Optional[str] = Query(None, description="Search in description, recipient, IBAN"),
     filter: Optional[str] = Query(None, description="Filter: 'unchecked' or 'no_entries'"),
     cursor = Depends(get_db_cursor)
 ):
     """
-    Get all transactions with pagination and optional search.
+    Get transactions with pagination and optional search.
     
     - **page**: Page number (starting from 1)
-    - **page_size**: Number of items per page (max 100)
+    - **page_size**: Number of items per page (max 1000)
     - **search**: Optional search term for filtering
     - **filter**: Optional filter ('unchecked' for unchecked entries, 'no_entries' for transactions without entries)
+    
+    Note: When using search or filter, all matching transactions are loaded into memory for filtering,
+    then paginated. For large datasets with complex filters, this may impact performance.
     """
     repo = TransactionRepository(cursor)
+    
+    # If no filters are applied, use paginated database fetch for better performance
+    if not search and not filter:
+        result = repo.get_all_transactions_paginated(page=page, page_size=page_size)
+        return TransactionListResponse(
+            transactions=result['transactions'],
+            total=result['total'],
+            page=result['page'],
+            page_size=result['page_size']
+        )
+    
+    # For filtered queries, load all and filter in memory
+    # (Legacy behavior to support complex filters)
     transactions = repo.get_all_transactions()
     
     # Apply filter if provided

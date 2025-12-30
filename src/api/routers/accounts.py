@@ -5,7 +5,7 @@ Account details API router - provides income/expense breakdown per account
 from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from typing import Optional
 from pydantic import BaseModel
-from api.dependencies import get_db_cursor, get_db_connection
+from api.dependencies import get_db_cursor, get_db_connection, get_database
 from api.error_handling import handle_db_errors
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
@@ -234,6 +234,16 @@ async def get_accounts_list(
     """
     search_pattern = f"%{search}%" if search else "%"
     
+    # Hilfsfunktion: Verbindung prüfen/pingen
+    def ensure_connection():
+        db = get_database()
+        try:
+            # Versuche Verbindung zu pingen und ggf. reconnecten
+            db.connection.ping(reconnect=True)
+        except Exception:
+            # Fallback: Neu verbinden
+            db.connect()
+
     # Get total count
     count_query = """
         SELECT COUNT(DISTINCT tbl_account.id)
@@ -241,7 +251,13 @@ async def get_accounts_list(
         LEFT JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
         WHERE tbl_account.name LIKE %s OR tbl_account.iban_accountNumber LIKE %s
     """
-    cursor.execute(count_query, (search_pattern, search_pattern))
+    try:
+        ensure_connection()
+        cursor.execute(count_query, (search_pattern, search_pattern))
+    except Exception:
+        # Einmaliger Retry nach Reconnect bei Verbindungsfehler
+        ensure_connection()
+        cursor.execute(count_query, (search_pattern, search_pattern))
     total = cursor.fetchone()[0]
     
     # Get paginated data
@@ -265,7 +281,13 @@ async def get_accounts_list(
         LIMIT %s OFFSET %s
     """
     
-    cursor.execute(query, (search_pattern, search_pattern, page_size, offset))
+    try:
+        ensure_connection()
+        cursor.execute(query, (search_pattern, search_pattern, page_size, offset))
+    except Exception:
+        # Einmaliger Retry nach Reconnect bei Verbindungsfehler
+        ensure_connection()
+        cursor.execute(query, (search_pattern, search_pattern, page_size, offset))
     rows = cursor.fetchall()
     
     accounts = []

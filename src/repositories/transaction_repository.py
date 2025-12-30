@@ -97,11 +97,34 @@ class TransactionRepository(BaseRepository):
 
    def get_all_transactions(self) -> list[dict]:
       """
-      Retrieve all transactions with their accounting entries.
+      Retrieve all transactions with their accounting entries (legacy: returns all).
       
       Returns:
          List of transaction dictionaries with accounting entries and account info.
       """
+      return self.get_all_transactions_paginated(page=1, page_size=1000000)['transactions']
+
+   def get_all_transactions_paginated(self, page: int = 1, page_size: int = 100) -> dict:
+      """
+      Retrieve paginated transactions with their accounting entries.
+      
+      Args:
+         page: Page number (1-based)
+         page_size: Number of records per page (max 1000)
+
+      Returns:
+         Dict with 'transactions' list, 'page', 'page_size', and 'total' count
+      """
+      page = max(1, page)
+      page_size = min(max(1, page_size), 1000)
+      offset = (page - 1) * page_size
+      
+      # Get total count
+      count_sql = "SELECT COUNT(*) FROM tbl_transaction"
+      self.cursor.execute(count_sql)
+      total = self.cursor.fetchone()[0]
+      
+      # Get paginated data
       sql = """
          SELECT 
             t.id,
@@ -118,8 +141,9 @@ class TransactionRepository(BaseRepository):
          FROM tbl_transaction t
          JOIN tbl_account a ON t.account = a.id
          ORDER BY t.dateValue DESC, t.dateImport DESC
+         LIMIT %s OFFSET %s
       """
-      self.cursor.execute(sql)
+      self.cursor.execute(sql, (page_size, offset))
       
       # Fetch all results first to avoid cursor conflicts
       rows = self.cursor.fetchall()
@@ -142,7 +166,12 @@ class TransactionRepository(BaseRepository):
          }
          transactions.append(transaction)
       
-      return transactions
+      return {
+         'transactions': transactions,
+         'page': page,
+         'page_size': page_size,
+         'total': total
+      }
 
    def get_transaction_by_id(self, transaction_id: int) -> dict | None:
       """

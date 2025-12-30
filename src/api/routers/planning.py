@@ -2,7 +2,7 @@
 Planning API router
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from repositories.planning_repository import PlanningRepository
 from api.dependencies import get_db_cursor, get_db_connection
 from api.models import (
@@ -35,20 +35,24 @@ async def get_planning_cycles(cursor = Depends(get_db_cursor)):
 
 @router.get("/", response_model=PlanningListResponse)
 @handle_db_errors("fetch plannings")
-async def get_plannings(cursor = Depends(get_db_cursor)):
+async def get_plannings(
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(100, ge=1, le=1000, description="Records per page"),
+    cursor = Depends(get_db_cursor)
+):
     """
-    Get all planning entries.
+    Get paginated planning entries.
+    
+    Args:
+        page: Page number (1-based, default 1)
+        page_size: Number of records per page (default 100, max 1000)
     
     Returns:
-        List of all planning entries with their details
+        List of planning entries with pagination metadata
     """
     repo = PlanningRepository(cursor)
-    plannings = repo.get_all_plannings()
-    
-    return {
-        "plannings": plannings,
-        "total": len(plannings)
-    }
+    result = repo.get_plannings_paginated(page=page, page_size=page_size)
+    return result
 
 
 @router.get("/{planning_id}", response_model=PlanningResponse)

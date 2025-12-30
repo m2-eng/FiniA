@@ -3,6 +3,7 @@ FastAPI dependencies for database access and authentication
 """
 
 from typing import Generator
+from contextvars import ContextVar
 from fastapi import Depends, HTTPException, status
 from mysql.connector.errors import OperationalError, InterfaceError, DatabaseError
 from Database import Database
@@ -13,6 +14,7 @@ from api.error_handling import get_cursor_with_retry
 
 # Global database instance (initialized on startup)
 _db_instance: Database | None = None
+_request_connection: ContextVar[object] = ContextVar("request_connection", default=None)
 
 # Global credentials storage (set before API startup)
 _db_credentials: dict = {}
@@ -66,72 +68,41 @@ def get_database_credentials() -> dict:
 
 def get_db_cursor():
     """
-    Get database cursor - serieller Zugriff durch globalen Lock.
-    
-    Yields:
-        Database cursor
-        
-    Raises:
-        HTTPException: Bei Verbindungsfehlern
+    Liefert einen Cursor. Nutzt eine request-lokale Verbindung, falls vorhanden,
+    sonst wird kurzlebig eine eigene Verbindung aufgebaut und wieder geschlossen.
     """
-    from Database import Database
-    
     db = get_database()
     cursor = None
-    
-    # Lock ZUERST erwerben - ALLE Datenbankzugriffe sind serialisiert
-    Database._global_lock.acquire()
-    
+    created_conn = None
+
     try:
-        connection_valid = False
-        
-        # Stelle sicher, dass Verbindung noch aktiv ist
-        for attempt in range(3):
-            try:
-                if not db.connection or not db.connection.is_connected():
-                    print(f"Connection inactive, reconnecting... (attempt {attempt + 1})")
-                    if not db.connect():
-                        if attempt == 2:
-                            raise RuntimeError("Failed to establish database connection after 3 attempts")
-                        continue
-                
-                # Ping um Verbindung zu validieren
-                try:
-                    db.connection.ping(reconnect=True)
-                except Exception:
-                    print(f"Ping failed, reconnecting... (attempt {attempt + 1})")
-                    if not db.connect():
-                        if attempt == 2:
-                            raise RuntimeError("Failed to reconnect to database after 3 attempts")
-                        continue
-                
-                # Hole Cursor
-                cursor = db.get_cursor()
-                connection_valid = True
-                break
-                
-            except Exception as e:
-                print(f"Cursor creation failed (attempt {attempt + 1}/3): {e}")
-                if attempt == 2:
-                    raise
-        
-        if not connection_valid:
-            raise RuntimeError("Failed to establish valid database connection")
-        
+        # Verwende vorhandene Request-Verbindung, falls gesetzt
+        conn = _request_connection.get()
+        if conn is None:
+            # Erzeuge kurzlebige Verbindung für Lesezugriffe
+            conn = db.create_connection()
+            if not conn:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Database connection unavailable"
+                )
+            created_conn = conn
+
+        cursor = conn.cursor(buffered=True)
+
         # Session-Timeouts erhöhen (max_execution_time wird möglicherweise nicht unterstützt)
         try:
             cursor.execute("SET SESSION net_read_timeout=120")
             cursor.execute("SET SESSION net_write_timeout=120")
-            # max_execution_time nur versuchen, falls unterstützt
             try:
                 cursor.execute("SET SESSION max_execution_time=120000")
             except:
                 pass
         except Exception as e:
             print(f"Warning: Could not set session timeouts: {e}")
-        
+
         yield cursor
-        
+
     except Exception as e:
         print(f"Database error in get_db_cursor: {e}")
         traceback.print_exc()
@@ -140,49 +111,56 @@ def get_db_cursor():
             detail="Database connection error. Please try again."
         )
     finally:
-        # Cursor schließen
         if cursor:
             try:
                 cursor.close()
             except Exception as e:
                 print(f"Warning: Error closing cursor: {e}")
-        # Lock IMMER freigeben
-        try:
-            Database._global_lock.release()
-        except Exception:
-            pass
+        # Schliesse nur die kurzlebig erzeugte Verbindung
+        if created_conn:
+            try:
+                created_conn.close()
+            except Exception:
+                pass
 
 
 def get_db_connection():
     """
-    Get database connection for transaction management (commit/rollback).
-    
-    Yields:
-        Database connection
-        
-    Raises:
-        HTTPException: Bei Verbindungsfehlern
+    Liefert eine request-lokale Verbindung für Transaktionen (commit/rollback).
+    Cursor-Abhängigkeiten greifen auf dieselbe Verbindung via ContextVar zu.
     """
     db = get_database()
-    
-    # Stelle sicher dass Connection aktiv ist
-    if not db.is_connected():
-        if not db.connect():
+    conn = None
+
+    try:
+        conn = db.create_connection()
+        if not conn:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Database connection unavailable"
             )
-    
-    try:
-        yield db.connection
+
+        # Setze Verbindung in Request-Kontext, damit get_db_cursor diese nutzen kann
+        _request_connection.set(conn)
+
+        # Optional: Session-Timeouts auf Verbindungs-Ebene setzen
+        try:
+            cur = conn.cursor()
+            cur.execute("SET SESSION net_read_timeout=120")
+            cur.execute("SET SESSION net_write_timeout=120")
+            try:
+                cur.execute("SET SESSION max_execution_time=120000")
+            except:
+                pass
+            cur.close()
+        except Exception as e:
+            print(f"Warning: Could not set session timeouts on connection: {e}")
+
+        yield conn
+
     except (OperationalError, InterfaceError, DatabaseError) as e:
         print(f"Database error during transaction: {e}")
         traceback.print_exc()
-        # Versuche Rollback
-        try:
-            db.rollback()
-        except:
-            pass
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection error during transaction"
@@ -190,9 +168,15 @@ def get_db_connection():
     except Exception as e:
         print(f"Unexpected error during transaction: {e}")
         traceback.print_exc()
-        # Versuche Rollback
-        try:
-            db.rollback()
-        except:
-            pass
         raise
+    finally:
+        # Verbindung aus Context entfernen und schließen
+        try:
+            _request_connection.set(None)
+        except Exception:
+            pass
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass

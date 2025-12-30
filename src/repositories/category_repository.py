@@ -71,15 +71,39 @@ class CategoryRepository(BaseRepository):
 
    def get_all_fullnames(self) -> list[dict]:
       """
-      Get all categories with their full hierarchical names from view_categoryFullname.
+      Get all categories with their full hierarchical names from view_categoryFullname (legacy: returns all).
       
       Returns:
          List of dicts with 'id', 'name', and 'fullname' keys
       """
-      sql = "SELECT id, name, fullname FROM view_categoryFullname ORDER BY fullname"
-      self.cursor.execute(sql)
+      return self.get_all_fullnames_paginated(page=1, page_size=1000000)['categories']
+
+   def get_all_fullnames_paginated(self, page: int = 1, page_size: int = 100) -> dict:
+      """
+      Get paginated categories with their full hierarchical names from view_categoryFullname.
+      
+      Args:
+         page: Page number (1-based)
+         page_size: Number of records per page (max 1000)
+
+      Returns:
+         Dict with 'categories' list, 'page', 'page_size', and 'total' count
+      """
+      page = max(1, page)
+      page_size = min(max(1, page_size), 1000)
+      offset = (page - 1) * page_size
+      
+      # Get total count
+      count_sql = "SELECT COUNT(*) FROM view_categoryFullname"
+      self.cursor.execute(count_sql)
+      total = self.cursor.fetchone()[0]
+      
+      # Get paginated data
+      sql = "SELECT id, name, fullname FROM view_categoryFullname ORDER BY fullname LIMIT %s OFFSET %s"
+      self.cursor.execute(sql, (page_size, offset))
       results = self.cursor.fetchall()
-      return [
+      
+      categories = [
          {
             'id': row[0],
             'name': row[1],
@@ -87,18 +111,49 @@ class CategoryRepository(BaseRepository):
          }
          for row in results
       ]
+      
+      return {
+         'categories': categories,
+         'page': page,
+         'page_size': page_size,
+         'total': total
+      }
 
    def get_all_with_parent(self) -> list[dict]:
       """
-      Get all categories with their parent category information.
+      Get all categories with their parent category information (legacy: returns all).
       
       Returns:
          List of dicts with 'id', 'name', and 'parent_id' keys
       """
-      sql = "SELECT id, name, category FROM tbl_category ORDER BY name"
-      self.cursor.execute(sql)
+      return self.get_all_with_parent_paginated(page=1, page_size=1000000)['categories']
+
+   def get_all_with_parent_paginated(self, page: int = 1, page_size: int = 100) -> dict:
+      """
+      Get paginated categories with their parent category information.
+      
+      Args:
+         page: Page number (1-based)
+         page_size: Number of records per page (max 1000)
+
+      Returns:
+         Dict with 'categories' list, 'page', 'page_size', and 'total' count
+      """
+      page = max(1, page)
+      page_size = min(max(1, page_size), 1000)
+      offset = (page - 1) * page_size
+      
+      # Get total count
+      count_sql = "SELECT COUNT(*) FROM tbl_category"
+      self.cursor.execute(count_sql)
+      total = self.cursor.fetchone()[0]
+      
+      # Get paginated data
+      sql = "SELECT id, name, category FROM tbl_category ORDER BY name LIMIT %s OFFSET %s"
+      self.cursor.execute(sql, (page_size, offset))
       results = self.cursor.fetchall()
-      return [
+      
+      categories = [
          {
             'id': row[0],
             'name': row[1],
@@ -106,6 +161,13 @@ class CategoryRepository(BaseRepository):
          }
          for row in results
       ]
+      
+      return {
+         'categories': categories,
+         'page': page,
+         'page_size': page_size,
+         'total': total
+      }
 
    def update_category(self, category_id: int, new_name: str, parent_category_id: int = None) -> bool:
       """
