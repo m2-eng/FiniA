@@ -53,6 +53,24 @@ async def get_categories_hierarchy(
     return {"categories": result['categories'], "page": result['page'], "page_size": result['page_size'], "total": result['total']}
 
 
+@router.get("/list")
+@handle_db_errors("fetch categories list")
+async def list_categories_simple(cursor=Depends(get_db_cursor)):
+    """
+    Get simple list of all categories with id and fullname for dropdowns.
+    """
+    query = """
+        SELECT id, fullname
+        FROM view_categoryFullname
+        ORDER BY fullname
+    """
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    
+    categories = [{"id": row[0], "fullname": row[1]} for row in rows]
+    return {"categories": categories}
+
+
 @router.get("/{category_id}")
 @handle_db_errors("fetch category")
 async def get_category(category_id: int, cursor=Depends(get_db_cursor)):
