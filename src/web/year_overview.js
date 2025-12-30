@@ -18,10 +18,31 @@ const MONTH_HEADERS = [
   'Jahresbilanz'
 ];
 
+// Wertpapier Header-Definition
+const SECURITIES_HEADERS = [
+  'Wertpapier',
+  'Januar',
+  'Februar',
+  'März',
+  'April',
+  'Mai',
+  'Juni',
+  'Juli',
+  'August',
+  'September',
+  'Oktober',
+  'November',
+  'Dezember',
+  'Dividende'
+];
+
 // Generische Tabellen-Render-Funktion (wiederverwendbar)
-function renderTableGeneric(tableId, rows) {
+function renderTableGeneric(tableId, rows, headers = null) {
   const table = document.getElementById(tableId);
   if (!table) return;
+
+  // Wähle Header basierend auf Tabellen-ID
+  const headersToUse = headers || (tableId === 'securities-table' ? SECURITIES_HEADERS : MONTH_HEADERS);
 
   const thead = table.querySelector('thead');
   const tbody = table.querySelector('tbody');
@@ -29,7 +50,7 @@ function renderTableGeneric(tableId, rows) {
   tbody.innerHTML = '';
 
   const headerRow = document.createElement('tr');
-  MONTH_HEADERS.forEach(h => {
+  headersToUse.forEach(h => {
     const th = document.createElement('th');
     th.textContent = h;
     headerRow.appendChild(th);
@@ -38,7 +59,7 @@ function renderTableGeneric(tableId, rows) {
 
   rows.forEach(row => {
     const tr = document.createElement('tr');
-    MONTH_HEADERS.forEach(key => {
+    headersToUse.forEach(key => {
       const td = document.createElement('td');
       const value = row[key] ?? '';
       if (typeof value === 'number') {
@@ -66,7 +87,7 @@ function getSelectedYear() {
 const engine = new TableEngine(TABLE_CONFIGS);
 
 // Tabellen-IDs für diese Seite
-const PAGE_TABLES = ['balances-table', 'monthly-table', 'loans-table'];
+const PAGE_TABLES = ['balances-table', 'monthly-table', 'loans-table', 'securities-table'];
 
 // Initialisierung der Jahresübersicht
 function initYearOverview() {
@@ -84,7 +105,8 @@ function initYearOverview() {
   const refreshBindings = [
     { btn: 'balances-refresh', table: 'balances-table' },
     { btn: 'monthly-refresh', table: 'monthly-table' },
-    { btn: 'loans-refresh', table: 'loans-table' }
+    { btn: 'loans-refresh', table: 'loans-table' },
+    { btn: 'securities-refresh', table: 'securities-table' }
   ];
   refreshBindings.forEach(({ btn, table }) => {
     const el = document.getElementById(btn);

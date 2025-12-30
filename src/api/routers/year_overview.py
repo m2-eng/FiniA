@@ -227,3 +227,39 @@ async def get_loans(
     data = [dict(zip(columns, row)) for row in rows]
 
     return {"year": year, "rows": data}
+
+
+@router.get("/securities")
+@handle_db_errors("fetch securities overview")
+async def get_securities_overview(year: int = Query(...), cursor=Depends(get_db_cursor)):
+    """Get securities portfolio values for each month-end of the given year.
+    Only includes shares that have at least one month with volume > 0 (were actually held)."""
+    query = """
+        SELECT 
+            share_name AS Wertpapier,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 1 THEN portfolio_value END), 0) AS Januar,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 2 THEN portfolio_value END), 0) AS Februar,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 3 THEN portfolio_value END), 0) AS März,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 4 THEN portfolio_value END), 0) AS April,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 5 THEN portfolio_value END), 0) AS Mai,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 6 THEN portfolio_value END), 0) AS Juni,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 7 THEN portfolio_value END), 0) AS Juli,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 8 THEN portfolio_value END), 0) AS August,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 9 THEN portfolio_value END), 0) AS September,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 10 THEN portfolio_value END), 0) AS Oktober,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 11 THEN portfolio_value END), 0) AS November,
+            COALESCE(MAX(CASE WHEN MONTH(month_end_date) = 12 THEN portfolio_value END), 0) AS Dezember,
+            0 AS Dividende
+        FROM view_shareMonthlySnapshot
+        WHERE YEAR(month_end_date) = %s
+        GROUP BY share_id, share_name
+        HAVING MAX(volume) > 0
+        ORDER BY share_name ASC
+    """
+    
+    params = (year,)
+    rows, description = _execute_fetchall_with_retry(cursor, query, params, retries=1)
+    columns = [col[0] for col in description]
+    data = [dict(zip(columns, row)) for row in rows]
+
+    return {"year": year, "rows": data}

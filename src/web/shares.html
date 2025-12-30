@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FiniA - Aktien & Wertpapiere</title>
+  <style id="dynamic-theme">/* Theme variables loaded from API */</style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>FiniA - Finanzverwaltung</h1>
+    <div id="top-nav"></div>
+  </header>
+  <div class="container">
+    <!-- Shares Table -->
+    <div class="page-card">
+      <div class="details-header">
+        <div>
+          <h3>Wertpapiere</h3>
+          <p class="details-meta">Verwalten Sie Ihre Wertpapiere und Aktien.</p>
+        </div>
+      </div>
+      <div class="search-bar" style="margin-bottom: 8px;">
+        <input type="text" id="sharesSearchInput" placeholder="Suchen (Name, ISIN, WKN)">
+      </div>
+      <div class="details-toolbar" style="margin-bottom: 8px;">
+        <button class="btn" id="refreshSharesBtn">Aktualisieren</button>
+        <button class="btn" id="addShareBtn">+ Hinzufügen</button>
+      </div>
+      <div class="details-toolbar shares-filter-toggle" style="margin-bottom: 8px;">
+        <button class="btn btn-secondary active" data-shares-filter="in_stock">Wertpapiere im Bestand</button>
+        <button class="btn btn-secondary" data-shares-filter="all">Alle Wertpapiere</button>
+      </div>
+      <div class="table-wrapper" style="overflow-x:auto;">
+        <table id="sharesTable" class="simple-table equal-cols">
+          <colgroup>
+            <col style="width: 22%;">
+            <col style="width: 12%;">
+            <col style="width: 15%;">
+            <col style="width: 12%;">
+            <col style="width: 12%;">
+            <col style="width: 14%;">
+            <col style="width: 13%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th class="sortable" data-sort="name">Name</th>
+              <th class="sortable" data-sort="wkn">WKN</th>
+              <th class="sortable" data-sort="isin">ISIN</th>
+              <th class="sortable" data-sort="currentVolume">Anteile</th>
+              <th class="sortable" data-sort="currentPrice">Kurs</th>
+              <th class="sortable" data-sort="portfolioValue">Gesamtwert</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="sharesTbody">
+            <!-- Dynamisch geladen -->
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="sharesPagination"></div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="page-card" style="margin-bottom: 20px;">
+        <div class="details-header">
+          <div>
+            <h3>Wertpapiertransaktionen</h3>
+            <p class="details-meta">Alle Kauf- und Verkaufstransaktionen Ihrer Wertpapiere.</p>
+          </div>
+        </div>
+        <div class="search-bar" style="margin-bottom: 8px;">
+          <input type="text" id="transactionsSearchInput" placeholder="Suchen (Wertpapier, ISIN, WKN)">
+        </div>
+        <div class="details-toolbar" style="margin-bottom: 8px;">
+          <button class="btn" id="refreshTransactionsBtn">Aktualisieren</button>
+          <button class="btn" id="addTransactionBtn">+ Hinzufügen</button>
+          <button class="btn" id="importTransactionsTableBtn">Importieren</button>
+        </div>
+        <div class="table-wrapper" style="overflow-x:auto;">
+          <table id="transactionsTable" class="simple-table equal-cols">
+            <colgroup>
+              <col style="width: 14%;">
+              <col style="width: 36%;">
+              <col style="width: 12%;">
+              <col style="width: 12%;">
+              <col style="width: 12%;">
+              <col style="width: 14%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="dateTransaction">Datum</th>
+                <th class="sortable" data-sort="share_name">Wertpapier</th>
+                <th class="sortable" data-sort="tradingVolume">Anteile</th>
+                <th class="sortable" data-sort="wkn">WKN</th>
+                <th class="sortable" data-sort="isin">ISIN</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="transactionsTbody">
+              <!-- Dynamisch geladen -->
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="transactionsPagination"></div>
+      </div>
+
+    <!-- History Table -->
+    <div class="page-card">
+        <div class="details-header">
+          <div>
+            <h3>Wertpapierhistorie</h3>
+            <p class="details-meta">Historische Kurse und Werte Ihrer Wertpapiere.</p>
+          </div>
+        </div>
+        <div class="search-bar" style="margin-bottom: 8px;">
+          <input type="text" id="historySearchInput" placeholder="Suchen (Name, ISIN, WKN)">
+        </div>
+        <div class="details-toolbar history-filter-toggle" style="margin-bottom: 8px;">
+          <button class="btn btn-secondary active" data-history-filter="unchecked">Nur ungeprüfte</button>
+          <button class="btn btn-secondary" data-history-filter="all">Alle Einträge</button>
+        </div>
+        <div class="details-toolbar" style="margin-bottom: 8px;">
+          <button class="btn" id="refreshHistoryBtn">Aktualisieren</button>
+          <button class="btn" id="addHistoryBtn">+ Hinzufügen</button>
+          <button class="btn" id="importHistoryTableBtn">Importieren</button>
+          <button class="btn" id="autoFillHistoryBtn">Fehlende Monatsenden ergänzen</button>
+        </div>
+        <div class="table-wrapper" style="overflow-x:auto;">
+          <table id="historyTable" class="simple-table equal-cols">
+            <colgroup>
+              <col style="width: 14%;">
+              <col style="width: 28%;">
+              <col style="width: 12%;">
+              <col style="width: 8%;">
+              <col style="width: 12%;">
+              <col style="width: 12%;">
+              <col style="width: 14%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="date">Datum</th>
+                <th class="sortable" data-sort="share_name">Wertpapier</th>
+                <th class="sortable" data-sort="amount">Betrag</th>
+                <th>Geprüft</th>
+                <th class="sortable" data-sort="wkn">WKN</th>
+                <th class="sortable" data-sort="isin">ISIN</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="historyTbody">
+              <!-- Dynamisch geladen -->
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="historyPagination"></div>
+      </div>
+    
+  </div>
+
+  <!-- Generic modal for add forms -->
+  <div id="formModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle"></h3>
+        <button class="btn-ghost" id="modalCloseBtn" aria-label="Schließen">X</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="modalCancelBtn">Abbrechen</button>
+        <button class="btn" id="modalSaveBtn">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="table_config.js"></script>
+  <script src="table_engine.js"></script>
+  <script src="shares.js"></script>
+</body>
+</html>
