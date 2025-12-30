@@ -3,7 +3,7 @@ Loan management API router
 """
 
 from fastapi import APIRouter, Depends, Query, HTTPException, Path, Body
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel
 from api.dependencies import get_db_cursor, get_db_connection
 from api.error_handling import handle_db_errors
@@ -13,6 +13,7 @@ router = APIRouter(prefix="/loans", tags=["loans"])
 
 
 class LoanBase(BaseModel):
+    """Base model for loan data"""
     intrestRate: Optional[float] = None
     account: int
     categoryRebooking: Optional[int] = None
@@ -20,16 +21,13 @@ class LoanBase(BaseModel):
 
 
 class LoanCreate(LoanBase):
+    """Model for creating a new loan"""
     pass
 
 
 class LoanUpdate(LoanBase):
+    """Model for updating an existing loan"""
     pass
-
-
-class LoanResponse(LoanBase):
-    id: int
-    dateImport: str
 
 
 @router.get("/list")

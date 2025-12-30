@@ -5,7 +5,7 @@ Endpoints for managing shares, transactions, and price history
 
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from api.dependencies import get_db_cursor, get_db_connection
-from api.error_handling import handle_db_errors
+from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 import csv
 import io
 from datetime import datetime, date, timedelta
@@ -15,26 +15,6 @@ from repositories.share_history_repository import ShareHistoryRepository
 from repositories.share_transaction_repository import ShareTransactionRepository
 
 router = APIRouter(tags=["shares"])
-
-
-def safe_commit(connection):
-    """Safely commit changes to database"""
-    try:
-        if connection:
-            connection.commit()
-        return True
-    except Exception as e:
-        print(f"Commit error: {e}")
-        return False
-
-
-def safe_rollback(connection):
-    """Safely rollback changes"""
-    try:
-        if connection:
-            connection.rollback()
-    except Exception:
-        pass
 
 
 @router.get("/shares/")

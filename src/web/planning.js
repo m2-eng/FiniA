@@ -188,13 +188,6 @@ function formatCurrency(amount) {
   return `€ ${num.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`;
 }
 
-// Format date
-function formatDate(dateString) {
-  if (!dateString) return '-';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
 function isPlanningActive(planning) {
   const now = new Date();
   const start = planning.dateStart ? new Date(planning.dateStart) : null;
@@ -314,80 +307,20 @@ function toDateInputValue(value) {
 
 // Populate account select
 function populateAccountSelect() {
-  const select = document.getElementById('accountSelect');
-  if (!select) return;
-  
-  select.innerHTML = '<option value="">-- Konto wählen --</option>';
-  allAccounts.forEach(account => {
-    const option = document.createElement('option');
-    option.value = String(account.id);
-    option.textContent = account.name;
-    select.appendChild(option);
-  });
-
-  // Populate detail account select
-  const detailSelect = document.getElementById('detailAccount');
-  if (detailSelect) {
-    detailSelect.innerHTML = '<option value="">-</option>';
-    allAccounts.forEach(account => {
-      const option = document.createElement('option');
-      option.value = String(account.id);
-      option.textContent = account.name;
-      detailSelect.appendChild(option);
-    });
-  }
+  populateDropdown('accountSelect', allAccounts, 'name', '-- Konto wählen --');
+  populateDropdown('detailAccount', allAccounts, 'name', '-');
 }
 
 // Populate category select
 function populateCategorySelect() {
-  const select = document.getElementById('categorySelect');
-  if (!select) return;
-  
-  select.innerHTML = '<option value="">-- Kategorie wählen --</option>';
-  allCategories.forEach(category => {
-    const option = document.createElement('option');
-    option.value = String(category.id);
-    option.textContent = category.fullname;
-    select.appendChild(option);
-  });
-
-  // Populate detail category select
-  const detailSelect = document.getElementById('detailCategory');
-  if (detailSelect) {
-    detailSelect.innerHTML = '<option value="">-</option>';
-    allCategories.forEach(category => {
-      const option = document.createElement('option');
-      option.value = String(category.id);
-      option.textContent = category.fullname;
-      detailSelect.appendChild(option);
-    });
-  }
+  populateDropdown('categorySelect', allCategories, 'fullname', '-- Kategorie wählen --');
+  populateDropdown('detailCategory', allCategories, 'fullname', '-');
 }
 
 // Populate cycle select
 function populateCycleSelect() {
-  const select = document.getElementById('cycleSelect');
-  if (!select) return;
-  
-  select.innerHTML = '<option value="">-- Zyklus wählen --</option>';
-  allCycles.forEach(cycle => {
-    const option = document.createElement('option');
-    option.value = String(cycle.id);
-    option.textContent = cycle.cycle;
-    select.appendChild(option);
-  });
-
-  // Populate detail cycle select
-  const detailSelect = document.getElementById('detailCycle');
-  if (detailSelect) {
-    detailSelect.innerHTML = '<option value="">-</option>';
-    allCycles.forEach(cycle => {
-      const option = document.createElement('option');
-      option.value = String(cycle.id);
-      option.textContent = cycle.cycle;
-      detailSelect.appendChild(option);
-    });
-  }
+  populateDropdown('cycleSelect', allCycles, 'cycle', '-- Zyklus wählen --');
+  populateDropdown('detailCycle', allCycles, 'cycle', '-');
 }
 
 // Show create dialog

@@ -35,11 +35,6 @@ function formatCurrency(amount) {
   return `€ ${num.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, ' ')}`;
 }
 
-function formatDate(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-}
-
 function truncateText(text, maxLength = 50) {
   if (!text) return '-';
   return text.length > maxLength ? text.substring(0, maxLength - 3) + '...' : text;

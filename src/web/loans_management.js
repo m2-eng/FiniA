@@ -20,8 +20,8 @@ async function initLoansPage() {
 
 async function loadLoans() {
   try {
-    document.getElementById('loadingIndicator').style.display = 'block';
-    document.getElementById('errorMessage').style.display = 'none';
+    showLoading();
+    hideMessage();
     
     const response = await fetch(`${API_BASE}/loans/list`);
     const data = await response.json();
@@ -30,13 +30,12 @@ async function loadLoans() {
     cachedLoans = allLoans;
     
     filterAndDisplayLoans();
-    document.getElementById('loadingIndicator').style.display = 'none';
+    hideLoading();
     document.getElementById('loansTable').style.display = 'table';
   } catch (error) {
     console.error('Failed to load loans:', error);
-    document.getElementById('errorMessage').style.display = 'block';
-    document.getElementById('errorMessage').textContent = 'Fehler beim Laden der Darlehen: ' + error.message;
-    document.getElementById('loadingIndicator').style.display = 'none';
+    showError('Fehler beim Laden der Darlehen: ' + error.message);
+    hideLoading();
   }
 }
 
@@ -65,65 +64,21 @@ async function loadCategories() {
 }
 
 function populateAccountDropdown() {
-  const dropdown = document.getElementById('loanAccount');
-  if (!dropdown) return;
-  const currentValue = dropdown.value;
-  dropdown.innerHTML = '<option value="">-- Konto wählen --</option>';
-  allAccounts.forEach(account => {
-    const option = document.createElement('option');
-    option.value = account.id;
-    option.textContent = account.name;
-    dropdown.appendChild(option);
-  });
-  if (currentValue) dropdown.value = currentValue;
+  populateDropdown('loanAccount', allAccounts, 'name', '-- Konto wählen --');
 }
 
 function populateCategoryDropdowns() {
-  const dropdowns = ['loanCategoryRebooking', 'loanCategoryIntrest'];
-  dropdowns.forEach(dropdownId => {
-    const dropdown = document.getElementById(dropdownId);
-    if (!dropdown) return;
-    const currentValue = dropdown.value;
-    dropdown.innerHTML = '<option value="">-- Kategorie wählen --</option>';
-    allCategories.forEach(category => {
-      const option = document.createElement('option');
-      option.value = category.id;
-      option.textContent = category.fullname;
-      dropdown.appendChild(option);
-    });
-    if (currentValue) dropdown.value = currentValue;
-  });
+  populateDropdown('loanCategoryRebooking', allCategories, 'fullname', '-- Kategorie wählen --');
+  populateDropdown('loanCategoryIntrest', allCategories, 'fullname', '-- Kategorie wählen --');
 }
 
 function filterAndDisplayLoans() {
-  let filtered = allLoans;
+  // Apply search filter
+  let filtered = filterBySearch(allLoans, searchTerm, ['accountName', 'intrestRate']);
   
-  if (searchTerm) {
-    filtered = allLoans.filter(loan => {
-      const accountName = (loan.accountName || '').toLowerCase();
-      const intrestRate = (loan.intrestRate || '').toString().toLowerCase();
-      const term = searchTerm.toLowerCase();
-      return accountName.includes(term) || intrestRate.includes(term);
-    });
-  }
-  
+  // Apply sorting
   if (currentSortColumn) {
-    filtered.sort((a, b) => {
-      let aVal = a[currentSortColumn];
-      let bVal = b[currentSortColumn];
-      
-      if (aVal === null || aVal === undefined) aVal = '';
-      if (bVal === null || bVal === undefined) bVal = '';
-      
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-      
-      if (aVal < bVal) return currentSortDirection === 'asc' ? -1 : 1;
-      if (aVal > bVal) return currentSortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
+    filtered = sortTableData(filtered, currentSortColumn, currentSortDirection);
   }
   
   cachedLoans = filtered;
@@ -135,9 +90,7 @@ function displayLoansPage() {
   const tbody = document.getElementById('loansBody');
   tbody.innerHTML = '';
   
-  const start = (currentPage - 1) * itemsPerPage;
-  const end = start + itemsPerPage;
-  const pageItems = cachedLoans.slice(start, end);
+  const pageItems = getPaginatedData(cachedLoans, currentPage, itemsPerPage);
   
   pageItems.forEach(loan => {
     const row = document.createElement('tr');
@@ -160,48 +113,11 @@ function displayLoansPage() {
     tbody.appendChild(row);
   });
   
-  displayPagination();
+  displayPagination('pagination', currentPage, cachedLoans.length, itemsPerPage, (page) => {
+    currentPage = page;
+    displayLoansPage();
+  });
 }
-
-function displayPagination() {
-  const totalPages = Math.ceil(cachedLoans.length / itemsPerPage);
-  const paginationDiv = document.getElementById('pagination');
-  paginationDiv.innerHTML = '';
-  
-  if (totalPages <= 1) return;
-  
-  for (let i = 1; i <= totalPages; i++) {
-    const btn = document.createElement('button');
-    btn.textContent = i;
-    btn.className = i === currentPage ? 'btn-active' : '';
-    btn.onclick = () => {
-      currentPage = i;
-      displayLoansPage();
-    };
-    paginationDiv.appendChild(btn);
-  }
-}
-
-function sortLoans(column) {
-  if (currentSortColumn === column) {
-    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
-  } else {
-    currentSortColumn = column;
-    currentSortDirection = 'asc';
-  }
-  filterAndDisplayLoans();
-}
-
-function resetSearch() {
-  document.getElementById('searchInput').value = '';
-  searchTerm = '';
-  filterAndDisplayLoans();
-}
-
-document.getElementById('searchInput')?.addEventListener('keyup', (e) => {
-  searchTerm = e.target.value;
-  filterAndDisplayLoans();
-});
 
 async function selectLoan(loanId) {
   try {
@@ -337,30 +253,38 @@ function resetForm() {
   document.getElementById('loanCategoryRebooking').value = '';
   document.getElementById('loanCategoryIntrest').value = '';
   
-  document.getElementById('errorMessage').style.display = 'none';
+  hideMessage();
 }
 
-function showError(message) {
-  const errorDiv = document.getElementById('errorMessage');
-  errorDiv.textContent = message;
-  errorDiv.style.display = 'block';
+function sortLoans(column) {
+  if (currentSortColumn === column) {
+    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentSortColumn = column;
+    currentSortDirection = 'asc';
+  }
+  filterAndDisplayLoans();
 }
 
-function showSuccess(message) {
-  const errorDiv = document.getElementById('errorMessage');
-  errorDiv.textContent = message;
-  errorDiv.className = 'error';
-  errorDiv.style.display = 'block';
-  setTimeout(() => {
-    errorDiv.style.display = 'none';
-  }, 3000);
+function resetSearch() {
+  document.getElementById('searchInput').value = '';
+  searchTerm = '';
+  filterAndDisplayLoans();
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+// Setup event listeners after page init
+function setupLoansEventListeners() {
+  const searchInput = document.getElementById('searchInput');
+  if (searchInput) {
+    searchInput.addEventListener('keyup', (e) => {
+      searchTerm = e.target.value;
+      filterAndDisplayLoans();
+    });
+  }
 }
 
-// Load theme on page load
-document.addEventListener('DOMContentLoaded', loadTheme);
+// Initialize on page load - called from HTML
+async function initLoansPageComplete() {
+  await initLoansPage();
+  setupLoansEventListeners();
+}

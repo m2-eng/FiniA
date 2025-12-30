@@ -31,33 +31,12 @@ async function loadCategories() {
 }
 
 function populateAccountDropdown() {
-  const filterDropdown = document.getElementById('accountFilter');
-  const ruleDropdown = document.getElementById('ruleAccount');
-  
-  filterDropdown.innerHTML = '<option value="">-- Alle Konten --</option>';
-  ruleDropdown.innerHTML = '<option value="">-- Konto wählen --</option>';
-  
-  allAccounts.forEach(account => {
-    const option1 = document.createElement('option');
-    option1.value = account.id;
-    option1.textContent = account.name;
-    filterDropdown.appendChild(option1);
-    
-    const option2 = option1.cloneNode(true);
-    ruleDropdown.appendChild(option2);
-  });
+  populateDropdown('accountFilter', allAccounts, 'name', '-- Alle Konten --');
+  populateDropdown('ruleAccount', allAccounts, 'name', '-- Konto wählen --');
 }
 
 function populateCategoryDropdown() {
-  const dropdown = document.getElementById('ruleCategory');
-  dropdown.innerHTML = '<option value="">-- Kategorie wählen --</option>';
-  
-  allCategories.forEach(cat => {
-    const option = document.createElement('option');
-    option.value = cat.id;
-    option.textContent = cat.fullname;
-    dropdown.appendChild(option);
-  });
+  populateDropdown('ruleCategory', allCategories, 'fullname', '-- Kategorie wählen --');
 }
 
 function onRuleTypeChange() {
