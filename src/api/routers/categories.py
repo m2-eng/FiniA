@@ -2,7 +2,7 @@
 Categories API Router
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from repositories.category_repository import CategoryRepository
 from api.dependencies import get_db_cursor, get_db_connection
 from api.models import CategoryResponse, CategoryCreateRequest, CategoryUpdateRequest
@@ -13,28 +13,44 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 
 @router.get("/")
 @handle_db_errors("fetch categories")
-async def get_categories(cursor=Depends(get_db_cursor)):
+async def get_categories(
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(100, ge=1, le=1000, description="Records per page"),
+    cursor=Depends(get_db_cursor)
+):
     """
-    Get all categories with their full hierarchical names.
+    Get paginated categories with their full hierarchical names.
     
-    Returns a list of categories from view_categoryFullname with their fullname.
+    Args:
+        page: Page number (1-based, default 1)
+        page_size: Number of records per page (default 100, max 1000)
+    
+    Returns a paginated list of categories from view_categoryFullname with their fullname.
     """
     repo = CategoryRepository(cursor)
-    categories = repo.get_all_fullnames()
-    return {"categories": categories}
+    result = repo.get_all_fullnames_paginated(page=page, page_size=page_size)
+    return {"categories": result['categories'], "page": result['page'], "page_size": result['page_size'], "total": result['total']}
 
 
 @router.get("/hierarchy")
 @handle_db_errors("fetch category hierarchy")
-async def get_categories_hierarchy(cursor=Depends(get_db_cursor)):
+async def get_categories_hierarchy(
+    page: int = Query(1, ge=1, description="Page number (1-based)"),
+    page_size: int = Query(100, ge=1, le=1000, description="Records per page"),
+    cursor=Depends(get_db_cursor)
+):
     """
-    Get all categories with parent information for building a tree structure.
+    Get paginated categories with parent information for building a tree structure.
     
-    Returns a list of categories with their parent_id for hierarchical display.
+    Args:
+        page: Page number (1-based, default 1)
+        page_size: Number of records per page (default 100, max 1000)
+    
+    Returns a paginated list of categories with their parent_id for hierarchical display.
     """
     repo = CategoryRepository(cursor)
-    categories = repo.get_all_with_parent()
-    return {"categories": categories}
+    result = repo.get_all_with_parent_paginated(page=page, page_size=page_size)
+    return {"categories": result['categories'], "page": result['page'], "page_size": result['page_size'], "total": result['total']}
 
 
 @router.get("/{category_id}")

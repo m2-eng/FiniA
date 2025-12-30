@@ -68,6 +68,26 @@ class Database:
       
       return False
       
+   def create_connection(self, use_database: bool = True):
+      """
+      Create and return a NEW MySQL connection (independent of the persistent one).
+      Useful for per-request isolation to avoid shared-connection contention.
+      """
+      try:
+         conn = mysql.connector.connect(
+            host=self.host,
+            user=self.user,
+            password=self.password,
+            database=self.database_name if use_database else None,
+            port=self.port,
+            autocommit=True,
+            use_pure=False,
+         )
+         return conn
+      except Error as e:
+         print(f"Error creating new connection: {e}")
+         return None
+
       
    def close(self) -> None:
       """Close database connection safely."""

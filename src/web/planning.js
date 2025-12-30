@@ -83,7 +83,7 @@ async function loadCycles() {
   }
 }
 
-// Load all plannings
+// Load all plannings (with pagination, loading all pages)
 async function loadPlannings() {
   const loadingIndicator = document.getElementById('loadingIndicator');
   const planningsTable = document.getElementById('planningsTable');
@@ -94,11 +94,26 @@ async function loadPlannings() {
   if (errorMessage) errorMessage.style.display = 'none';
 
   try {
-    const response = await fetch(`${API_BASE}/planning/`);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    allPlannings = [];
+    let page = 1;
+    let hasMore = true;
+    const pageSize = 200;
 
-    const data = await response.json();
-    allPlannings = data.plannings || [];
+    // Load all pages sequentially
+    while (hasMore) {
+      const response = await fetch(`${API_BASE}/planning/?page=${page}&page_size=${pageSize}`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      if (data.plannings && data.plannings.length > 0) {
+        allPlannings = allPlannings.concat(data.plannings);
+        page++;
+        hasMore = data.plannings.length === pageSize;
+      } else {
+        hasMore = false;
+      }
+    }
+
     filteredPlannings = [...allPlannings];
     const previousSelection = selectedPlanningId;
     const validIds = new Set(allPlannings.map(p => p.id));
@@ -544,7 +559,7 @@ function renderPlanningDetails(planning) {
 
   // Set values after dropdowns are populated
   descriptionInput.value = planning.description || '';
-  amountInput.value = planning.amount;
+  amountInput.value = parseFloat(planning.amount).toFixed(2);
   
   // Debug logging
   console.log('Planning account_id:', planning.account_id, 'Type:', typeof planning.account_id);
