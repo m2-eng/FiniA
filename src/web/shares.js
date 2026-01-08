@@ -7,12 +7,20 @@ const sharesSort = { by: 'name', dir: 'asc' };
 const transactionsSort = { by: 'dateTransaction', dir: 'desc' };
 const historySort = { by: 'date', dir: 'desc' };
 let historyFilter = 'unchecked';
+let currentTransactionsPage = 1;
 
 // Local formatDate as fallback (also defined in utils.js)
 function formatDate(dateString) {
   if (!dateString) return '';
   const date = new Date(dateString);
   return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatDateTime(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+         date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
 }
 // Initialize shares page
 async function initSharesPage() {
@@ -253,8 +261,22 @@ async function loadShares(page = 1) {
     tbody.innerHTML = '';
     
     if (data.shares && data.shares.length > 0) {
+      // Summen berechnen
+      let sumPortfolioValue = 0;
+      let sumInvestments = 0;
+      let sumProceeds = 0;
+      let sumNet = 0;
+      let sumDividends = 0;
+      
       data.shares.forEach(share => {
+        sumPortfolioValue += share.portfolioValue || 0;
+        sumInvestments += share.investments || 0;
+        sumProceeds += share.proceeds || 0;
+        sumNet += share.net || 0;
+        sumDividends += share.dividends || 0;
+        
         const row = document.createElement('tr');
+        const saldoClass = share.net < 0 ? 'amount-negative' : (share.net > 0 ? 'amount-positive' : '');
         row.innerHTML = `
           <td>${share.name || ''}</td>
           <td>${share.wkn || ''}</td>
@@ -262,6 +284,10 @@ async function loadShares(page = 1) {
           <td class="number">${formatShares(share.currentVolume)}</td>
           <td class="number">${formatCurrency(share.currentPrice)}</td>
           <td class="number" style="font-weight: bold;">${formatCurrency(share.portfolioValue)}</td>
+          <td class="number">${formatCurrency(share.investments)}</td>
+          <td class="number">${formatCurrency(share.proceeds)}</td>
+          <td class="number ${saldoClass}" style="font-weight: bold;">${formatCurrency(share.net)}</td>
+          <td class="number">${formatCurrency(share.dividends || 0)}</td>
           <td class="actions-cell">
             <div class="action-buttons">
               <button class="action-btn" data-action="edit-share" data-id="${share.id}">Bearbeiten</button>
@@ -271,8 +297,28 @@ async function loadShares(page = 1) {
         `;
         tbody.appendChild(row);
       });
+      
+      // Summen-Zeile hinzufügen
+      const sumRow = document.createElement('tr');
+      const sumSaldoClass = sumNet < 0 ? 'amount-negative' : (sumNet > 0 ? 'amount-positive' : '');
+      sumRow.style.borderTop = '2px solid var(--border-color)';
+      sumRow.style.fontWeight = 'bold';
+      sumRow.innerHTML = `
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td></td>
+        <td class="number">${formatCurrency(sumPortfolioValue)}</td>
+        <td class="number">${formatCurrency(sumInvestments)}</td>
+        <td class="number">${formatCurrency(sumProceeds)}</td>
+        <td class="number ${sumSaldoClass}">${formatCurrency(sumNet)}</td>
+        <td class="number">${formatCurrency(sumDividends)}</td>
+        <td></td>
+      `;
+      tbody.appendChild(sumRow);
     } else {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Keine Wertpapiere gefunden</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align: center;">Keine Wertpapiere gefunden</td></tr>';
     }
     
     updatePagination('sharesPagination', data.page, data.page_size, data.total, 'loadShares');
@@ -328,6 +374,12 @@ async function loadTransactions(page = 1) {
     const sortQuery = transactionsSort.by ? `&sort_by=${encodeURIComponent(transactionsSort.by)}&sort_dir=${encodeURIComponent(transactionsSort.dir)}` : '';
     const response = await fetch(`${API_BASE}/shares/transactions?page=${page}&page_size=${PAGE_SIZE}${searchQuery}${sortQuery}`);
     const data = await response.json();
+
+    currentTransactionsPage = data.page || page || 1;
+    const totalPages = data.page_size && data.total ? Math.max(1, Math.ceil(data.total / data.page_size)) : null;
+    if (totalPages && currentTransactionsPage > totalPages) {
+      return loadTransactions(totalPages);
+    }
     
     const tbody = document.getElementById('transactionsTbody');
     tbody.innerHTML = '';
@@ -336,12 +388,12 @@ async function loadTransactions(page = 1) {
       data.transactions.forEach(tx => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td>${formatDate(tx.dateTransaction)}</td>
-          <td>${tx.share_name || ''}</td>
-          <td>${parseFloat(tx.tradingVolume).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-          <td>${tx.wkn || ''}</td>
-          <td>${tx.isin || ''}</td>
-          <td class="actions-cell">
+          <td class="col-datum">${formatDateTime(tx.dateTransaction)}</td>
+          <td class="col-isin">${tx.isin || ''}</td>
+          <td class="col-wertpapier">${tx.share_name || ''}</td>
+          <td class="col-betrag" style="text-align: right;">${tx.accountingEntry_amount ? formatCurrency(tx.accountingEntry_amount) : '-'}</td>
+          <td class="col-anteile" style="text-align: right;">${parseFloat(tx.tradingVolume).toLocaleString('de-DE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+          <td class="col-aktionen actions-cell" style="text-align: center;">
             <div class="action-buttons">
               <button class="action-btn" data-action="edit-transaction" data-id="${tx.id}">Bearbeiten</button>
               <button class="action-btn delete" data-action="delete-transaction" data-id="${tx.id}">Löschen</button>
@@ -393,25 +445,23 @@ async function loadHistory(page = 1) {
     if (data.history && data.history.length > 0) {
       data.history.forEach(item => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-          <td>${formatDate(item.date)}</td>
-          <td>${item.share_name || ''}</td>
-          <td>${formatCurrency(item.amount)}</td>
-          <td>${formatCheckedBadge(item.checked)}</td>
-          <td>${item.wkn || ''}</td>
-          <td>${item.isin || ''}</td>
-          <td class="actions-cell">
-            <div class="action-buttons">
-              <button class="action-btn success" data-action="check-history" data-id="${item.id}">Geprüft</button>
-              <button class="action-btn" data-action="edit-history" data-id="${item.id}">Bearbeiten</button>
-              <button class="action-btn delete" data-action="delete-history" data-id="${item.id}">Löschen</button>
-            </div>
-          </td>
-        `;
+          row.innerHTML = `
+            <td class="col-datum">${formatDate(item.date)}</td>
+            <td class="col-wertpapier">${item.share_name || ''}</td>
+            <td class="col-betrag" style="text-align: right;">${formatCurrency(item.amount)}</td>
+            <td class="col-geprueft" style="text-align: center;">${formatCheckedBadge(item.checked)}</td>
+            <td class="col-aktionen actions-cell" style="text-align: center;">
+              <div class="action-buttons">
+                <button class="action-btn success" data-action="check-history" data-id="${item.id}">Geprüft</button>
+                <button class="action-btn" data-action="edit-history" data-id="${item.id}">Bearbeiten</button>
+                <button class="action-btn delete" data-action="delete-history" data-id="${item.id}">Löschen</button>
+              </div>
+            </td>
+          `;
         tbody.appendChild(row);
       });
     } else {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Keine Historien gefunden</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Keine Historien gefunden</td></tr>';
     }
     
     updatePagination('historyPagination', data.page, data.page_size, data.total, 'loadHistory');
@@ -661,18 +711,20 @@ async function ensureSharesOptions() {
   return sharesOptions;
 }
 
+// (definitions moved further down to avoid duplication)
+
 // Show add share dialog
 function showAddShareDialog() {
   showFormModal({
     title: 'Wertpapier hinzufügen',
     fields: [
-      { id: 'name', label: 'Name', type: 'text', placeholder: 'z.B. ETF Musterfonds', required: true },
-      { id: 'wkn', label: 'WKN', type: 'text', placeholder: 'optional' },
-      { id: 'isin', label: 'ISIN', type: 'text', placeholder: 'z.B. DE000ETFL235' }
+      { id: 'isin', label: 'ISIN (verpflichtend)', type: 'text', placeholder: 'z.B. DE000ETFL235', required: true },
+      { id: 'name', label: 'Name (optional)', type: 'text', placeholder: 'z.B. ETF Musterfonds', required: false },
+      { id: 'wkn', label: 'WKN (optional)', type: 'text', placeholder: 'z.B. ETFL23', required: false }
     ],
     onSubmit: async (values) => {
-      if (!values.wkn && !values.isin) {
-        alert('Bitte mindestens WKN oder ISIN angeben');
+      if (!values.isin || values.isin.trim() === '') {
+        alert('ISIN ist verpflichtend');
         return false;
       }
       return await addShare(values.name, values.wkn, values.isin);
@@ -688,12 +740,40 @@ async function showAddTransactionDialog() {
     fields: [
       { id: 'isin', label: 'Wertpapier', type: 'select', required: true, options: options },
       { id: 'date', label: 'Datum', type: 'date', required: true },
-      { id: 'volume', label: 'Anteile (negativ = Verkauf)', type: 'number', step: 'any', required: true }
+      { id: 'time', label: 'Uhrzeit', type: 'time', required: false },
+      { id: 'volume', label: 'Anteile (negativ = Verkauf)', type: 'number', step: 'any', required: true },
+      { id: 'accountingEntry', label: 'Buchungseintrag', type: 'select', required: false, options: [{ label: 'Lade...', value: '' }] },
+      { id: 'accountingDateFilter', label: 'Buchungen nach Datum (±7 Tage) filtern', type: 'checkbox', value: true }
     ],
     onSubmit: async (values) => {
-      return await addTransaction(values.isin, values.date, values.volume);
+      return await addTransaction(values.isin, values.date, values.time, values.volume, values.accountingEntry);
     }
   });
+
+  const volumeInput = document.getElementById('modal-input-volume');
+  const accountingSelect = document.getElementById('modal-input-accountingEntry');
+  const dateInput = document.getElementById('modal-input-date');
+  const dateFilterCheckbox = document.getElementById('modal-input-accountingDateFilter');
+
+  const refreshEntries = async () => {
+    const txType = deriveTxType(volumeInput.value);
+    const txDate = dateInput?.value;
+    const useDateFilter = dateFilterCheckbox ? dateFilterCheckbox.checked : false;
+    const entries = await fetchAccountingEntries({ type: txType || undefined, date: txDate, useDateFilter });
+    setAccountingSelectOptions(accountingSelect, entries, null);
+  };
+
+  if (volumeInput) {
+    volumeInput.addEventListener('input', refreshEntries);
+  }
+  if (dateInput) {
+    dateInput.addEventListener('change', refreshEntries);
+  }
+  if (dateFilterCheckbox) {
+    dateFilterCheckbox.addEventListener('change', refreshEntries);
+  }
+
+  await refreshEntries();
 }
 
 // Show add history dialog
@@ -721,9 +801,9 @@ async function addShare(name, wkn, isin) {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
-        name: name,
-        wkn: wkn || '',
-        isin: isin || ''
+        isin: isin || '',
+        name: name || '',
+        wkn: wkn || ''
       })
     });
     
@@ -752,7 +832,7 @@ async function updateShare(id, name, wkn, isin) {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({ name, wkn: wkn || '', isin: isin || '' })
+      body: new URLSearchParams({ isin: isin || '', name: name || '', wkn: wkn || '' })
     });
     const result = await response.json();
     if (response.ok && result.status === 'success') {
@@ -791,12 +871,22 @@ async function deleteShare(id) {
 }
 
 // Add new transaction via API
-async function addTransaction(isin, dateStr, volumeStr) {
+async function addTransaction(isin, dateStr, timeStr, volumeStr, accountingEntryId = null) {
   try {
     const dateISO = normalizeDateInput(dateStr);
     if (!dateISO) {
       showStatus('Ungültiges Datumsformat. Verwenden Sie DD.MM.YYYY oder wählen Sie ein Datum aus.', 'error');
       return false;
+    }
+
+    // Combine date and time into ISO datetime string
+    let dateTimeISO = dateISO;
+    if (timeStr && timeStr.trim() !== '') {
+      // timeStr is in format HH:MM from time input
+      dateTimeISO = `${dateISO}T${timeStr}:00`;
+    } else {
+      // Default time to 00:00:00 if no time provided
+      dateTimeISO = `${dateISO}T00:00:00`;
     }
 
     const volume = parseNumberInput(volumeStr);
@@ -805,23 +895,29 @@ async function addTransaction(isin, dateStr, volumeStr) {
       return false;
     }
     
+    const params = new URLSearchParams({
+      isin: isin,
+      dateTransaction: dateTimeISO,
+      tradingVolume: volume
+    });
+    
+    if (accountingEntryId) {
+      params.append('accountingEntryId', accountingEntryId);
+    }
+    
     const response = await fetch(`${API_BASE}/shares/transactions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: new URLSearchParams({
-        isin: isin,
-        dateTransaction: dateISO,
-        tradingVolume: volume
-      })
+      body: params
     });
     
     const result = await response.json();
     
     if (response.ok && result.status === 'success') {
       showStatus('Transaktion erfolgreich hinzugefügt', 'success');
-      await loadTransactions(1);
+      await loadTransactions(currentTransactionsPage);
       return true;
     } else {
       showStatus(`Fehler: ${result.message || 'Konnte Transaktion nicht hinzufügen'}`, 'error');
@@ -834,32 +930,49 @@ async function addTransaction(isin, dateStr, volumeStr) {
   }
 }
 
-async function updateTransaction(id, isin, dateStr, volumeStr) {
+async function updateTransaction(id, isin, dateStr, timeStr, volumeStr, accountingEntryId = null) {
   try {
     const dateISO = normalizeDateInput(dateStr);
     if (!dateISO) {
       showStatus('Ungültiges Datumsformat. Verwenden Sie DD.MM.YYYY oder wählen Sie ein Datum aus.', 'error');
       return false;
     }
+    
+    // Combine date and time into ISO datetime string
+    let dateTimeISO = dateISO;
+    if (timeStr && timeStr.trim() !== '') {
+      // timeStr is in format HH:MM from time input
+      dateTimeISO = `${dateISO}T${timeStr}:00`;
+    } else {
+      // Default time to 00:00:00 if no time provided
+      dateTimeISO = `${dateISO}T00:00:00`;
+    }
+    
     const volume = parseNumberInput(volumeStr);
     if (volume === null) {
       showStatus('Ungültige Anzahl Anteile', 'error');
       return false;
     }
 
+    const params = new URLSearchParams({
+      isin,
+      dateTransaction: dateTimeISO,
+      tradingVolume: volume
+    });
+    
+    if (accountingEntryId) {
+      params.append('accountingEntryId', accountingEntryId);
+    }
+
     const response = await fetch(`${API_BASE}/shares/transactions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        isin,
-        dateTransaction: dateISO,
-        tradingVolume: volume
-      })
+      body: params
     });
     const result = await response.json();
     if (response.ok && result.status === 'success') {
       showStatus('Transaktion aktualisiert', 'success');
-      await loadTransactions(1);
+      await loadTransactions(currentTransactionsPage);
       return true;
     }
     showStatus(`Fehler: ${result.message || 'Konnte Transaktion nicht aktualisieren'}`, 'error');
@@ -878,7 +991,7 @@ async function deleteTransaction(id) {
     const result = await response.json();
     if (response.ok && result.status === 'success') {
       showStatus('Transaktion gelöscht', 'success');
-      await loadTransactions(1);
+      await loadTransactions(currentTransactionsPage);
       return true;
     }
     showStatus(`Fehler: ${result.message || 'Konnte Transaktion nicht löschen'}`, 'error');
@@ -975,13 +1088,13 @@ function openEditShare(share) {
   showFormModal({
     title: 'Wertpapier bearbeiten',
     fields: [
-      { id: 'name', label: 'Name', type: 'text', required: true, value: share.name || '' },
-      { id: 'wkn', label: 'WKN', type: 'text', value: share.wkn || '' },
-      { id: 'isin', label: 'ISIN', type: 'text', value: share.isin || '' }
+      { id: 'name', label: 'Name', type: 'text', required: false, value: share.name || '' },
+      { id: 'isin', label: 'ISIN (verpflichtend)', type: 'text', required: true, value: share.isin || '' },
+      { id: 'wkn', label: 'WKN (optional)', type: 'text', required: false, value: share.wkn || '' }
     ],
     onSubmit: async (values) => {
-      if (!values.wkn && !values.isin) {
-        alert('Bitte mindestens WKN oder ISIN angeben');
+      if (!values.isin || values.isin.trim() === '') {
+        alert('ISIN ist verpflichtend');
         return false;
       }
       return await updateShare(share.id, values.name, values.wkn, values.isin);
@@ -991,17 +1104,73 @@ function openEditShare(share) {
 
 async function openEditTransaction(tx) {
   const options = await ensureSharesOptions();
+  
+  // Extract date and time from dateTransaction (format: YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD HH:MM:SS)
+  let dateValue = '';
+  let timeValue = '';
+  if (tx.dateTransaction) {
+    // Handle both formats: ISO 8601 (T separator) and MySQL format (space separator)
+    const dateTimeStr = tx.dateTransaction.replace(' ', 'T');
+    const parts = dateTimeStr.split('T');
+    dateValue = parts[0];
+    if (parts[1]) {
+      timeValue = parts[1].substring(0, 5); // HH:MM format
+    }
+  }
+  
   showFormModal({
     title: 'Transaktion bearbeiten',
     fields: [
       { id: 'isin', label: 'Wertpapier', type: 'select', required: true, options: options, value: tx.isin },
-      { id: 'date', label: 'Datum', type: 'date', required: true, value: tx.dateTransaction?.slice(0, 10) },
-      { id: 'volume', label: 'Anteile (negativ = Verkauf)', type: 'number', step: 'any', required: true, value: tx.tradingVolume }
+      { id: 'date', label: 'Datum', type: 'date', required: true, value: dateValue },
+      { id: 'time', label: 'Uhrzeit', type: 'time', required: false, value: timeValue },
+      { id: 'volume', label: 'Anteile (negativ = Verkauf)', type: 'number', step: 'any', required: true, value: tx.tradingVolume },
+      { id: 'accountingEntry', label: 'Buchungseintrag', type: 'select', required: false, options: [{ label: 'Lade...', value: '' }], value: tx.accountingEntry || '' },
+      { id: 'accountingDateFilter', label: 'Buchungen nach Datum (±7 Tage) filtern', type: 'checkbox', value: true }
     ],
     onSubmit: async (values) => {
-      return await updateTransaction(tx.id, values.isin, values.date, values.volume);
+      return await updateTransaction(tx.id, values.isin, values.date, values.time, values.volume, values.accountingEntry);
     }
   });
+
+  const volumeInput = document.getElementById('modal-input-volume');
+  const accountingSelect = document.getElementById('modal-input-accountingEntry');
+  const dateInput = document.getElementById('modal-input-date');
+  const dateFilterCheckbox = document.getElementById('modal-input-accountingDateFilter');
+
+  const refreshEntries = async () => {
+    const txType = deriveTxType(volumeInput.value);
+    const txDate = dateInput?.value;
+    const useDateFilter = dateFilterCheckbox ? dateFilterCheckbox.checked : false;
+    let entries = await fetchAccountingEntries({ type: txType || undefined, date: txDate, useDateFilter });
+    
+    // Add current accounting entry to the list if it exists and is not already in the list
+    if (tx.accountingEntry && !entries.some(e => e.id === tx.accountingEntry)) {
+      // Fetch the current accounting entry details
+      try {
+        const res = await fetch(`${API_BASE}/shares/accounting-entries/${tx.accountingEntry}`);
+        const data = await res.json();
+        if (data.entry) {
+          entries.unshift(data.entry);
+        }
+      } catch (error) {
+        console.error('Error fetching current accounting entry:', error);
+      }
+    }
+    setAccountingSelectOptions(accountingSelect, entries, tx.accountingEntry || null);
+  };
+
+  if (volumeInput) {
+    volumeInput.addEventListener('input', refreshEntries);
+  }
+  if (dateInput) {
+    dateInput.addEventListener('change', refreshEntries);
+  }
+  if (dateFilterCheckbox) {
+    dateFilterCheckbox.addEventListener('change', refreshEntries);
+  }
+
+  await refreshEntries();
 }
 
 async function openEditHistory(entry) {
@@ -1017,6 +1186,45 @@ async function openEditHistory(entry) {
     onSubmit: async (values) => {
       return await updateHistory(entry.id, values.isin, values.date, values.amount, Boolean(values.checked));
     }
+  });
+}
+
+// Helper functions for accounting entries
+function deriveTxType(volumeValue) {
+  const volume = parseFloat(volumeValue);
+  if (Number.isNaN(volume)) return null;
+  if (volume > 0) return 'buy';
+  if (volume < 0) return 'sell';
+  return 'dividend';  // volume === 0
+}
+
+async function fetchAccountingEntries({ type = null, date = null, useDateFilter = false } = {}) {
+  try {
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (useDateFilter && date) params.append('date', date);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`${API_BASE}/shares/accounting-entries${query}`);
+    const data = await res.json();
+    return data.entries || [];
+  } catch (error) {
+    console.error('Error fetching accounting entries:', error);
+    return [];
+  }
+}
+
+function setAccountingSelectOptions(selectEl, entries, selectedId = null) {
+  if (!selectEl) return;
+  selectEl.innerHTML = '<option value="">-- Keine Buchung --</option>';
+  
+  entries.forEach(entry => {
+    const opt = document.createElement('option');
+    opt.value = entry.id;
+    opt.textContent = entry.display || `${entry.id}: ${entry.amount}€`;
+    if (selectedId && String(entry.id) === String(selectedId)) {
+      opt.selected = true;
+    }
+    selectEl.appendChild(opt);
   });
 }
 

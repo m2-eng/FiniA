@@ -2,7 +2,7 @@
 Transaction API router
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from typing import Optional
 from pydantic import BaseModel
 from repositories.transaction_repository import TransactionRepository
@@ -10,6 +10,8 @@ from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
 from api.dependencies import get_db_cursor, get_db_connection
 from api.models import TransactionResponse, TransactionListResponse, TransactionEntriesUpdate
+from typing import List
+from pydantic import BaseModel
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from decimal import Decimal
 from Database import Database
@@ -17,6 +19,10 @@ from services.account_data_importer import AccountDataImporter
 from infrastructure.unit_of_work import UnitOfWork
 from repositories.account_import_repository import AccountImportRepository
 from services.category_automation import get_all_account_rules, apply_rules_to_transaction
+import tempfile
+import os
+from pathlib import Path
+import yaml
 
 
 class ImportRequest(BaseModel):
@@ -43,7 +49,7 @@ def auto_categorize_entries(cursor, connection) -> dict:
     
     # Get all uncategorized entries with their transaction details
     query = """
-        SELECT 
+        SELECT DISTINCT
             ae.id as entry_id,
             ae.transaction as transaction_id,
             t.description,
@@ -63,7 +69,7 @@ def auto_categorize_entries(cursor, connection) -> dict:
     if not entries:
         return {"categorized": 0, "total_checked": 0, "message": "Keine unkategorisierten Einträge gefunden"}
     
-    categorized_count = 0
+    categorized_entry_count = 0
     
     for entry in entries:
         entry_id = entry[0]
@@ -82,27 +88,67 @@ def auto_categorize_entries(cursor, connection) -> dict:
             # Update entry with category
             update_query = "UPDATE tbl_accountingEntry SET category = %s WHERE id = %s"
             cursor.execute(update_query, (category_id, entry_id))
-            categorized_count += 1
+            categorized_entry_count += 1
     
     connection.commit()
     
     return {
-        "categorized": categorized_count,
+        "categorized": categorized_entry_count,
         "total_checked": len(entries),
-        "message": f"{categorized_count} von {len(entries)} Einträgen kategorisiert"
+        "message": "Transaktionen kategorisiert"
     }
 
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
+@router.get("/import-formats")
+async def get_import_formats():
+    """
+    Get list of available import formats from configuration.
+    """
+    try:
+        repo_root = Path(__file__).resolve().parents[3]
+        formats_file = repo_root / "cfg" / "import_formats.yaml"
+        
+        if not formats_file.exists():
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Import formats configuration file not found"
+            )
+        
+        with open(formats_file, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f) or {}
+        
+        formats = list(data.get("formats", {}).keys())
+        
+        return {
+            "success": True,
+            "formats": formats
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to load import formats: {str(e)}"
+        )
+
+
+class BulkCheckRequest(BaseModel):
+    """Request body for bulk marking transactions checked/unchecked."""
+    transaction_ids: List[int]
+    checked: bool = True
+
+
 @router.get("/", response_model=TransactionListResponse)
 @handle_db_errors("fetch transactions")
 async def get_transactions(
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=1000, description="Items per page (max 1000)"),
+    page_size: int = Query(20, ge=1, le=1000, description="Items per page (max 1000)"),
     search: Optional[str] = Query(None, description="Search in description, recipient, IBAN"),
-    filter: Optional[str] = Query(None, description="Filter: 'unchecked' or 'no_entries'"),
+    filter: Optional[str] = Query(None, description="Filter: 'unchecked', 'no_entries', 'uncategorized', or 'categorized_unchecked'"),
     cursor = Depends(get_db_cursor)
 ):
     """
@@ -111,64 +157,30 @@ async def get_transactions(
     - **page**: Page number (starting from 1)
     - **page_size**: Number of items per page (max 1000)
     - **search**: Optional search term for filtering
-    - **filter**: Optional filter ('unchecked' for unchecked entries, 'no_entries' for transactions without entries)
+    - **filter**: Optional filter:
+        - 'unchecked': transactions with at least one unchecked entry
+        - 'no_entries': transactions without any entries
+        - 'uncategorized': transactions with at least one entry without category
+        - 'categorized_unchecked': transactions with entries that have category but are unchecked
     
     Note: When using search or filter, all matching transactions are loaded into memory for filtering,
     then paginated. For large datasets with complex filters, this may impact performance.
     """
     repo = TransactionRepository(cursor)
     
-    # If no filters are applied, use paginated database fetch for better performance
-    if not search and not filter:
-        result = repo.get_all_transactions_paginated(page=page, page_size=page_size)
-        return TransactionListResponse(
-            transactions=result['transactions'],
-            total=result['total'],
-            page=result['page'],
-            page_size=result['page_size']
-        )
-    
-    # For filtered queries, load all and filter in memory
-    # (Legacy behavior to support complex filters)
-    transactions = repo.get_all_transactions()
-    
-    # Apply filter if provided
-    if filter == "unchecked":
-        # Filter for transactions with at least one unchecked entry
-        transactions = [
-            t for t in transactions
-            if any(not entry.get("checked", False) for entry in t.get("entries", []))
-        ]
-    elif filter == "no_entries":
-        # Filter for transactions without any entries
-        transactions = [
-            t for t in transactions
-            if len(t.get("entries", [])) == 0
-        ]
-    
-    # Apply search filter if provided
-    if search:
-        search_lower = search.lower()
-        transactions = [
-            t for t in transactions
-            if (search_lower in t.get("description", "").lower() or
-                search_lower in (t.get("recipientApplicant") or "").lower() or
-                search_lower in (t.get("iban") or "").lower() or
-                search_lower in t.get("account_name", "").lower())
-        ]
-    
-    total = len(transactions)
-    
-    # Apply pagination
-    start_idx = (page - 1) * page_size
-    end_idx = start_idx + page_size
-    paginated_transactions = transactions[start_idx:end_idx]
+    # Use optimized SQL-based filtering and pagination
+    result = repo.get_all_transactions_paginated(
+        page=page, 
+        page_size=page_size,
+        search=search,
+        filter_type=filter
+    )
     
     return TransactionListResponse(
-        transactions=paginated_transactions,
-        total=total,
-        page=page,
-        page_size=page_size
+        transactions=result['transactions'],
+        total=result['total'],
+        page=result['page'],
+        page_size=result['page_size']
     )
 
 
@@ -276,9 +288,20 @@ async def update_transaction_entries(
     except HTTPException:
         safe_rollback(connection, "update transaction entries")
         raise
-    except Exception as e:
-        safe_rollback(connection, "update transaction entries")
-        raise
+
+
+@router.post("/mark-checked")
+@handle_db_errors("bulk mark transactions checked")
+async def bulk_mark_transactions_checked(
+    request: BulkCheckRequest,
+    cursor = Depends(get_db_cursor),
+    connection = Depends(get_db_connection)
+):
+    """Mark all accounting entries of the given transactions as checked/unchecked."""
+    entry_repo = AccountingEntryRepository(cursor)
+    updated = entry_repo.set_checked_for_transactions(request.transaction_ids, request.checked)
+    safe_commit(connection, "bulk mark transactions checked")
+    return {"updated_entries": updated}
 
 
 @router.post("/import")
@@ -460,3 +483,115 @@ async def auto_categorize_transactions(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Kategorisierung fehlgeschlagen: {str(e)}"
         )
+
+
+@router.post("/import-csv")
+@handle_db_errors("import CSV file")
+async def import_csv_file(
+    file: UploadFile = File(...),
+    format: str = Form(...),
+    account_id: Optional[int] = Form(None),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Import transactions from a specific CSV file.
+    
+    - **file**: CSV file to import
+    - **format**: Import format name (e.g., 'csv-cb', 'csv-loan')
+    - **account_id**: Optional account ID. Required if format doesn't specify account column.
+    """
+    from api.dependencies import get_database_credentials, get_database_config
+    from repositories.account_repository import AccountRepository
+    
+    # Get database credentials
+    credentials = get_database_credentials()
+    db_config = get_database_config()
+    
+    if not credentials or not credentials.get('user') or not credentials.get('password'):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database credentials not configured"
+        )
+    
+    # Create Database instance
+    db = Database(
+        user=credentials['user'],
+        password=credentials['password'],
+        host=credentials.get('host') or db_config.get('host', 'localhost'),
+        port=credentials.get('port') or db_config.get('port', 3306),
+        database_name=credentials.get('name') or db_config.get('name', 'FiniA')
+    )
+    
+    temp_file_path = None
+    
+    try:
+        # Connect to database
+        if not db.connect(use_database=True):
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to connect to database"
+            )
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.csv') as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        # Create importer instance
+        importer = AccountDataImporter(db)
+        
+        # Get format mapping
+        try:
+            mapping = importer._get_mapping(format)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid format '{format}': {str(exc)}"
+            )
+        
+        # Check if format has account column
+        columns = mapping.get("columns", {})
+        has_account_column = columns.get("account") is not None
+        
+        # If no account column and no account_id provided, error
+        if not has_account_column and not account_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Account ID is required for this format (no account column in CSV)"
+            )
+        
+        # Import the file
+        from services.import_service import import_csv_with_optional_account
+        
+        result = import_csv_with_optional_account(
+            db=db,
+            csv_path=Path(temp_file_path),
+            format_name=format,
+            mapping=mapping,
+            default_account_id=account_id,
+            cursor=cursor
+        )
+        
+        db.close()
+        
+        return result
+    
+    except HTTPException:
+        if db:
+            db.close()
+        raise
+    except Exception as e:
+        if db:
+            db.close()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Import fehlgeschlagen: {str(e)}"
+        )
+    finally:
+        # Clean up temporary file
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except:
+                pass

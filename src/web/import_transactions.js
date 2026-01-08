@@ -10,12 +10,15 @@ let currentTransactionAmount = 0;
 let currentSortColumn = null;
 let currentSortDirection = 'asc';
 let cachedTransactions = [];
+let lastDisplayedTransactions = [];
+let selectedTransactionIds = new Set();
 
 async function loadCategories() {
   try {
-    const response = await fetch(`${API_BASE}/categories/`);
+    const response = await fetch(`${API_BASE}/categories/list`);
     const data = await response.json();
     allCategories = data.categories || [];
+    console.log('Categories loaded:', allCategories.length, allCategories);
   } catch (error) {
     console.error('Failed to load categories:', error);
     allCategories = [];
@@ -118,8 +121,15 @@ function toDateInputValue(value) {
 
 async function loadTransactions(page = 1) {
   currentPage = page;
+  // Get search term from input only if a new search is being made
   const searchInput = document.getElementById('searchInput');
-  searchTerm = searchInput ? searchInput.value : '';
+  const inputSearchTerm = searchInput ? searchInput.value : '';
+  
+  // Only reset to page 1 if search term changed
+  if (inputSearchTerm !== searchTerm) {
+    searchTerm = inputSearchTerm;
+    currentPage = page = 1;
+  }
 
   const loadingIndicator = document.getElementById('loadingIndicator');
   const transactionsTable = document.getElementById('transactionsTable');
@@ -130,7 +140,7 @@ async function loadTransactions(page = 1) {
   if (errorMessage) errorMessage.style.display = 'none';
 
   try {
-    const params = new URLSearchParams({ page, page_size: 50 });
+    const params = new URLSearchParams({ page, page_size: 20 });
     if (searchTerm) params.append('search', searchTerm);
     if (currentFilter && currentFilter !== 'all') params.append('filter', currentFilter);
 
@@ -138,8 +148,10 @@ async function loadTransactions(page = 1) {
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
     const data = await response.json();
+    const totalPages = Math.ceil(data.total / data.page_size);
+    console.log(`DEBUG PAGINATION: total=${data.total}, page_size=${data.page_size}, totalPages=${totalPages}, transactions.length=${data.transactions.length}, searchTerm="${searchTerm}", filter="${currentFilter}"`);
     displayTransactions(data.transactions, true);
-    displayPagination(data.page, Math.ceil(data.total / data.page_size));
+    displayPagination(data.page, totalPages);
 
     if (loadingIndicator) loadingIndicator.style.display = 'none';
     if (transactionsTable) transactionsTable.style.display = 'table';
@@ -159,6 +171,7 @@ async function loadTransactions(page = 1) {
 function displayTransactions(transactions, isInitialLoad = false) {
   const tbody = document.getElementById('transactionsBody');
   if (!tbody) return;
+  lastDisplayedTransactions = transactions || [];
   
   if (isInitialLoad) {
     cachedTransactions = transactions;
@@ -175,7 +188,11 @@ function displayTransactions(transactions, isInitialLoad = false) {
     row.dataset.id = String(transaction.id);
     if (transaction.id === selectedTransactionId) row.classList.add('selected');
     const amountClass = transaction.amount < 0 ? 'amount-negative' : 'amount-positive';
+    const isChecked = selectedTransactionIds.has(transaction.id);
     row.innerHTML = `
+      <td style="text-align: center;" onclick="event.stopPropagation();">
+        <input type="checkbox" class="transaction-checkbox" data-id="${transaction.id}" ${isChecked ? 'checked' : ''} onchange="toggleTransactionSelection(${transaction.id}, this.checked)">
+      </td>
       <td>${formatDate(transaction.dateValue)}</td>
       <td>${truncateText(transaction.description, 60)}</td>
       <td class="${amountClass}" style="text-align: right;">${formatCurrency(transaction.amount)}</td>
@@ -185,6 +202,101 @@ function displayTransactions(transactions, isInitialLoad = false) {
     row.onclick = () => showTransactionDetails(transaction.id);
     tbody.appendChild(row);
   });
+  
+  updateSelectAllCheckbox();
+  updateSelectedCount();
+}
+
+function toggleTransactionSelection(id, checked) {
+  if (checked) {
+    selectedTransactionIds.add(id);
+  } else {
+    selectedTransactionIds.delete(id);
+  }
+  updateSelectAllCheckbox();
+  updateSelectedCount();
+}
+
+function toggleSelectAll(checked) {
+  selectedTransactionIds.clear();
+  if (checked) {
+    lastDisplayedTransactions.forEach(t => selectedTransactionIds.add(t.id));
+  }
+  document.querySelectorAll('.transaction-checkbox').forEach(cb => {
+    cb.checked = checked;
+  });
+  updateSelectedCount();
+}
+
+function updateSelectAllCheckbox() {
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  if (!selectAllCheckbox) return;
+  
+  const displayedIds = lastDisplayedTransactions.map(t => t.id);
+  const allSelected = displayedIds.length > 0 && displayedIds.every(id => selectedTransactionIds.has(id));
+  const someSelected = displayedIds.some(id => selectedTransactionIds.has(id));
+  
+  selectAllCheckbox.checked = allSelected;
+  selectAllCheckbox.indeterminate = someSelected && !allSelected;
+}
+
+function updateSelectedCount() {
+  const countSpan = document.getElementById('selectedCount');
+  const button = document.getElementById('bulkCheckButton');
+  const count = selectedTransactionIds.size;
+  
+  if (countSpan) countSpan.textContent = count;
+  if (button) button.disabled = count === 0;
+}
+
+async function markSelectedChecked() {
+  const button = document.getElementById('bulkCheckButton');
+  const status = document.getElementById('bulkStatus');
+  const ids = Array.from(selectedTransactionIds);
+
+  if (!ids.length) {
+    alert('Keine Transaktionen ausgewählt.');
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+  }
+  if (status) {
+    status.style.display = 'none';
+    status.textContent = '';
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/transactions/mark-checked`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transaction_ids: ids, checked: true })
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP ${response.status}`);
+    }
+    const result = await response.json();
+    if (status) {
+      status.textContent = `✓ ${result.updated_entries} Einträge als geprüft markiert`;
+      status.style.color = 'var(--color-amount-positive)';
+      status.style.display = 'block';
+    }
+    selectedTransactionIds.clear();
+    updateSelectedCount();
+    await loadTransactions(currentPage);
+  } catch (error) {
+    console.error('Error marking selected transactions checked:', error);
+    if (status) {
+      status.textContent = `✗ Fehler beim Markieren: ${error.message}`;
+      status.style.color = 'var(--color-amount-negative)';
+      status.style.display = 'block';
+    }
+    alert(`Fehler beim Markieren: ${error.message}`);
+  } finally {
+    if (button) button.disabled = selectedTransactionIds.size === 0;
+  }
 }
 
 function displayPagination(currentPageNum, totalPages) {
@@ -214,11 +326,16 @@ function clearDetails() {
   selectedTransactionId = null;
   currentTransactionAmount = 0;
   const detailsPanel = document.getElementById('detailsPanel');
+  const statusBar = document.getElementById('detailsStatusBar');
   if (detailsPanel) detailsPanel.style.display = 'none';
   const detailsBody = document.getElementById('detailsBody');
   const detailsInfo = document.getElementById('detailsInfo');
   if (detailsBody) detailsBody.innerHTML = '';
   if (detailsInfo) detailsInfo.innerHTML = '';
+  if (statusBar) {
+    statusBar.style.display = 'none';
+    statusBar.textContent = '';
+  }
   document.querySelectorAll('#transactionsBody tr.selected').forEach(tr => tr.classList.remove('selected'));
   detailsEntries = [];
 }
@@ -239,7 +356,11 @@ async function showTransactionDetails(transactionId) {
     currentTransactionAmount = parseFloat(tx.amount) || 0;
 
     document.querySelectorAll('#transactionsBody tr').forEach(tr => {
-      if (tr.dataset.id === String(tx.id)) tr.classList.add('selected');
+      if (tr.dataset.id === String(tx.id)) {
+        tr.classList.add('selected');
+        // Scroll nur wenn nötig und ohne die ganze Seite zu bewegen
+        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
       else tr.classList.remove('selected');
     });
 
@@ -250,6 +371,7 @@ async function showTransactionDetails(transactionId) {
       { label: 'Datum', value: formatDate(tx.dateValue) },
       { label: 'Beschreibung', value: tx.description || '-' },
       { label: 'Empfänger', value: tx.recipientApplicant || '-' },
+      { label: 'IBAN (Empfänger)', value: tx.iban || '-' },
       { label: 'Import-ID', value: tx.id }
     ];
     const detailsInfo = document.getElementById('detailsInfo');
@@ -280,12 +402,47 @@ async function showTransactionDetails(transactionId) {
   }
 }
 
+function updateEntriesSumDisplay() {
+  const sumDisplay = document.getElementById('entriesSumDisplay');
+  if (!sumDisplay) return;
+
+  let sumEntries = 0;
+  for (let i = 0; i < detailsEntries.length; i++) {
+    sumEntries += parseFloat(detailsEntries[i].amount) || 0;
+  }
+  
+  const difference = Math.abs(currentTransactionAmount - sumEntries);
+  const isMatching = difference < 0.01; // Allow for floating-point rounding errors
+  
+  if (isMatching) {
+    sumDisplay.textContent = `✓ Summe: ${formatCurrency(sumEntries)} / Transaktion: ${formatCurrency(currentTransactionAmount)}`;
+    sumDisplay.style.color = 'var(--color-amount-positive)';
+  } else {
+    sumDisplay.textContent = `✗ Summe: ${formatCurrency(sumEntries)} / Transaktion: ${formatCurrency(currentTransactionAmount)} (Differenz: ${formatCurrency(difference)})`;
+    sumDisplay.style.color = 'var(--color-amount-negative)';
+  }
+}
+
 function renderEntries() {
   const tbody = document.getElementById('detailsBody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
-  detailsEntries.forEach((entry, index) => {
+  console.log('renderEntries - All categories:', allCategories);
+  console.log('renderEntries - Entries to render:', detailsEntries);
+
+  // Sort entries by ID (ascending) - keeping original order if no ID
+  const sortedEntries = [...detailsEntries].sort((a, b) => {
+    if (a.id && b.id) return a.id - b.id;
+    if (a.id) return -1;
+    if (b.id) return 1;
+    return 0;
+  });
+
+  sortedEntries.forEach((entry, displayIndex) => {
+    // Find original index for updateEntry calls
+    const originalIndex = detailsEntries.indexOf(entry);
+    
     const tr = document.createElement('tr');
     const cls = (entry.amount || 0) < 0 ? 'amount-negative' : 'amount-positive';
     
@@ -298,28 +455,32 @@ function renderEntries() {
     // Add all categories
     allCategories.forEach(cat => {
       const isSelected = entry.category_name && entry.category_name === cat.fullname;
+      if (isSelected) {
+        console.log(`Entry ${displayIndex}: Matching category - entry.category_name="${entry.category_name}" === cat.fullname="${cat.fullname}"`);
+      }
       categoryOptions.push(`<option value="${cat.fullname}"${isSelected ? ' selected' : ''}>${cat.fullname}</option>`);
     });
 
-    const isFirstEntry = index === 0;
+    const isFirstEntry = originalIndex === 0;
     const amountInput = isFirstEntry
       ? `<input class="input-sm ${cls}" type="number" step="0.01" value="${entry.amount}" readonly style="background-color: #f0f0f0; cursor: not-allowed;" title="Wird automatisch berechnet">`
-      : `<input class="input-sm ${cls}" type="number" step="0.01" value="${entry.amount}" onchange="updateEntry(${index}, 'amount', parseFloat(this.value) || 0)">`;
+      : `<input class="input-sm ${cls}" type="number" step="0.01" value="${entry.amount}" onchange="updateEntry(${originalIndex}, 'amount', parseFloat(this.value) || 0)">`;
 
     tr.innerHTML = `
       <td><input class="input-sm" type="date" value="${toDateInputValue(entry.dateImport)}" readonly style="background-color: #f0f0f0; cursor: not-allowed;" title="Importdatum kann nicht geändert werden"></td>
       <td>
-        <select class="input-sm" onchange="updateEntry(${index}, 'category_name', this.value)">
+        <select class="input-sm" onchange="updateEntry(${originalIndex}, 'category_name', this.value)">
           ${categoryOptions.join('')}
         </select>
       </td>
       <td>${amountInput}</td>
-      <td class="checkbox-cell"><input type="checkbox" ${entry.accountingPlanned ? 'checked' : ''} onchange="updateEntry(${index}, 'accountingPlanned', this.checked)"></td>
-      <td class="checkbox-cell"><input type="checkbox" ${entry.checked ? 'checked' : ''} onchange="updateEntry(${index}, 'checked', this.checked)"></td>
-      <td class="actions-cell"><button class="btn-ghost" onclick="removeEntry(${index})">Entfernen</button></td>
+      <td class="checkbox-cell"><input type="checkbox" ${entry.accountingPlanned ? 'checked' : ''} onchange="updateEntry(${originalIndex}, 'accountingPlanned', this.checked)"></td>
+      <td class="checkbox-cell"><input type="checkbox" ${entry.checked ? 'checked' : ''} onchange="updateEntry(${originalIndex}, 'checked', this.checked)"></td>
+      <td class="actions-cell"><button class="btn-ghost" onclick="removeEntry(${originalIndex})">Entfernen</button></td>
     `;
     tbody.appendChild(tr);
   });
+  updateEntriesSumDisplay();
 }
 
 function updateEntry(index, field, value) {
@@ -327,6 +488,8 @@ function updateEntry(index, field, value) {
   detailsEntries[index][field] = value;
   if (field === 'amount' && index > 0 && detailsEntries.length > 1) {
     recalculateFirstEntry();
+  } else {
+    updateEntriesSumDisplay();
   }
 }
 
@@ -337,8 +500,9 @@ function recalculateFirstEntry() {
     sumOthers += parseFloat(detailsEntries[i].amount) || 0;
   }
   const firstEntryAmount = currentTransactionAmount - sumOthers;
+  // Log negative amounts silently - no alert popup
   if (firstEntryAmount < 0) {
-    alert(`Fehler: Der berechnete Betrag für die erste Buchung (${formatCurrency(firstEntryAmount)}) ist negativ. Die Summe der anderen Buchungseinträge (${formatCurrency(sumOthers)}) übersteigt den Transaktionsbetrag (${formatCurrency(currentTransactionAmount)}).`);
+    console.warn(`Negative amount for first entry: ${formatCurrency(firstEntryAmount)}, sum of others: ${formatCurrency(sumOthers)}, transaction amount: ${formatCurrency(currentTransactionAmount)}`);
   }
   detailsEntries[0].amount = firstEntryAmount;
   renderEntries();
@@ -360,10 +524,27 @@ function removeEntry(index) {
 
 async function saveEntries() {
   if (!selectedTransactionId) { alert('Keine Transaktion ausgewählt.'); return; }
+  
+  // Validate that the sum of entries equals the transaction amount
+  let sumEntries = 0;
+  for (let i = 0; i < detailsEntries.length; i++) {
+    sumEntries += parseFloat(detailsEntries[i].amount) || 0;
+  }
+  
+  const difference = Math.abs(currentTransactionAmount - sumEntries);
+  if (difference > 0.01) { // Allow for floating-point rounding errors
+    alert(`Validierungsfehler: Die Summe der Buchungseinträge (${formatCurrency(sumEntries)}) entspricht nicht dem Transaktionsbetrag (${formatCurrency(currentTransactionAmount)}).\n\nDifferenz: ${formatCurrency(difference)}\n\nBitte passen Sie die Einträge an, sodass die Summe genau dem Transaktionsbetrag entspricht.`);
+    return;
+  }
   const saveButton = document.getElementById('saveButton');
+  const statusBar = document.getElementById('detailsStatusBar');
   const originalText = saveButton.textContent;
   saveButton.textContent = 'Speichert...';
   saveButton.disabled = true;
+  if (statusBar) {
+    statusBar.style.display = 'none';
+    statusBar.textContent = '';
+  }
   try {
     const entries = detailsEntries.map(entry => ({
       id: entry.id || null,
@@ -387,9 +568,18 @@ async function saveEntries() {
     }));
     renderEntries();
     await loadTransactions(currentPage);
-    alert('Buchungseinträge erfolgreich gespeichert!');
+    if (statusBar) {
+      statusBar.textContent = '✓ Gespeichert';
+      statusBar.style.color = 'var(--color-amount-positive)';
+      statusBar.style.display = 'block';
+    }
   } catch (error) {
     console.error('Error saving entries:', error);
+    if (statusBar) {
+      statusBar.textContent = '✗ Fehler';
+      statusBar.style.color = 'var(--color-amount-negative)';
+      statusBar.style.display = 'block';
+    }
     alert(`Fehler beim Speichern: ${error.message}`);
   } finally {
     saveButton.textContent = originalText;
@@ -405,21 +595,36 @@ async function loadImportAccounts() {
     importAccounts = data.accounts || [];
     
     const select = document.getElementById('importAccountSelect');
-    if (!select) return;
+    if (select) {
+      select.innerHTML = '<option value="">-- Alle Konten --</option>';
+      importAccounts.forEach(account => {
+        const option = document.createElement('option');
+        option.value = account.id;
+        option.textContent = account.name;
+        select.appendChild(option);
+      });
+    }
     
-    select.innerHTML = '<option value="">-- Alle Konten --</option>';
-    
-    importAccounts.forEach(account => {
-      const option = document.createElement('option');
-      option.value = account.id;
-      option.textContent = account.name;
-      select.appendChild(option);
-    });
+    // Populate CSV account select
+    const csvSelect = document.getElementById('csvAccountSelect');
+    if (csvSelect) {
+      csvSelect.innerHTML = '<option value="">Konto auswählen...</option>';
+      importAccounts.forEach(account => {
+        const option = document.createElement('option');
+        option.value = account.id;
+        option.textContent = account.name;
+        csvSelect.appendChild(option);
+      });
+    }
   } catch (error) {
     console.error('Failed to load import accounts:', error);
     const select = document.getElementById('importAccountSelect');
     if (select) {
       select.innerHTML = '<option value="">Fehler beim Laden</option>';
+    }
+    const csvSelect = document.getElementById('csvAccountSelect');
+    if (csvSelect) {
+      csvSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
     }
   }
 }
@@ -484,8 +689,8 @@ async function startImport() {
     }
     
     // Show auto-categorization results
-    if (result.auto_categorized !== undefined) {
-      message += `\n✓ Automatische Kategorisierung: ${result.auto_categorized} von ${result.auto_categorized_total} Einträgen`;
+    if (result.auto_categorized !== undefined && result.auto_categorized > 0) {
+      message += `\n✓ Automatische Kategorisierung durchgeführt`;
     }
     
     statusDiv.textContent = message;
@@ -540,7 +745,7 @@ async function startAutoCategorization() {
     
     // Show success message
     statusDiv.style.color = 'var(--color-amount-positive)';
-    statusDiv.textContent = `✓ ${result.message} (${result.categorized} von ${result.total_checked} Einträgen kategorisiert)`;
+    statusDiv.textContent = `✓ ${result.message}`;
     
     // Reload transactions to show updated data
     setTimeout(() => {
@@ -561,9 +766,182 @@ async function startAutoCategorization() {
 window.addEventListener('DOMContentLoaded', async () => {
   await loadCategories();
   await loadImportAccounts();
+  await loadImportFormats();
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadTransactions(1); });
   }
+  
+  // Add keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault(); // Verhindert das Standard-Scroll-Verhalten
+      handleTransactionNavigation(e.key === 'ArrowDown' ? 'next' : 'prev');
+    }
+  });
+  
   loadTransactions(1);
 });
+
+function handleTransactionNavigation(direction) {
+  if (!selectedTransactionId || lastDisplayedTransactions.length === 0) return;
+  
+  const currentIndex = lastDisplayedTransactions.findIndex(t => t.id === selectedTransactionId);
+  if (currentIndex === -1) return;
+  
+  let nextIndex = currentIndex;
+  
+  if (direction === 'next') {
+    // Nicht über Seiten hinweg springen - Limit auf aktuelle Seite
+    if (currentIndex < lastDisplayedTransactions.length - 1) {
+      nextIndex = currentIndex + 1;
+    } else {
+      return; // Am Ende der Seite angekommen
+    }
+  } else if (direction === 'prev') {
+    // Nach oben navigieren
+    if (currentIndex > 0) {
+      nextIndex = currentIndex - 1;
+    } else {
+      return; // Am Anfang der Seite angekommen
+    }
+  }
+  
+  const nextTransaction = lastDisplayedTransactions[nextIndex];
+  if (nextTransaction) {
+    showTransactionDetails(nextTransaction.id);
+  }
+}
+
+async function loadImportFormats() {
+  try {
+    // Formate sind im Backend definiert, wir laden sie über einen API-Endpunkt
+    const response = await fetch(`${API_BASE}/transactions/import-formats`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const formats = data.formats || [];
+    
+    const select = document.getElementById('csvFormatSelect');
+    if (select) {
+      select.innerHTML = '<option value="">Format auswählen...</option>';
+      formats.forEach(format => {
+        const option = document.createElement('option');
+        option.value = format;
+        option.textContent = format;
+        select.appendChild(option);
+      });
+    }
+  } catch (error) {
+    console.error('Failed to load import formats:', error);
+    // Fallback: Lade bekannte Formate statisch
+    const select = document.getElementById('csvFormatSelect');
+    if (select) {
+      select.innerHTML = '<option value="">Format auswählen...</option>';
+      ['csv-cb', 'csv-spk', 'csv-mintos', 'csv-loan'].forEach(format => {
+        const option = document.createElement('option');
+        option.value = format;
+        option.textContent = format;
+        select.appendChild(option);
+      });
+    }
+  }
+}
+
+async function importSpecificCSV() {
+  const fileInput = document.getElementById('csvFileInput');
+  const formatSelect = document.getElementById('csvFormatSelect');
+  const accountSelect = document.getElementById('csvAccountSelect');
+  const button = document.getElementById('csvImportButton');
+  const statusDiv = document.getElementById('importStatus');
+  
+  if (!fileInput || !formatSelect || !accountSelect || !button || !statusDiv) return;
+  
+  const file = fileInput.files[0];
+  const format = formatSelect.value;
+  const accountId = accountSelect.value ? parseInt(accountSelect.value) : null;
+  
+  if (!file) {
+    alert('Bitte wählen Sie eine CSV-Datei aus.');
+    return;
+  }
+  
+  if (!format) {
+    alert('Bitte wählen Sie ein Import-Format aus.');
+    return;
+  }
+  
+  // Account ist nur erforderlich, wenn das Format keine Account-Spalte hat
+  // Für csv-loan ist es optional, da die Datei selbst Account-Informationen enthält
+  
+  // Confirm import
+  const confirmMsg = accountId
+    ? `CSV-Datei "${file.name}" mit Format "${format}" für Konto importieren?`
+    : `CSV-Datei "${file.name}" mit Format "${format}" importieren?`;
+  
+  if (!confirm(confirmMsg)) return;
+  
+  // Disable button and show status
+  button.disabled = true;
+  button.textContent = 'Importiert...';
+  statusDiv.style.display = 'block';
+  statusDiv.textContent = `Importiere ${file.name}...`;
+  statusDiv.style.color = 'var(--color-text-base)';
+  
+  try {
+    // Create FormData for file upload
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('format', format);
+    if (accountId) {
+      formData.append('account_id', accountId.toString());
+    }
+    
+    const response = await fetch(`${API_BASE}/transactions/import-csv`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unbekannter Fehler' }));
+      throw new Error(errorData.detail || `HTTP ${response.status}`);
+    }
+    
+    const result = await response.json();
+    
+    // Show success message
+    statusDiv.style.color = 'var(--color-amount-positive)';
+    statusDiv.textContent = `✓ ${result.message || 'Import erfolgreich'}`;
+    
+    if (result.inserted !== undefined && result.total !== undefined) {
+      statusDiv.textContent += ` (${result.inserted}/${result.total} Transaktionen)`;
+    }
+    
+    // Show warnings if any
+    if (result.warnings && result.warnings.length > 0) {
+      statusDiv.textContent += `\n⚠ Warnungen: ${result.warnings.join('; ')}`;
+      statusDiv.style.color = 'var(--color-text-base)';
+    }
+    
+    statusDiv.style.whiteSpace = 'pre-wrap';
+    
+    // Clear file input
+    fileInput.value = '';
+    
+    // Reload transactions to show newly imported data
+    setTimeout(() => {
+      loadTransactions(1);
+    }, 1000);
+    
+  } catch (error) {
+    console.error('CSV import error:', error);
+    statusDiv.style.color = 'var(--color-amount-negative)';
+    statusDiv.textContent = `✗ Import fehlgeschlagen: ${error.message}`;
+  } finally {
+    button.disabled = false;
+    button.textContent = 'CSV importieren';
+  }
+}

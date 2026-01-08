@@ -186,11 +186,11 @@ class PlanningRepository(BaseRepository):
         return current + timedelta(days=30)
 
     def regenerate_planning_entries(self, planning_id: int, today: date | None = None) -> list[dict] | None:
-        """Create planning entries up to the planning end date or end of next year.
+        """Create planning entries up to min(planning end date, end of next year).
 
-        If the planning has no end date, entries are generated up to 31.12 of the
-        next calendar year (relative to `today`). Existing entries are replaced.
-        Returns the freshly created entries.
+        If the planning has no end date, limit generation to 31.12 of the next
+        calendar year (relative to `today`). Existing entries for this planning
+        are replaced.
         """
         planning = self.get_planning_by_id(planning_id)
         if not planning:
@@ -203,7 +203,12 @@ class PlanningRepository(BaseRepository):
         interval = self._resolve_cycle_interval(cycle)
 
         base_today = today or date.today()
-        target_end = planning["dateEnd"].date() if planning["dateEnd"] else date(base_today.year + 1, 12, 31)
+        end_of_next_year = date(base_today.year + 1, 12, 31)
+        # Always cap generation at end of next year, even if planning has a later end date
+        if planning["dateEnd"]:
+            target_end = min(planning["dateEnd"].date(), end_of_next_year)
+        else:
+            target_end = end_of_next_year
 
         current_date = planning["dateStart"].date()
         if current_date > target_end:
@@ -229,6 +234,12 @@ class PlanningRepository(BaseRepository):
             self.cursor.executemany(insert_sql, [(dt, planning_id) for dt in entries_to_create])
 
         return self.get_planning_entries(planning_id)
+
+    def delete_planning_entry(self, planning_id: int, entry_id: int) -> bool:
+        """Delete a single planning entry by id for a specific planning."""
+        sql = "DELETE FROM tbl_planningEntry WHERE id = %s AND planning = %s"
+        self.cursor.execute(sql, (entry_id, planning_id))
+        return self.cursor.rowcount > 0
     
     def get_planning_by_id(self, planning_id: int) -> dict | None:
         """
@@ -342,7 +353,7 @@ class PlanningRepository(BaseRepository):
             cycle_id: Planning cycle ID
             
         Returns:
-            True if updated, False if not found
+            True if statement executed (row may be unchanged)
         """
         sql = """
             UPDATE tbl_planning
@@ -359,7 +370,8 @@ class PlanningRepository(BaseRepository):
             sql,
             (description, amount, date_start, date_end, account_id, category_id, cycle_id, planning_id)
         )
-        return self.cursor.rowcount > 0
+        # Even if rowcount == 0 (no data change), the update is considered successful because the row exists
+        return True
     
     def delete_planning(self, planning_id: int) -> bool:
         """

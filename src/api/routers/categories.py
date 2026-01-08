@@ -53,6 +53,20 @@ async def get_categories_hierarchy(
     return {"categories": result['categories'], "page": result['page'], "page_size": result['page_size'], "total": result['total']}
 
 
+@router.get("/hierarchy/all")
+@handle_db_errors("fetch all categories hierarchy")
+async def get_all_categories_hierarchy_unpaginated(cursor=Depends(get_db_cursor)):
+    """
+    Get ALL categories with parent information in a single efficient query.
+    Use this for full category tree loading on category management page.
+    
+    Returns all categories with their parent_id for hierarchical display.
+    """
+    repo = CategoryRepository(cursor)
+    categories = repo.get_all_with_parent_unpaginated()
+    return {"categories": categories}
+
+
 @router.get("/list")
 @handle_db_errors("fetch categories list")
 async def list_categories_simple(cursor=Depends(get_db_cursor)):

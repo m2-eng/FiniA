@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiniA - Planung</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
   <style>
@@ -79,8 +80,11 @@
 </head>
 <body>
   <header>
-    <h1>FiniA - Finanzverwaltung</h1>
-    <div id="top-nav"></div>
+    <img src="favicon.png" alt="FiniA Logo" class="header-logo">
+    <div class="header-content">
+      <h1>FiniA - Finanzverwaltung</h1>
+      <div id="top-nav"></div>
+    </div>
   </header>
   
   <div class="container">
@@ -96,7 +100,7 @@
     <div class="planning-layout">
       <!-- Planning List -->
       <div class="page-card">
-        <h3>Planungseinträge</h3>
+        <h3>Planungen</h3>
         <div style="margin-bottom: 12px; display: flex; gap: 12px; align-items: center;">
           <input type="text" id="planningSearch" class="input-sm" placeholder="Suche nach Konto, Kategorie oder Beschreibung..." oninput="filterPlannings()" style="flex: 1;">
           <label style="display: flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;">
@@ -112,9 +116,11 @@
             <tr>
               <th class="sortable" onclick="sortPlannings('account_name')" style="cursor: pointer;">Konto <span id="sort-account_name" class="sort-indicator"></span></th>
               <th class="sortable" onclick="sortPlannings('category_name')" style="cursor: pointer;">Kategorie <span id="sort-category_name" class="sort-indicator"></span></th>
-              <th class="sortable" onclick="sortPlannings('amount')" style="cursor: pointer; text-align: right;">Betrag <span id="sort-amount" class="sort-indicator"></span></th>
+              <th class="sortable" onclick="sortPlannings('description')" style="cursor: pointer;">Beschreibung <span id="sort-description" class="sort-indicator"></span></th>
+              <th class="sortable" onclick="sortPlannings('amount')" style="cursor: pointer; text-align: right; min-width: 140px;">Betrag <span id="sort-amount" class="sort-indicator"></span></th>
               <th class="sortable" onclick="sortPlannings('cycle_name')" style="cursor: pointer;">Zyklus <span id="sort-cycle_name" class="sort-indicator"></span></th>
               <th class="sortable" onclick="sortPlannings('status')" style="cursor: pointer;">Status <span id="sort-status" class="sort-indicator"></span></th>
+              <th style="text-align: center;">Einträge</th>
               <th style="text-align: center;">Aktionen</th>
             </tr>
           </thead>
@@ -179,11 +185,13 @@
             <thead>
               <tr>
                 <th>Fälligkeit</th>
+                <th>Beschreibung</th>
                 <th style="text-align: right;">Geplanter Betrag</th>
+                <th style="text-align: center;">Aktionen</th>
               </tr>
             </thead>
             <tbody id="planningEntriesBody">
-              <tr><td colspan="2" style="text-align:center; padding:12px;">Keine Planung ausgewählt</td></tr>
+              <tr><td colspan="4" style="text-align:center; padding:12px;">Keine Planung ausgewählt</td></tr>
             </tbody>
           </table>
         </div>
@@ -252,9 +260,9 @@
     </div>
   </div>
 
-  <script src="app.js"></script>
-  <script src="utils.js"></script>
-  <script src="planning.js"></script>
+  <script src="app.js?v=6"></script>
+  <script src="utils.js?v=6"></script>
+  <script src="planning.js?v=6"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       loadTopNav('planning');

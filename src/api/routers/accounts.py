@@ -20,33 +20,79 @@ async def get_account_income(
 ):
     """
     Get income (Haben) breakdown by category for a specific account and year.
-    Returns monthly amounts and total per category.
+    Blends actual transactions (past/today) with planning entries (future).
     """
+    from datetime import date
+    today = date.today()
+
     query = """
         SELECT
-          view_categoryFullname.fullname AS Kategorie,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 1 THEN view_balances.amountSum ELSE 0 END) AS Januar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 2 THEN view_balances.amountSum ELSE 0 END) AS Februar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 3 THEN view_balances.amountSum ELSE 0 END) AS März,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 4 THEN view_balances.amountSum ELSE 0 END) AS April,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 5 THEN view_balances.amountSum ELSE 0 END) AS Mai,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 6 THEN view_balances.amountSum ELSE 0 END) AS Juni,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 7 THEN view_balances.amountSum ELSE 0 END) AS Juli,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 8 THEN view_balances.amountSum ELSE 0 END) AS August,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 9 THEN view_balances.amountSum ELSE 0 END) AS September,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 10 THEN view_balances.amountSum ELSE 0 END) AS Oktober,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 11 THEN view_balances.amountSum ELSE 0 END) AS November,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 12 THEN view_balances.amountSum ELSE 0 END) AS Dezember,
-          SUM(CASE WHEN YEAR(view_balances.dateValue) = %s THEN amountSum ELSE 0 END) AS Gesamt
-        FROM view_balances
-          LEFT JOIN tbl_account ON tbl_account.id = view_balances.accountID
-          LEFT JOIN view_categoryFullname ON view_categoryFullname.id = view_balances.categoryID
-        WHERE YEAR(view_balances.dateValue) = %s AND tbl_account.name = %s AND amountSum >= 0
-        GROUP BY view_categoryFullname.fullname
-        ORDER BY view_categoryFullname.fullname ASC
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_account.name = %s
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_account.name = %s
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt > 0
+        ORDER BY cat ASC
     """
     
-    cursor.execute(query, (year, year, account))
+    params = tuple([today]*12 + [year, account] + [today]*12 + [year, account])
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     
     columns = [col[0] for col in cursor.description]
@@ -67,68 +113,176 @@ async def get_account_summary(
     - Row 1: Haben (sum of positive amounts)
     - Row 2: Soll (sum of negative amounts)
     - Row 3: Gesamt (net sum of all amounts)
-    Returns rows with columns: Kategorie, Januar..Dezember, Gesamt
+    Blends actual transactions (past/today) with planning entries (future).
     """
+    from datetime import date
+    today = date.today()
+
     query = """
-        SELECT 'Haben' AS Kategorie,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 1 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Januar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 2 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Februar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 3 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS März,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 4 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS April,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 5 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Mai,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 6 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Juni,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 7 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Juli,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 8 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS August,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 9 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS September,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 10 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Oktober,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 11 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS November,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 12 THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Dezember,
-          SUM(CASE WHEN YEAR(view_balances.dateValue) = %s THEN IF(amountSum >= 0, amountSum, 0) ELSE 0 END) AS Gesamt
-        FROM view_balances
-          LEFT JOIN tbl_account ON tbl_account.id = view_balances.accountID
-        WHERE YEAR(view_balances.dateValue) = %s AND tbl_account.name = %s
+        SELECT
+          'Haben' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+          WHERE YEAR(t.dateValue) = %s AND tbl_account.name = %s
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+          WHERE YEAR(pe.dateValue) = %s AND tbl_account.name = %s
+        ) haben_combined
         UNION ALL
-        SELECT 'Soll' AS Kategorie,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 1 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Januar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 2 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Februar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 3 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS März,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 4 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS April,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 5 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Mai,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 6 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Juni,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 7 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Juli,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 8 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS August,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 9 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS September,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 10 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Oktober,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 11 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS November,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 12 THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Dezember,
-          SUM(CASE WHEN YEAR(view_balances.dateValue) = %s THEN IF(amountSum < 0, amountSum, 0) ELSE 0 END) AS Gesamt
-        FROM view_balances
-          LEFT JOIN tbl_account ON tbl_account.id = view_balances.accountID
-        WHERE YEAR(view_balances.dateValue) = %s AND tbl_account.name = %s
+        SELECT
+          'Soll' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+          WHERE YEAR(t.dateValue) = %s AND tbl_account.name = %s
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+          WHERE YEAR(pe.dateValue) = %s AND tbl_account.name = %s
+        ) soll_combined
         UNION ALL
-        SELECT 'Gesamt' AS Kategorie,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 1 THEN amountSum ELSE 0 END) AS Januar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 2 THEN amountSum ELSE 0 END) AS Februar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 3 THEN amountSum ELSE 0 END) AS März,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 4 THEN amountSum ELSE 0 END) AS April,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 5 THEN amountSum ELSE 0 END) AS Mai,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 6 THEN amountSum ELSE 0 END) AS Juni,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 7 THEN amountSum ELSE 0 END) AS Juli,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 8 THEN amountSum ELSE 0 END) AS August,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 9 THEN amountSum ELSE 0 END) AS September,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 10 THEN amountSum ELSE 0 END) AS Oktober,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 11 THEN amountSum ELSE 0 END) AS November,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 12 THEN amountSum ELSE 0 END) AS Dezember,
-          SUM(CASE WHEN YEAR(view_balances.dateValue) = %s THEN amountSum ELSE 0 END) AS Gesamt
-        FROM view_balances
-          LEFT JOIN tbl_account ON tbl_account.id = view_balances.accountID
-        WHERE YEAR(view_balances.dateValue) = %s AND tbl_account.name = %s
+        SELECT
+          'Gesamt' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+          WHERE YEAR(t.dateValue) = %s AND tbl_account.name = %s
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+          WHERE YEAR(pe.dateValue) = %s AND tbl_account.name = %s
+        ) gesamt_combined
     """
 
-    params = (
-        year, year, account,  # Haben
-        year, year, account,  # Soll
-        year, year, account   # Gesamt
+    params = tuple(
+        [today]*12 + [year, account] + [today]*12 + [year, account] +  # Haben
+        [today]*12 + [year, account] + [today]*12 + [year, account] +  # Soll
+        [today]*12 + [year, account] + [today]*12 + [year, account]    # Gesamt
     )
 
     cursor.execute(query, params)
@@ -148,39 +302,1213 @@ async def get_account_expenses(
 ):
     """
     Get expenses (Soll) breakdown by category for a specific account and year.
-    Returns monthly amounts and total per category.
+    Blends actual transactions (past/today) with planning entries (future).
     """
+    from datetime import date
+    today = date.today()
+
     query = """
         SELECT
-          view_categoryFullname.fullname AS Kategorie,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 1 THEN view_balances.amountSum ELSE 0 END) AS Januar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 2 THEN view_balances.amountSum ELSE 0 END) AS Februar,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 3 THEN view_balances.amountSum ELSE 0 END) AS März,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 4 THEN view_balances.amountSum ELSE 0 END) AS April,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 5 THEN view_balances.amountSum ELSE 0 END) AS Mai,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 6 THEN view_balances.amountSum ELSE 0 END) AS Juni,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 7 THEN view_balances.amountSum ELSE 0 END) AS Juli,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 8 THEN view_balances.amountSum ELSE 0 END) AS August,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 9 THEN view_balances.amountSum ELSE 0 END) AS September,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 10 THEN view_balances.amountSum ELSE 0 END) AS Oktober,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 11 THEN view_balances.amountSum ELSE 0 END) AS November,
-          SUM(CASE WHEN MONTH(view_balances.dateValue) = 12 THEN view_balances.amountSum ELSE 0 END) AS Dezember,
-          SUM(CASE WHEN YEAR(view_balances.dateValue) = %s THEN amountSum ELSE 0 END) AS Gesamt
-        FROM view_balances
-          LEFT JOIN tbl_account ON tbl_account.id = view_balances.accountID
-          LEFT JOIN view_categoryFullname ON view_categoryFullname.id = view_balances.categoryID
-        WHERE YEAR(view_balances.dateValue) = %s AND tbl_account.name = %s AND amountSum < 0
-        GROUP BY view_categoryFullname.fullname
-        ORDER BY view_categoryFullname.fullname ASC
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_account.name = %s
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_account.name = %s
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt < 0
+        ORDER BY cat ASC
     """
     
-    cursor.execute(query, (year, year, account))
+    params = tuple([today]*12 + [year, account] + [today]*12 + [year, account])
+    cursor.execute(query, params)
     rows = cursor.fetchall()
     
     columns = [col[0] for col in cursor.description]
     data = [dict(zip(columns, row)) for row in rows]
     
     return {"year": year, "account": account, "rows": data}
+
+
+@router.get("/all-giro/income")
+@handle_db_errors("fetch all giro income")
+async def get_all_giro_income(
+    year: int = Query(..., ge=1900, le=3000, description="Year for income data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated income (Haben) breakdown by category for all Girokonto accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        SELECT
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt > 0
+        ORDER BY cat ASC
+    """
+    
+    params = tuple([today]*12 + [year] + [today]*12 + [year])
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+    
+    return {"year": year, "account": "Alle Girokonten", "rows": data}
+
+
+@router.get("/all-giro/expenses")
+@handle_db_errors("fetch all giro expenses")
+async def get_all_giro_expenses(
+    year: int = Query(..., ge=1900, le=3000, description="Year for expense data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated expenses (Soll) breakdown by category for all Girokonto accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        SELECT
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt < 0
+        ORDER BY cat ASC
+    """
+    
+    params = tuple([today]*12 + [year] + [today]*12 + [year])
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+    
+    return {"year": year, "account": "Alle Girokonten", "rows": data}
+
+
+@router.get("/all-giro/summary")
+@handle_db_errors("fetch all giro summary")
+async def get_all_giro_summary(
+    year: int = Query(..., ge=1900, le=3000, description="Year for summary data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get monthly summary rows for all Girokonto accounts and year:
+    - Row 1: Haben (sum of positive amounts)
+    - Row 2: Soll (sum of negative amounts)
+    - Row 3: Gesamt (net sum of all amounts)
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        -- Haben row (income: positive amounts)
+        SELECT 'Haben' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+        ) haben_combined
+        UNION ALL
+        -- Soll row (expenses: negative amounts)
+        SELECT 'Soll' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+        ) soll_combined
+        UNION ALL
+        -- Gesamt row (net: all amounts)
+        SELECT 'Gesamt' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Girokonto'
+        ) gesamt_combined
+    """
+
+    params = tuple([today]*12 + [year] + [today]*12 + [year] +  # Haben
+                   [today]*12 + [year] + [today]*12 + [year] +  # Soll
+                   [today]*12 + [year] + [today]*12 + [year])   # Gesamt
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+
+    return {"year": year, "account": "Alle Girokonten", "rows": data}
+
+
+@router.get("/all-loans/income")
+@handle_db_errors("fetch all loans income")
+async def get_all_loans_income(
+    year: int = Query(..., ge=1900, le=3000, description="Year for income data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated income (Haben) breakdown by category for all Darlehen accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        SELECT
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt > 0
+        ORDER BY cat ASC
+    """
+    
+    params = tuple([today]*12 + [year] + [today]*12 + [year])
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+    
+    return {"year": year, "account": "Alle Darlehenskonten", "rows": data}
+
+
+@router.get("/all-loans/expenses")
+@handle_db_errors("fetch all loans expenses")
+async def get_all_loans_expenses(
+    year: int = Query(..., ge=1900, le=3000, description="Year for expense data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated expenses (Soll) breakdown by category for all Darlehen accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        SELECT
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt < 0
+        ORDER BY cat ASC
+    """
+    
+    params = tuple([today]*12 + [year] + [today]*12 + [year])
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+    
+    return {"year": year, "account": "Alle Darlehenskonten", "rows": data}
+
+
+@router.get("/all-loans/summary")
+@handle_db_errors("fetch all loans summary")
+async def get_all_loans_summary(
+    year: int = Query(..., ge=1900, le=3000, description="Year for summary data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated summary (Haben, Soll, Gesamt) for all Darlehen accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        -- Haben row (income: positive amounts)
+        SELECT 'Haben' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+        ) haben_combined
+        UNION ALL
+        -- Soll row (expenses: negative amounts)
+        SELECT 'Soll' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+        ) soll_combined
+        UNION ALL
+        -- Gesamt row (net: all amounts)
+        SELECT 'Gesamt' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type = 'Darlehen'
+        ) gesamt_combined
+    """
+
+    params = tuple([today]*12 + [year] + [today]*12 + [year] +  # Haben
+                   [today]*12 + [year] + [today]*12 + [year] +  # Soll
+                   [today]*12 + [year] + [today]*12 + [year])   # Gesamt
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+
+    return {"year": year, "account": "Alle Darlehenskonten", "rows": data}
+
+
+@router.get("/all-accounts/income")
+@handle_db_errors("fetch all accounts income")
+async def get_all_accounts_income(
+    year: int = Query(..., ge=1900, le=3000, description="Year for income data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated income (Haben) breakdown by category for all Girokonto and Darlehen accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        SELECT
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt > 0
+        ORDER BY cat ASC
+    """
+    
+    params = tuple([today]*12 + [year] + [today]*12 + [year])
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+    
+    return {"year": year, "account": "Alle Darlehens- und Girokonten", "rows": data}
+
+
+@router.get("/all-accounts/expenses")
+@handle_db_errors("fetch all accounts expenses")
+async def get_all_accounts_expenses(
+    year: int = Query(..., ge=1900, le=3000, description="Year for expense data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated expenses (Soll) breakdown by category for all Girokonto and Darlehen accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        SELECT
+          cat AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          -- Actual transactions up to today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = ae.category
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+          GROUP BY view_categoryFullname.fullname
+          UNION ALL
+          -- Planning entries after today
+          SELECT
+            view_categoryFullname.fullname AS cat,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+            LEFT JOIN view_categoryFullname ON view_categoryFullname.id = p.category
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+          GROUP BY view_categoryFullname.fullname
+        ) combined
+        GROUP BY cat
+        HAVING Gesamt < 0
+        ORDER BY cat ASC
+    """
+    
+    params = tuple([today]*12 + [year] + [today]*12 + [year])
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+    
+    return {"year": year, "account": "Alle Darlehens- und Girokonten", "rows": data}
+
+
+@router.get("/all-accounts/summary")
+@handle_db_errors("fetch all accounts summary")
+async def get_all_accounts_summary(
+    year: int = Query(..., ge=1900, le=3000, description="Year for summary data"),
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get aggregated summary (Haben, Soll, Gesamt) for all Girokonto and Darlehen accounts and year.
+    Blends actual transactions (past/today) with planning entries (future).
+    """
+    from datetime import date
+    today = date.today()
+
+    query = """
+        -- Haben row (income: positive amounts)
+        SELECT 'Haben' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount > 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount > 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+        ) haben_combined
+        UNION ALL
+        -- Soll row (expenses: negative amounts)
+        SELECT 'Soll' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s AND ae.amount < 0 THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s AND p.amount < 0 THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+        ) soll_combined
+        UNION ALL
+        -- Gesamt row (net: all amounts)
+        SELECT 'Gesamt' AS Kategorie,
+          SUM(Jan) AS Januar,
+          SUM(Feb) AS Februar,
+          SUM(Mrz) AS März,
+          SUM(Apr) AS April,
+          SUM(Mai) AS Mai,
+          SUM(Jun) AS Juni,
+          SUM(Jul) AS Juli,
+          SUM(Aug) AS August,
+          SUM(Sep) AS September,
+          SUM(Okt) AS Oktober,
+          SUM(Nov) AS November,
+          SUM(Dez) AS Dezember,
+          SUM(Jan+Feb+Mrz+Apr+Mai+Jun+Jul+Aug+Sep+Okt+Nov+Dez) AS Gesamt
+        FROM (
+          SELECT
+            SUM(CASE WHEN MONTH(t.dateValue) = 1 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(t.dateValue) = 2 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(t.dateValue) = 3 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(t.dateValue) = 4 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(t.dateValue) = 5 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(t.dateValue) = 6 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(t.dateValue) = 7 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(t.dateValue) = 8 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(t.dateValue) = 9 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(t.dateValue) = 10 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(t.dateValue) = 11 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(t.dateValue) = 12 AND t.dateValue <= %s THEN ae.amount ELSE 0 END) AS Dez
+          FROM tbl_accountingEntry ae
+            INNER JOIN tbl_transaction t ON ae.transaction = t.id
+            INNER JOIN tbl_account ON tbl_account.id = t.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(t.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+          UNION ALL
+          SELECT
+            SUM(CASE WHEN MONTH(pe.dateValue) = 1 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jan,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 2 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Feb,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 3 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mrz,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 4 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Apr,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 5 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Mai,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 6 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jun,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 7 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Jul,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 8 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Aug,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 9 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Sep,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 10 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Okt,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 11 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Nov,
+            SUM(CASE WHEN MONTH(pe.dateValue) = 12 AND pe.dateValue > %s THEN p.amount ELSE 0 END) AS Dez
+          FROM tbl_planning p
+            JOIN tbl_planningEntry pe ON pe.planning = p.id
+            INNER JOIN tbl_account ON tbl_account.id = p.account
+            INNER JOIN tbl_accountType ON tbl_accountType.id = tbl_account.type
+          WHERE YEAR(pe.dateValue) = %s AND tbl_accountType.type IN ('Girokonto', 'Darlehen')
+        ) gesamt_combined
+    """
+
+    params = tuple([today]*12 + [year] + [today]*12 + [year] +  # Haben
+                   [today]*12 + [year] + [today]*12 + [year] +  # Soll
+                   [today]*12 + [year] + [today]*12 + [year])   # Gesamt
+
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+
+    columns = [col[0] for col in cursor.description]
+    data = [dict(zip(columns, row)) for row in rows]
+
+    return {"year": year, "account": "Alle Darlehens- und Girokonten", "rows": data}
 
 
 @router.get("/girokonto/list")

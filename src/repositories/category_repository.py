@@ -17,17 +17,56 @@ class CategoryRepository(BaseRepository):
    def get_category_by_name(self, name: str) -> int:
       """
       Get category ID by name.
-      
+
       Args:
-         name: Category name
-         
+         name: Category name (can be simple name or full hierarchical name)
+
       Returns:
          Category ID if found, None otherwise
       """
+      # First try to find by simple name in tbl_category
       sql = "SELECT id FROM tbl_category WHERE name = %s"
       self.cursor.execute(sql, (name,))
       result = self.cursor.fetchone()
-      return result[0] if result else None
+      if result:
+         return result[0]
+      
+      # If not found, try to find by full name in view_categoryFullname
+      sql = "SELECT id FROM view_categoryFullname WHERE fullname = %s"
+      self.cursor.execute(sql, (name,))
+      result = self.cursor.fetchone()
+      if result:
+         return result[0]
+
+      # Fallback: resolve hierarchy directly from tbl_category if view is incomplete
+      return self._find_category_by_hierarchical_name(name)
+
+   def _find_category_by_hierarchical_name(self, fullname: str) -> int:
+      """
+      Resolve a category ID by traversing tbl_category using a hierarchical name.
+
+      Args:
+         fullname: Full hierarchical name ("Parent - Child - Subchild")
+
+      Returns:
+         Category ID if found, None otherwise
+      """
+      parts = [p.strip() for p in fullname.split(' - ') if p.strip()]
+      if not parts:
+         return None
+
+      parent_id = None
+      current_id = None
+      for part in parts:
+         sql = "SELECT id FROM tbl_category WHERE name = %s AND category <=> %s"
+         self.cursor.execute(sql, (part, parent_id))
+         row = self.cursor.fetchone()
+         if not row:
+            return None
+         current_id = row[0]
+         parent_id = current_id
+
+      return current_id
 
    def get_category_id_by_name_and_parent(self, name: str, parent_id: int = None) -> int:
       """
@@ -168,6 +207,26 @@ class CategoryRepository(BaseRepository):
          'page_size': page_size,
          'total': total
       }
+
+   def get_all_with_parent_unpaginated(self) -> list:
+      """
+      Get ALL categories with their parent category information (efficient single query).
+      
+      Returns:
+         List of category dictionaries with id, name, parent_id
+      """
+      sql = "SELECT id, name, category FROM tbl_category ORDER BY name"
+      self.cursor.execute(sql)
+      results = self.cursor.fetchall()
+      
+      return [
+         {
+            'id': row[0],
+            'name': row[1],
+            'parent_id': row[2]
+         }
+         for row in results
+      ]
 
    def update_category(self, category_id: int, new_name: str, parent_category_id: int = None) -> bool:
       """

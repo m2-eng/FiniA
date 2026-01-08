@@ -4,6 +4,7 @@ accountType:
   'Wertpapierdepot': 2
   'Darlehen': 3
   'Krypto': 4
+  'Investment-Plattform': 5
 
 planningCycle:
   'einmalig': 1

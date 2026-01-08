@@ -55,6 +55,89 @@ async def get_plannings(
     return result
 
 
+@router.get("/{planning_id}/entries", response_model=PlanningEntriesResponse)
+@handle_db_errors("fetch planning entries")
+async def get_planning_entries(
+    planning_id: int,
+    cursor = Depends(get_db_cursor)
+):
+    """
+    Get all planning entries for a planning.
+    """
+    repo = PlanningRepository(cursor)
+
+    planning = repo.get_planning_by_id(planning_id)
+    if not planning:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Planning with ID {planning_id} not found"
+        )
+
+    entries = repo.get_planning_entries(planning_id)
+    return {
+        "planning_id": planning_id,
+        "entries": entries,
+        "total": len(entries)
+    }
+
+
+@router.post("/{planning_id}/entries/generate", response_model=PlanningEntriesResponse)
+@handle_db_errors("generate planning entries")
+async def generate_planning_entries(
+    planning_id: int,
+    cursor = Depends(get_db_cursor),
+    connection = Depends(get_db_connection)
+):
+    """
+    Generate planning entries up to the planning end date or the end of next year.
+    """
+    repo = PlanningRepository(cursor)
+
+    entries = repo.regenerate_planning_entries(planning_id)
+    if entries is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Planning with ID {planning_id} not found"
+        )
+
+    safe_commit(connection)
+
+    return {
+        "planning_id": planning_id,
+        "entries": entries,
+        "total": len(entries)
+    }
+
+
+@router.delete("/{planning_id}/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+@handle_db_errors("delete planning entry")
+async def delete_planning_entry(
+    planning_id: int,
+    entry_id: int,
+    cursor = Depends(get_db_cursor),
+    connection = Depends(get_db_connection)
+):
+    """Delete a single planning entry for a planning."""
+    repo = PlanningRepository(cursor)
+
+    # Ensure the planning exists
+    planning = repo.get_planning_by_id(planning_id)
+    if not planning:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Planning with ID {planning_id} not found"
+        )
+
+    deleted = repo.delete_planning_entry(planning_id, entry_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Planning entry with ID {entry_id} not found for planning {planning_id}"
+        )
+
+    safe_commit(connection)
+
+
 @router.get("/{planning_id}", response_model=PlanningResponse)
 @handle_db_errors("fetch planning")
 async def get_planning(
@@ -175,60 +258,6 @@ async def update_planning(
     # Fetch the updated planning
     updated_planning = repo.get_planning_by_id(planning_id)
     return updated_planning
-
-
-@router.get("/{planning_id}/entries", response_model=PlanningEntriesResponse)
-@handle_db_errors("fetch planning entries")
-async def get_planning_entries(
-    planning_id: int,
-    cursor = Depends(get_db_cursor)
-):
-    """
-    Get all planning entries for a planning.
-    """
-    repo = PlanningRepository(cursor)
-
-    planning = repo.get_planning_by_id(planning_id)
-    if not planning:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning with ID {planning_id} not found"
-        )
-
-    entries = repo.get_planning_entries(planning_id)
-    return {
-        "planning_id": planning_id,
-        "entries": entries,
-        "total": len(entries)
-    }
-
-
-@router.post("/{planning_id}/entries/generate", response_model=PlanningEntriesResponse)
-@handle_db_errors("generate planning entries")
-async def generate_planning_entries(
-    planning_id: int,
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
-):
-    """
-    Generate planning entries up to the planning end date or the end of next year.
-    """
-    repo = PlanningRepository(cursor)
-
-    entries = repo.regenerate_planning_entries(planning_id)
-    if entries is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning with ID {planning_id} not found"
-        )
-
-    safe_commit(connection)
-
-    return {
-        "planning_id": planning_id,
-        "entries": entries,
-        "total": len(entries)
-    }
 
 
 @router.delete("/{planning_id}", status_code=status.HTTP_204_NO_CONTENT)

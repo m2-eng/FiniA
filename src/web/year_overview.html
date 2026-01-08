@@ -4,25 +4,38 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiniA - Jahresübersicht</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>FiniA - Finanzverwaltung</h1>
-    <div id="top-nav"></div>
+    <img src="favicon.png" alt="FiniA Logo" class="header-logo">
+    <div class="header-content">
+      <h1>FiniA - Finanzverwaltung</h1>
+      <div id="top-nav"></div>
+    </div>
   </header>
   <div class="container">
-    <!-- Jahr auswählen (lokal für diese Seite) -->
-    <div class="page-card">
-      <div style="margin-bottom: 16px;">
-        <label for="year-selector" style="margin-right: 8px; font-weight: 500;">Jahr auswählen:</label>
-        <select id="year-selector" class="form-select" style="min-width: 160px;">
-          <option value="">Lädt...</option>
-        </select>
+    <div class="page-card" id="assets-card">
+      <div class="details-header">
+        <div>
+          <h3>Vermögen <span class="details-meta" id="assets-year-label"></span></h3>
+          <p class="details-meta">Vermögen am Monatsende, aufgeteilt nach Kontostand, Darlehen und Wertpapiere.</p>
+        </div>
       </div>
-      <p class="details-meta">Die Auswahl gilt für alle Tabellen auf dieser Seite.</p>
+      <div id="assets-feedback" class="details-meta"></div>
+      <div class="details-toolbar" style="margin-bottom:8px;">
+        <button class="btn" id="assets-refresh">Aktualisieren</button>
+      </div>
+      <div class="table-wrapper" style="overflow-x:auto;">
+        <table class="simple-table equal-cols" id="assets-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
     </div>
+
     <div class="page-card" id="balances-card">
       <div class="details-header">
         <div>
@@ -55,6 +68,25 @@
       </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="monthly-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="page-card" id="investments-card">
+      <div class="details-header">
+        <div>
+          <h3>Investment-Plattformen <span class="details-meta" id="investments-year-label"></span></h3>
+          <p class="details-meta">Monatliche Entwicklung der Investment-Plattformen pro Konto, gefiltert nach ausgewähltem Jahr.</p>
+        </div>
+      </div>
+      <div id="investments-feedback" class="details-meta"></div>
+      <div class="details-toolbar" style="margin-bottom:8px;">
+        <button class="btn" id="investments-refresh">Aktualisieren</button>
+      </div>
+      <div class="table-wrapper" style="overflow-x:auto;">
+        <table class="simple-table equal-cols" id="investments-table">
           <thead></thead>
           <tbody></tbody>
         </table>

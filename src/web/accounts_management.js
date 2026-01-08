@@ -10,6 +10,28 @@ let currentSortDirection = 'asc';
 let cachedAccounts = [];
 let currentAccountData = null;
 
+// Hilfsfunktion: Bestimme ob ein Konto aktiv oder beendet ist
+function getAccountStatus(account) {
+  if (!account.dateEnd) {
+    return { text: 'Aktiv', class: 'status-active', isActive: true };
+  }
+  
+  // Vergleiche aktuelles Datum mit Enddatum
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const endDate = new Date(account.dateEnd);
+  endDate.setHours(0, 0, 0, 0);
+  
+  if (today >= endDate) {
+    // Aktuelles Datum ist gleich oder nach Enddatum → Beendet
+    return { text: 'Beendet', class: 'status-inactive', isActive: false };
+  } else {
+    // Enddatum liegt in der Zukunft → Aktiv
+    return { text: 'Aktiv', class: 'status-active', isActive: true };
+  }
+}
+
 async function loadAccountTypes() {
   try {
     const response = await fetch(`${API_BASE}/accounts/types/list`);
@@ -67,8 +89,10 @@ function sortAccounts(column) {
         valB = (b.type_name || '').toLowerCase();
         break;
       case 'status':
-        valA = a.dateEnd ? 1 : 0;
-        valB = b.dateEnd ? 1 : 0;
+        const statusA = getAccountStatus(a);
+        const statusB = getAccountStatus(b);
+        valA = statusA.isActive ? 0 : 1;
+        valB = statusB.isActive ? 0 : 1;
         break;
       default:
         return 0;
@@ -163,14 +187,13 @@ function displayAccounts(accounts, isInitialLoad = false) {
     row.dataset.id = String(account.id);
     if (account.id === selectedAccountId) row.classList.add('selected');
     
-    const statusText = account.dateEnd ? 'Beendet' : 'Aktiv';
-    const statusClass = account.dateEnd ? 'status-inactive' : 'status-active';
+    const status = getAccountStatus(account);
     
     row.innerHTML = `
       <td>${account.name || '-'}</td>
       <td>${account.iban_accountNumber || '-'}</td>
       <td>${account.type_name || '-'}</td>
-      <td style="text-align: center;"><span class="${statusClass}">${statusText}</span></td>
+      <td style="text-align: center;"><span class="${status.class}">${status.text}</span></td>
     `;
     row.onclick = () => showAccountDetails(account.id);
     tbody.appendChild(row);

@@ -5,6 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
+import warnings
 
 import yaml
 
@@ -13,6 +14,9 @@ from infrastructure.unit_of_work import UnitOfWork
 from repositories.account_import_repository import AccountImportRepository
 from repositories.transaction_repository import TransactionRepository
 from repositories.accounting_entry_repository import AccountingEntryRepository
+
+# Suppress MySQL duplicate entry warnings
+warnings.filterwarnings("ignore", message=".*duplicate.*", category=UserWarning)
 
 
 @dataclass
@@ -52,32 +56,59 @@ class AccountDataImporter:
          )
       return formats[format_name]
 
-   def _get_field(self, row: dict[str, Any], mapping: dict) -> str:
+   def _get_field(self, row: dict[str, Any], mapping: dict, field_name: str = "") -> tuple[str, bool]:
+      """Get field value from row using Strategy 1: Exact column names with priority fallbacks.
+      
+      Note: Header validation happens BEFORE import, so we can safely extract values here.
+      
+      Returns:
+         tuple: (value, unused_flag) - Returns (value, False) always since headers are pre-validated
+      """
+      if mapping is None:
+         return "", False
+      
       if isinstance(mapping, str):
-         return (row.get(mapping, "") or "").strip()
+         # Legacy: Simple string mapping (direct column name)
+         return (row.get(mapping, "") or "").strip(), False
+      
       if isinstance(mapping, dict) and "join" in mapping:
+         # Strategy: Join multiple columns
          separator = mapping.get("separator", " ")
          parts = [
             (row.get(item, "") or "").strip()
             for item in mapping.get("join", [])
             if (row.get(item, "") or "").strip()
          ]
-         return separator.join(parts)
+         value = separator.join(parts)
+         return value, False
+      
       if isinstance(mapping, dict) and "regex" in mapping:
+         # Strategy: Extract via regex from source column
          pattern = mapping.get("regex")
          target = mapping.get("source")
          value = row.get(target, "") or ""
          matches = re.findall(pattern, value)
          if not matches:
-            return ""
+            return "", False
          # Join all capture groups or matches into one string
          def _flatten(m):
             if isinstance(m, tuple):
                return "".join(m)
             return m
          extracted = [ _flatten(m) for m in matches if _flatten(m) ]
-         return " | ".join(extracted)
-      return ""
+         return " | ".join(extracted), False
+      
+      if isinstance(mapping, dict) and "names" in mapping:
+         # Strategy 1: Exact column names with priority fallbacks
+         names = mapping.get("names", [])
+         for name in names:
+            if name in row and (row.get(name) or "").strip():
+               return (row.get(name, "") or "").strip(), False
+         # Fallback: return empty string if no matching column found
+         return "", False
+      
+      # Fallback for unmapped fields
+      return "", False
 
    def _parse_amount(self, raw: str, decimal_sep: str) -> Decimal:
       normalized = raw.replace(" ", "")
@@ -87,6 +118,72 @@ class AccountDataImporter:
 
    def _parse_date(self, raw: str, date_format: str) -> datetime:
       return datetime.strptime(raw, date_format)
+
+   def _validate_csv_headers(self, csv_fieldnames: list[str], columns: dict, csv_filename: str) -> bool:
+      """Validate that all required columns are present in CSV file.
+      
+      Required columns are those that are NOT null in the format config.
+      
+      Args:
+         csv_fieldnames: List of column names from CSV header
+         columns: Column mapping configuration
+         csv_filename: Name of CSV file (for error messages)
+      
+      Returns:
+         True if all required columns found, False if validation failed
+      """
+      csv_fieldnames_lower = [f.lower() for f in csv_fieldnames]
+      missing_fields = []
+      
+      for field_name, field_config in columns.items():
+         # Skip null/None fields - they are optional
+         if field_config is None:
+            continue
+         
+         # Check if this field can be found in CSV
+         field_found = False
+         
+         if isinstance(field_config, str):
+            # Simple string mapping
+            field_found = field_config in csv_fieldnames
+         elif isinstance(field_config, dict):
+            if "names" in field_config:
+               # Check if any of the alternative names exist
+               for name in field_config.get("names", []):
+                  if name in csv_fieldnames:
+                     field_found = True
+                     break
+            elif "regex" in field_config:
+               # Regex extraction - source column must exist
+               source = field_config.get("source")
+               if source and source in csv_fieldnames:
+                  field_found = True
+            elif "join" in field_config:
+               # Join columns - check if source columns exist
+               join_fields = field_config.get("join", [])
+               if any(f in csv_fieldnames for f in join_fields):
+                  field_found = True
+         
+         if not field_found:
+            missing_fields.append(field_name)
+      
+      if missing_fields:
+         print(f"\n❌ FEHLER - Datei: {csv_filename}")
+         print(f"   Erforderliche Spalten nicht gefunden:")
+         for field in missing_fields:
+            config = columns.get(field, {})
+            if isinstance(config, dict) and "names" in config:
+               names = config.get("names", [])
+               print(f"   - {field}: Erwartet eine dieser Spalten: {', '.join(names)}")
+            else:
+               print(f"   - {field}")
+         print(f"\n   Verfügbare Spalten in der CSV-Datei ({len(csv_fieldnames)}):")
+         for fname in csv_fieldnames:
+            print(f"   - {fname}")
+         print(f"\n   Import für diese Datei wird abgebrochen!\n")
+         return False
+      
+      return True
 
    def _import_file(self, csv_path: Path, mapping: dict, job: ImportJob, tx_repo: TransactionRepository, ae_repo: AccountingEntryRepository) -> tuple[int, int]:
       delimiter = mapping.get("delimiter", ";")
@@ -98,17 +195,56 @@ class AccountDataImporter:
       inserted = 0
       total = 0
 
-      with open(csv_path, "r", encoding=encoding, newline="") as handle:
+      # Try multiple encodings to handle different CSV formats from banks
+      encodings_to_try = [encoding]
+      if encoding.lower() == "utf-8":
+         # Common fallback encodings for German bank exports
+         encodings_to_try.extend(["latin-1", "iso-8859-1", "cp1252"])
+      
+      detected_encoding = None
+      last_error = None
+      
+      # Detect the correct encoding by trying to read the file
+      for enc in encodings_to_try:
+         try:
+            with open(csv_path, "r", encoding=enc, newline="") as test_handle:
+               # Try to read the entire content to verify encoding
+               test_handle.read(4096)
+            detected_encoding = enc
+            break
+         except (UnicodeDecodeError, Exception) as e:
+            last_error = e
+            continue
+      
+      if detected_encoding is None:
+         raise RuntimeError(f"Could not detect encoding for {csv_path.name}. Tried: {encodings_to_try}. Last error: {last_error}")
+      
+      with open(csv_path, "r", encoding=detected_encoding, newline="") as handle:
          reader = csv.DictReader(handle, delimiter=delimiter)
+         
+         # Validate CSV headers BEFORE processing
+         if reader.fieldnames is None:
+            print(f"\n❌ FEHLER - Datei: {csv_path.name}")
+            print(f"   CSV-Datei hat keine Header-Zeile oder ist leer!")
+            print(f"   Import wird abgebrochen!\n")
+            return 0, 0
+         
+         # Check if all required columns are present
+         if not self._validate_csv_headers(reader.fieldnames, columns, csv_path.name):
+            return 0, 0  # Validation failed, abort import
+         
+         print(f"✓ CSV-Spalten validiert: {csv_path.name}")
+         
          for row in reader:
             total += 1
             try:
-               date_value_raw = self._get_field(row, columns.get("dateValue"))
-               amount_raw = self._get_field(row, columns.get("amount"))
-               description = self._get_field(row, columns.get("description"))
-               iban = self._get_field(row, columns.get("iban")) or None
-               bic = self._get_field(row, columns.get("bic")) or None
-               recipient = self._get_field(row, columns.get("recipientApplicant")) or None
+               # Get field values (no need to check for missing required columns anymore)
+               date_value_raw, _ = self._get_field(row, columns.get("dateValue"), "dateValue")
+               amount_raw, _ = self._get_field(row, columns.get("amount"), "amount")
+               description, _ = self._get_field(row, columns.get("description"), "description")
+               iban, _ = self._get_field(row, columns.get("iban"), "iban")
+               bic, _ = self._get_field(row, columns.get("bic"), "bic")
+               recipient, _ = self._get_field(row, columns.get("recipientApplicant"), "recipientApplicant")
 
                date_value = self._parse_date(date_value_raw, date_format)
                amount = self._parse_amount(amount_raw, decimal_sep)
@@ -123,8 +259,9 @@ class AccountDataImporter:
                   recipient_applicant=recipient,
                )
                
-               if transaction_id:
+               if isinstance(transaction_id, int) and transaction_id > 0:
                   # Automatically create accounting entry for new transaction
+                  # Always create exactly one accounting entry per new transaction
                   ae_repo.insert(
                      amount=amount,
                      transaction_id=transaction_id,
@@ -133,8 +270,16 @@ class AccountDataImporter:
                      category_id=None,
                   )
                   inserted += 1
-            except Exception as exc:  # keep importing but report
-               print(f"  Warning: skipping row {total} in {csv_path.name}: {exc}")
+            except Exception as exc:  # keep importing but report only relevant errors
+               # Silently skip duplicate entries - they are expected and normal
+               error_msg = str(exc).lower()
+               if "duplicate" in error_msg or "unique" in error_msg:
+                  # This is expected when importing duplicate data - don't print
+                  pass
+               else:
+                  # Only print unexpected errors
+                  print(f"  Warning: skipping row {total} in {csv_path.name}: {exc}")
+      
       return inserted, total
 
    def _collect_jobs(self) -> list[ImportJob]:

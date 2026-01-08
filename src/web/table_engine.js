@@ -74,8 +74,45 @@ class TableEngine {
     
     try {
       let url = `${API_BASE}${config.endpoint}?year=${year}`;
+      
+      // Spezialbehandlung für aggregierte Konten
       if (config.requiresAccount && account) {
-        url += `&account=${encodeURIComponent(account)}`;
+        if (account === '__ALL_GIRO__') {
+          // Verwende spezielle All-Giro-Endpoints
+          const allGiroEndpoints = {
+            '/accounts/income': '/accounts/all-giro/income',
+            '/accounts/expenses': '/accounts/all-giro/expenses',
+            '/accounts/summary': '/accounts/all-giro/summary'
+          };
+          const newEndpoint = allGiroEndpoints[config.endpoint];
+          if (newEndpoint) {
+            url = `${API_BASE}${newEndpoint}?year=${year}`;
+          }
+        } else if (account === '__ALL_LOANS__') {
+          // Verwende spezielle All-Loans-Endpoints
+          const allLoansEndpoints = {
+            '/accounts/income': '/accounts/all-loans/income',
+            '/accounts/expenses': '/accounts/all-loans/expenses',
+            '/accounts/summary': '/accounts/all-loans/summary'
+          };
+          const newEndpoint = allLoansEndpoints[config.endpoint];
+          if (newEndpoint) {
+            url = `${API_BASE}${newEndpoint}?year=${year}`;
+          }
+        } else if (account === '__ALL_ACCOUNTS__') {
+          // Verwende spezielle All-Accounts-Endpoints (Giro + Darlehen)
+          const allAccountsEndpoints = {
+            '/accounts/income': '/accounts/all-accounts/income',
+            '/accounts/expenses': '/accounts/all-accounts/expenses',
+            '/accounts/summary': '/accounts/all-accounts/summary'
+          };
+          const newEndpoint = allAccountsEndpoints[config.endpoint];
+          if (newEndpoint) {
+            url = `${API_BASE}${newEndpoint}?year=${year}`;
+          }
+        } else {
+          url += `&account=${encodeURIComponent(account)}`;
+        }
       }
       
       const data = await this.fetchWithRetry(url);
@@ -108,6 +145,14 @@ class TableEngine {
     await Promise.all(
       tableIds.map(id => this.loadTable(id, year, account))
     );
+    
+    // Nach dem Laden aller Tabellen: Synchronisiere Kategoriespalten-Breite
+    // (nur für accounts.js relevante Tabellen)
+    if (typeof calculateGlobalCategoryWidth === 'function' && 
+        typeof applyGlobalCategoryWidth === 'function') {
+      const width = calculateGlobalCategoryWidth(tableIds);
+      applyGlobalCategoryWidth(tableIds, width);
+    }
   }
 
   /**

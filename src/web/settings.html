@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FiniA - Einstellungen</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style id="dynamic-theme">/* Theme variables loaded from API */</style>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <img src="favicon.png" alt="FiniA Logo" class="header-logo">
+    <div class="header-content">
+      <h1>FiniA - Finanzverwaltung</h1>
+      <div id="top-nav"></div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="page-card">
+      <div class="details-header">
+        <div>
+          <h3>Wertpapier-Transaktionen: Kategorien für Buchungseinträge</h3>
+          <p class="details-meta">Nur Buchungseinträge aus diesen Kategorien werden im Transaktions-Dialog angeboten.</p>
+        </div>
+      </div>
+
+      <div class="details-toolbar" style="margin-bottom: 12px;">
+        <button class="btn" id="add-category-btn">Kategorie hinzufügen</button>
+      </div>
+
+      <div class="table-wrapper" style="overflow-x:auto;">
+        <table id="settingsTable" class="simple-table">
+          <colgroup>
+            <col style="width: auto;">
+            <col style="width: 100px;">
+            <col style="width: 120px;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th style="text-align: left;">Kategorie</th>
+              <th style="text-align: center;">Typ</th>
+              <th style="text-align: center;">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody id="categories-tbody">
+            <tr>
+              <td colspan="3" style="text-align: center;">Lade Einstellungen...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="settings-status" class="details-meta" style="margin-top: 12px;"></div>
+    </div>
+  </div>
+
+  <!-- Modal for adding categories -->
+  <div id="formModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle"></h3>
+        <button class="btn-ghost" id="modalCloseBtn" aria-label="Schließen">X</button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="modalCancelBtn">Abbrechen</button>
+        <button class="btn" id="modalSaveBtn">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script src="settings.js"></script>
+</body>
+</html>
