@@ -1,5 +1,11 @@
 // Zentrale Tabellen-Konfiguration - wiederverwendbar für alle Seiten
 const TABLE_CONFIGS = {
+  'assets-table': {
+    endpoint: '/year-overview/assets-month-end',
+    yearLabelId: 'assets-year-label',
+    feedbackId: 'assets-feedback',
+    title: 'Vermögen'
+  },
   'balances-table': {
     endpoint: '/year-overview/account-balances',
     yearLabelId: 'balances-year-label',
@@ -11,6 +17,12 @@ const TABLE_CONFIGS = {
     yearLabelId: 'monthly-year-label',
     feedbackId: 'monthly-feedback',
     title: 'Bilanz'
+  },
+  'investments-table': {
+    endpoint: '/year-overview/investments',
+    yearLabelId: 'investments-year-label',
+    feedbackId: 'investments-feedback',
+    title: 'Investment-Plattformen'
   },
   'loans-table': {
     endpoint: '/year-overview/loans',

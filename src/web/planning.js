@@ -9,6 +9,7 @@ let selectedPlanningId = null;
 let currentEntries = [];
 let currentSortField = null;
 let currentSortDirection = 'asc';
+let planningEntryCounts = {}; // Track entry count per planning
 
 // Initialize page
 async function initPlanning() {
@@ -61,7 +62,8 @@ async function loadAccounts() {
 // Load all categories
 async function loadCategories() {
   try {
-    const response = await fetch(`${API_BASE}/categories/`);
+    // Use unpaginated list to avoid cutoff at default page_size (100)
+    const response = await fetch(`${API_BASE}/categories/list`);
     const data = await response.json();
     allCategories = data.categories || [];
     populateCategorySelect();
@@ -98,17 +100,21 @@ async function loadPlannings() {
     let page = 1;
     let hasMore = true;
     const pageSize = 200;
+    let attemptCount = 0;
+    const maxAttempts = 100; // Safety limit to prevent infinite loops
 
     // Load all pages sequentially
-    while (hasMore) {
+    while (hasMore && attemptCount < maxAttempts) {
+      attemptCount++;
       const response = await fetch(`${API_BASE}/planning/?page=${page}&page_size=${pageSize}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
       if (data.plannings && data.plannings.length > 0) {
         allPlannings = allPlannings.concat(data.plannings);
-        page++;
+        // Check if we got fewer items than requested (indicates last page)
         hasMore = data.plannings.length === pageSize;
+        page++;
       } else {
         hasMore = false;
       }
@@ -118,6 +124,9 @@ async function loadPlannings() {
     const previousSelection = selectedPlanningId;
     const validIds = new Set(allPlannings.map(p => p.id));
     selectedPlanningId = validIds.has(previousSelection) ? previousSelection : (allPlannings[0]?.id ?? null);
+
+    // Load entry counts for all plannings in background
+    loadAllPlanningEntryCounts();
 
     displayPlannings();
     if (selectedPlanningId) {
@@ -138,6 +147,24 @@ async function loadPlannings() {
   }
 }
 
+// Load entry counts for all plannings in the background
+async function loadAllPlanningEntryCounts() {
+  for (const planning of allPlannings) {
+    try {
+      const response = await fetch(`${API_BASE}/planning/${planning.id}/entries`);
+      if (response.ok) {
+        const data = await response.json();
+        planningEntryCounts[planning.id] = (data.entries || []).length;
+      }
+    } catch (error) {
+      console.error(`Error loading entries for planning ${planning.id}:`, error);
+      planningEntryCounts[planning.id] = 0;
+    }
+  }
+  // Re-render table after all counts are loaded
+  displayPlannings();
+}
+
 // Display plannings in table
 function displayPlannings() {
   const tbody = document.getElementById('planningsBody');
@@ -150,7 +177,7 @@ function displayPlannings() {
   if (planningsToShow.length === 0) {
     const searchValue = document.getElementById('planningSearch')?.value;
     const message = searchValue ? 'Keine Planungen gefunden' : 'Keine Planungen vorhanden';
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px;">${message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 20px;">${message}</td></tr>`;
     return;
   }
 
@@ -168,9 +195,11 @@ function displayPlannings() {
     row.innerHTML = `
       <td>${planning.account_name}</td>
       <td>${planning.category_name || '-'}</td>
+      <td>${planning.description || '-'}</td>
       <td class="${amountClass}" style="text-align: right;">${formatCurrency(planning.amount)}</td>
       <td>${planning.cycle_name}</td>
       <td><span class="${activeClass}">${activeLabel}</span></td>
+      <td style="text-align: center;">${planningEntryCounts[planning.id] ?? 0}</td>
       <td>
         <div class="planning-actions">
           <button class="btn-small" onclick="editPlanning(${planning.id}); event.stopPropagation();">Bearbeiten</button>
@@ -190,11 +219,11 @@ function formatCurrency(amount) {
 
 function isPlanningActive(planning) {
   const now = new Date();
-  const start = planning.dateStart ? new Date(planning.dateStart) : null;
   const end = planning.dateEnd ? new Date(planning.dateEnd) : null;
 
-  if (start && start > now) return false;
+  // Inaktiv: nur wenn Ende in der Vergangenheit liegt
   if (end && end < now) return false;
+  // Aktiv: wenn kein Ende definiert oder Ende in der Zukunft
   return true;
 }
 
@@ -402,7 +431,7 @@ async function savePlanning(event) {
     selectedPlanningId = payload.id;
     closePlanningDialog();
     await loadPlannings();
-    alert(currentEditId ? 'Planung erfolgreich aktualisiert!' : 'Planung erfolgreich erstellt!');
+    // Success alert removed - only show errors
   } catch (error) {
     console.error('Error saving planning:', error);
     alert(`Fehler beim Speichern: ${error.message}`);
@@ -557,7 +586,10 @@ async function loadPlanningEntries(planningId) {
     }
 
     currentEntries = data.entries || [];
+    planningEntryCounts[planningId] = currentEntries.length;
     renderEntries();
+    // Update the plannings table to show the new entry count
+    displayPlannings();
 
     if (table) table.style.display = 'table';
   } catch (error) {
@@ -577,15 +609,22 @@ function renderEntries() {
   tbody.innerHTML = '';
 
   if (currentEntries.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:12px;">Keine Planungseinträge vorhanden</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:12px;">Keine Planungseinträge vorhanden</td></tr>';
     return;
   }
+
+  const planning = allPlannings.find(p => p.id === selectedPlanningId);
+  const description = planning?.description || '-';
 
   currentEntries.forEach(entry => {
     const row = document.createElement('tr');
     row.innerHTML = `
       <td>${formatDate(entry.dateValue)}</td>
+      <td>${description}</td>
       <td style="text-align:right;">${formatCurrency(findPlanningAmount(entry.planning_id))}</td>
+      <td style="text-align:center;">
+        <button class="btn-small delete" title="Eintrag löschen" onclick="deletePlanningEntry(${entry.id}); event.stopPropagation();">Löschen</button>
+      </td>
     `;
     tbody.appendChild(row);
   });
@@ -594,7 +633,7 @@ function renderEntries() {
 function clearEntries() {
   currentEntries = [];
   const tbody = document.getElementById('planningEntriesBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="2" style="text-align:center; padding:12px;">Keine Planung ausgewählt</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:12px;">Keine Planung ausgewählt</td></tr>';
 }
 
 function findPlanningAmount(planningId) {
@@ -619,14 +658,40 @@ async function generatePlanningEntries() {
     }
 
     currentEntries = data.entries || [];
+    planningEntryCounts[selectedPlanningId] = currentEntries.length;
     renderEntries();
-    alert('Planungseinträge aktualisiert.');
+    // Update the plannings table to show the new entry count
+    displayPlannings();
+    // Success alert removed - only show errors
   } catch (error) {
     console.error('Error generating planning entries:', error);
     alert(`Fehler beim Aktualisieren der Planungseinträge: ${error.message}`);
   } finally {
     button.textContent = original;
     button.disabled = false;
+  }
+}
+
+// Delete a single planning entry
+async function deletePlanningEntry(entryId) {
+  if (!selectedPlanningId) return;
+  if (!confirm('Diesen Planungseintrag wirklich löschen?')) return;
+
+  try {
+    const response = await fetch(`${API_BASE}/planning/${selectedPlanningId}/entries/${entryId}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    // Remove locally and re-render
+    currentEntries = currentEntries.filter(e => e.id !== entryId);
+    planningEntryCounts[selectedPlanningId] = currentEntries.length;
+    renderEntries();
+    displayPlannings();
+  } catch (error) {
+    console.error('Fehler beim Löschen des Planungseintrags:', error);
+    alert(`Fehler beim Löschen: ${error.message}`);
   }
 }
 
@@ -662,7 +727,6 @@ async function saveDetailsChanges() {
     }
 
     await loadPlannings();
-    alert('Änderungen erfolgreich gespeichert!');
   } catch (error) {
     console.error('Error saving details:', error);
     alert(`Fehler beim Speichern: ${error.message}`);

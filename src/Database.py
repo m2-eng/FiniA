@@ -54,7 +54,7 @@ class Database:
             database=self.database_name if use_database else None,
             port=self.port,
             autocommit=True,
-            use_pure=False,  # C Extension
+            use_pure=True,  # pure Python fallback; avoids missing C extension
          )
             
          if self.connection.is_connected():
@@ -81,7 +81,7 @@ class Database:
             database=self.database_name if use_database else None,
             port=self.port,
             autocommit=True,
-            use_pure=False,
+            use_pure=True,
          )
          return conn
       except Error as e:

@@ -5,34 +5,53 @@ formats:
     decimal: ','
     date_format: '%d.%m.%Y'
     columns:
-      dateValue: Valuta
-      amount: Betrag
+      dateValue:
+        names:
+          - Valuta
+      amount:
+        names:
+          - Betrag
       description:
         join:
-          - Buchungstext
           - Verwendungszweck
         separator: ' | '
-      iban: IBAN
-      bic: BIC
-      recipientApplicant: 'Sender / Empfänger'
+      iban:
+        names:
+          - "IBAN"
+          - "IBAN / Konto-Nr."
+      bic:
+        names:
+          - "BIC"
+          - "BIC / BLZ"
+      recipientApplicant:
+        names:
+          - 'Sender / Empfänger'
 
   csv-spk:
-    encoding: utf-8
+    encoding: latin-1
     delimiter: ';'
     decimal: ','
     date_format: '%d.%m.%Y'
     columns:
-      dateValue: Valutadatum
-      amount: Betrag
+      dateValue:
+        names:
+          - Valuta
+      amount:
+        names:
+          - Betrag
       description:
         join:
-          - Buchungstext
           - Verwendungszweck
-          - Info
         separator: ' | '
-      iban: Kontonummer
-      bic: BLZ
-      recipientApplicant: 'Beguenstigter/Zahlungspflichtiger'
+      iban:
+        names:
+          - Kontonummer
+      bic:
+        names:
+          - BLZ
+      recipientApplicant:
+        names:
+          - 'Beguenstigter/Zahlungspflichtiger'
 
   csv-mintos:
     encoding: utf-8
@@ -40,8 +59,12 @@ formats:
     decimal: '.'
     date_format: '%Y-%m-%d %H:%M:%S'
     columns:
-      dateValue: Datum
-      amount: Umsatz
+      dateValue:
+        names:
+          - Datum
+      amount:
+        names:
+          - Umsatz
       description: 
         join:
           - Details
@@ -50,5 +73,28 @@ formats:
       iban:
         regex: 'ISIN:\s*([A-Z0-9]{10,20})|Darlehen\s*([0-9\-]+)'
         source: Details
+      bic: null
+      recipientApplicant: null
+
+  csv-loan:
+    encoding: utf-8
+    delimiter: ';'
+    decimal: ','
+    date_format: '%d.%m.%Y'
+    columns:
+      account:
+        names:
+          - Darlehen
+      dateValue:
+        names:
+          - Datum
+      amount:
+        names:
+          - Betrag
+      description:
+        join:
+          - Beschreibung
+        separator: ' | '
+      iban: null
       bic: null
       recipientApplicant: null

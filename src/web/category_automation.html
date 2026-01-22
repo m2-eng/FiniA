@@ -4,13 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiniA - Kategorisierungsregeln</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>FiniA - Finanzverwaltung</h1>
-    <div id="top-nav"></div>
+    <img src="favicon.png" alt="FiniA Logo" class="header-logo">
+    <div class="header-content">
+      <h1>FiniA - Finanzverwaltung</h1>
+      <div id="top-nav"></div>
+    </div>
   </header>
 
   <div class="container">
@@ -23,6 +27,7 @@
           </select>
           <button class="btn" onclick="loadRules()">Aktualisieren</button>
           <button class="btn btn-secondary" onclick="resetRuleFilter()">Zurücksetzen</button>
+          <button class="btn" onclick="createNewRule()">+ Neue Regel</button>
         </div>
         <div id="errorMessage" class="error" style="display: none;"></div>
         <div id="loadingIndicator" class="loading">Lade Regeln...</div>

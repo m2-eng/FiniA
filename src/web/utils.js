@@ -24,6 +24,13 @@ function toDateInputValue(dateString) {
   return `${year}-${month}-${day}`;
 }
 
+function formatCurrency(value) {
+  if (value === null || value === undefined) return '-';
+  const number = parseFloat(value);
+  if (isNaN(number)) return '-';
+  return number.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+}
+
 // Dropdown Population
 function populateDropdown(dropdownId, items, displayProperty, placeholderText = '-- Auswählen --') {
   const dropdown = document.getElementById(dropdownId);

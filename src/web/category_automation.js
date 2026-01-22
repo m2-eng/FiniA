@@ -20,7 +20,7 @@ async function loadAccounts() {
 
 async function loadCategories() {
   try {
-    const response = await fetch(`${API_BASE}/categories/`);
+    const response = await fetch(`${API_BASE}/categories/list`);
     const data = await response.json();
     allCategories = data.categories || [];
     populateCategoryDropdown();
@@ -174,6 +174,24 @@ function resetRuleFilter() {
   clearRuleDetails();
 }
 
+function createNewRule() {
+  // Clear all form fields and show the details panel for a new rule
+  clearRuleForm();
+  selectedRuleId = null;
+  currentRuleData = null;
+  
+  // Remove any selected rows
+  document.querySelectorAll('#rulesBody tr.selected').forEach(tr => tr.classList.remove('selected'));
+  
+  // Show the details panel
+  const detailsPanel = document.getElementById('detailsPanel');
+  detailsPanel.style.display = 'block';
+  
+  // Hide the delete button for new rules (show save and new rule buttons)
+  const deleteButton = document.getElementById('deleteButton');
+  if (deleteButton) deleteButton.style.display = 'none';
+}
+
 async function showRuleDetails(ruleId) {
   try {
     const response = await fetch(`${API_BASE}/category-automation/${ruleId}`);
@@ -203,6 +221,10 @@ async function showRuleDetails(ruleId) {
 
     const detailsPanel = document.getElementById('detailsPanel');
     detailsPanel.style.display = 'block';
+    
+    // Show the delete button for existing rules
+    const deleteButton = document.getElementById('deleteButton');
+    if (deleteButton) deleteButton.style.display = 'inline-block';
   } catch (error) {
     console.error('Error loading rule details:', error);
     alert(`Fehler beim Laden der Regelinformationen: ${error.message}`);

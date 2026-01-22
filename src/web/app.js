@@ -117,6 +117,9 @@ async function loadTopNav(currentRoute) {
     if (themeToggle) {
       themeToggle.addEventListener('click', toggleTheme);
     }
+
+    // Load year dropdown after nav is loaded
+    await loadYearDropdown();
   } catch (e) {
     console.error('Failed to load top nav:', e);
   }

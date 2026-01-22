@@ -5,3 +5,5 @@ cmd
 /.vscode/
 /.venv/
 **/__pycache__/
+
+start.ps1

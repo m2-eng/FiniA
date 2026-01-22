@@ -27,6 +27,10 @@ class ShareRepository:
         if holdings_filter == "in_stock":
             where_conditions.append("s.currentVolume <> 0")
         
+        # Filter for incomplete shares (missing name or wkn)
+        if holdings_filter == "incomplete":
+            where_conditions.append("(s.name IS NULL OR s.name = '' OR s.wkn IS NULL OR s.wkn = '')")
+        
         where_clause = f"WHERE {' AND '.join(where_conditions)}" if where_conditions else ""
 
         # Sorting (whitelisted columns)
@@ -37,7 +41,11 @@ class ShareRepository:
             'currentVolume': 's.currentVolume',
             'currentPrice': 's.currentPrice',
             'portfolioValue': 's.portfolioValue',
-            'dateImport': 's.dateImport'
+            'dateImport': 's.dateImport',
+            # Aggregated sums aliases
+            'investments': 'investments',
+            'proceeds': 'proceeds',
+            'net': 'net'
         }
         sort_column = sort_column_map.get(sort_by, 's.name')
         sort_direction = 'DESC' if (sort_dir or '').lower() == 'desc' else 'ASC'
@@ -49,8 +57,24 @@ class ShareRepository:
         """
 
         data_query = f"""
-            SELECT s.id, s.name, s.isin, s.wkn, s.currentVolume, s.currentPrice, s.portfolioValue
+            SELECT 
+                s.id, s.name, s.isin, s.wkn, s.currentVolume, s.currentPrice, s.portfolioValue,
+                COALESCE(agg.investments, 0) AS investments,
+                COALESCE(agg.proceeds, 0) AS proceeds,
+                COALESCE(agg.net, 0) AS net,
+                COALESCE(agg.dividends, 0) AS dividends
             FROM view_sharePortfolioValue s
+            LEFT JOIN (
+                SELECT 
+                    st.share AS share_id,
+                    ABS(SUM(CASE WHEN st.tradingVolume > 0 THEN COALESCE(ae.amount, 0) ELSE 0 END)) AS investments,
+                    ABS(SUM(CASE WHEN st.tradingVolume < 0 THEN COALESCE(ae.amount, 0) ELSE 0 END)) AS proceeds,
+                    ABS(SUM(CASE WHEN st.tradingVolume = 0 THEN COALESCE(ae.amount, 0) ELSE 0 END)) AS dividends,
+                    SUM(COALESCE(ae.amount, 0)) AS net
+                FROM tbl_shareTransaction st
+                LEFT JOIN tbl_accountingEntry ae ON st.accountingEntry = ae.id
+                GROUP BY st.share
+            ) agg ON agg.share_id = s.id
             {where_clause}
             ORDER BY {sort_column} {sort_direction}
             LIMIT %s OFFSET %s
@@ -68,7 +92,7 @@ class ShareRepository:
         rows = self.cursor.fetchall()
         
         # Convert tuples to dictionaries
-        columns = ['id', 'name', 'isin', 'wkn', 'currentVolume', 'currentPrice', 'portfolioValue']
+        columns = ['id', 'name', 'isin', 'wkn', 'currentVolume', 'currentPrice', 'portfolioValue', 'investments', 'proceeds', 'net', 'dividends']
         shares = [dict(zip(columns, row)) for row in rows] if rows else []
         
         return {
@@ -105,13 +129,31 @@ class ShareRepository:
         return None
     
     def get_share_by_isin_wkn(self, isin, wkn):
-        """Get share by ISIN or WKN (for deduplication)"""
-        query = "SELECT id, dateImport, name, isin, wkn FROM tbl_share WHERE isin = %s OR wkn = %s LIMIT 1"
-        self.cursor.execute(query, (isin, wkn))
-        row = self.cursor.fetchone()
-        if row:
-            columns = ['id', 'dateImport', 'name', 'isin', 'wkn']
-            return dict(zip(columns, row))
+        """Get share by ISIN or WKN (ISIN has priority)
+        Args:
+            isin: ISIN code (international)
+            wkn: WKN code (German)
+        Returns:
+            Share dict if found, None otherwise
+        """
+        # Try ISIN first (international standard, has priority)
+        if isin:
+            query = "SELECT id, dateImport, name, isin, wkn FROM tbl_share WHERE isin = %s LIMIT 1"
+            self.cursor.execute(query, (isin,))
+            row = self.cursor.fetchone()
+            if row:
+                columns = ['id', 'dateImport', 'name', 'isin', 'wkn']
+                return dict(zip(columns, row))
+        
+        # Fall back to WKN if ISIN not found or not provided
+        if wkn:
+            query = "SELECT id, dateImport, name, isin, wkn FROM tbl_share WHERE wkn = %s LIMIT 1"
+            self.cursor.execute(query, (wkn,))
+            row = self.cursor.fetchone()
+            if row:
+                columns = ['id', 'dateImport', 'name', 'isin', 'wkn']
+                return dict(zip(columns, row))
+        
         return None
     
     def insert_share(self, name, isin, wkn):

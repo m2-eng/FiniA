@@ -81,6 +81,26 @@ class AccountingEntryRepository(BaseRepository):
       self.cursor.execute(sql, (entry_id,))
       return self.cursor.rowcount > 0
 
+   def set_checked_for_transactions(self, transaction_ids: list[int], checked: bool) -> int:
+      """
+      Bulk set checked flag for all entries belonging to the given transaction IDs.
+
+      Args:
+         transaction_ids: List of transaction IDs
+         checked: Desired checked state
+
+      Returns:
+         Number of rows updated
+      """
+      if not transaction_ids:
+         return 0
+
+      placeholders = ",".join(["%s"] * len(transaction_ids))
+      sql = f"UPDATE tbl_accountingEntry SET checked = %s WHERE transaction IN ({placeholders})"
+      params = [checked, *transaction_ids]
+      self.cursor.execute(sql, params)
+      return self.cursor.rowcount
+
    def get_all_by_transaction(self, transaction_id: int) -> list[dict]:
       """
       Get all accounting entries for a transaction.

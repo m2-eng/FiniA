@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiniA - Kategorien</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
   <style>
@@ -286,8 +287,11 @@
 </head>
 <body>
   <header>
-    <h1>FiniA - Finanzverwaltung</h1>
-    <div id="top-nav"></div>
+    <img src="favicon.png" alt="FiniA Logo" class="header-logo">
+    <div class="header-content">
+      <h1>FiniA - Finanzverwaltung</h1>
+      <div id="top-nav"></div>
+    </div>
   </header>
   <div class="container">
     <div class="page-card">
@@ -369,7 +373,8 @@
       const err = document.getElementById('catError');
       err.style.display = 'none';
       try {
-        const res = await fetch(`${API_BASE}/categories/hierarchy`);
+        // Load all categories efficiently in single query
+        const res = await fetch(`${API_BASE}/categories/hierarchy/all`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         allCategories = data.categories || [];

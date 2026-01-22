@@ -4,31 +4,35 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiniA - Konten</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>FiniA - Finanzverwaltung</h1>
-    <div id="top-nav"></div>
+    <img src="favicon.png" alt="FiniA Logo" class="header-logo">
+    <div class="header-content">
+      <h1>FiniA - Finanzverwaltung</h1>
+      <div id="top-nav"></div>
+    </div>
   </header>
   <div class="container">
-    <!-- Filter: Jahr & Konto Auswahl -->
+    <!-- Filter: Konto Auswahl -->
     <div class="page-card">
       <h2>Kontenübersicht</h2>
       <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom: 16px; align-items:center;">
-        <div>
-          <label for="year-selector" style="margin-right: 8px; font-weight: 500;">Jahr auswählen:</label>
-          <select id="year-selector" class="form-select" style="min-width: 160px;">
-            <option value="">Lädt...</option>
-          </select>
-        </div>
         <div>
           <label for="account-selector" style="margin-right: 8px; font-weight: 500;">Konto auswählen:</label>
           <select id="account-selector" class="form-select" style="min-width: 300px;">
             <option value="">Lädt...</option>
           </select>
         </div>
+        <button id="filter-toggle-btn" class="btn btn-ghost" style="min-width: 100px;" title="Filter für aktive Konten im ausgewählten Jahr">
+          <span id="filter-icon">✗</span> Filter
+        </button>
+        <button class="btn" id="refresh-all-btn" title="Alle Tabellen aktualisieren">
+          Aktualisieren
+        </button>
       </div>
       <p class="details-meta">Wählen Sie Jahr und Konto, um die Einnahmen und Ausgaben nach Kategorien anzuzeigen.</p>
     </div>
@@ -42,9 +46,6 @@
         </div>
       </div>
       <div id="income-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="income-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="income-table">
           <thead></thead>
@@ -62,9 +63,6 @@
         </div>
       </div>
       <div id="expenses-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="expenses-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="expenses-table">
           <thead></thead>
@@ -82,9 +80,6 @@
         </div>
       </div>
       <div id="summary-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="summary-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="summary-table">
           <thead></thead>

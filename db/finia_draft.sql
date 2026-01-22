@@ -7,6 +7,12 @@
 -- Server version: 10.11.11-MariaDB
 -- PHP-Version: 8.2.28
 
+-- ========================================
+-- FINIA Database Schema
+-- Version: 1.0
+-- Purpose: Complete database initialization
+-- ========================================
+
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+00:00";
@@ -17,11 +23,9 @@ SET time_zone = "+00:00";
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
 /*!40101 SET NAMES utf8mb4 */;
 
---
--- Database: `FiniA`
---
-
--- --------------------------------------------------------
+-- ========================================
+-- DATABASE TABLES
+-- ========================================
 
 --
 -- Table structure for table `tbl_account`
@@ -74,7 +78,7 @@ CREATE TABLE `tbl_accountImportPath` (
 --
 
 CREATE TABLE `tbl_accountingEntry` (
-  `id` bigint(20) NOT NULL,
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `dateImport` datetime NOT NULL,
   `checked` tinyint(4) NOT NULL DEFAULT 0,
   `amount` decimal(20,10) NOT NULL,
@@ -154,17 +158,6 @@ CREATE TABLE `tbl_loan` (
 
 -- --------------------------------------------------------
 
---
--- Table structure for table `tbl_loanSumExclude`
---
-
-CREATE TABLE `tbl_loanSumExclude` (
-  `id` bigint(20) NOT NULL,
-  `dateImport` datetime NOT NULL,
-  `loanId` bigint(20) NOT NULL,
-  `category` bigint(20) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-
 -- --------------------------------------------------------
 
 --
@@ -221,7 +214,7 @@ CREATE TABLE `tbl_share` (
   `dateImport` datetime NOT NULL,
   `name` text DEFAULT NULL,
   `isin` varchar(12) NOT NULL,
-  `wkn` varchar(6) NOT NULL
+  `wkn` varchar(6) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
 -- --------------------------------------------------------
@@ -262,7 +255,7 @@ CREATE TABLE `tbl_shareTransaction` (
 --
 
 CREATE TABLE `tbl_transaction` (
-  `id` bigint(20) NOT NULL,
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `dateImport` datetime NOT NULL,
   `iban` varchar(32) DEFAULT NULL,
   `bic` text DEFAULT NULL,
@@ -274,127 +267,9 @@ CREATE TABLE `tbl_transaction` (
   `duplicateHashComputed` varchar(32) GENERATED ALWAYS AS (MD5(CONCAT(COALESCE(`iban`,''),'|',`description`,'|',CAST(`amount` AS CHAR),'|',CAST(`dateValue` AS CHAR),'|',CAST(`account` AS CHAR)))) VIRTUAL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_accountingEntriesNotChecked`
--- (See below for the actual view)
---
-CREATE TABLE `view_accountingEntriesNotChecked` (
-`account` bigint(20)
-,`description` varchar(378)
-,`transactionId` bigint(20)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_balances`
--- (See below for the actual view)
---
-CREATE TABLE `view_balances` (
-`amountSum` decimal(42,10)
-,`categoryID` bigint(20)
-,`accountID` bigint(20)
-,`dateValue` datetime /* mariadb-5.3 */
-,`categoryName` varchar(128)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_balancesPlanning`
--- (See below for the actual view)
---
-CREATE TABLE `view_balancesPlanning` (
-`amountSum` decimal(42,10)
-,`categoryID` bigint(20)
-,`accountID` bigint(20)
-,`dateValue` datetime
-,`categoryName` varchar(128)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_balancesTransactions`
--- (See below for the actual view)
---
-CREATE TABLE `view_balancesTransactions` (
-`amountSum` decimal(42,10)
-,`categoryID` bigint(20)
-,`accountID` bigint(20)
-,`dateValue` datetime
-,`categoryName` varchar(128)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_sharePortfolioValue`
--- (See below for the actual view)
---
-CREATE TABLE `view_sharePortfolioValue` (
-`id` bigint(20)
-,`name` text
-,`isin` varchar(12)
-,`wkn` varchar(6)
-,`currentVolume` decimal(20,10)
-,`currentPrice` decimal(20,10)
-,`portfolioValue` decimal(31,10)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_categoryFullname`
--- (See below for the actual view)
---
-CREATE TABLE `view_categoryFullname` (
-`id` bigint(20)
-,`name` varchar(128)
-,`fullname` varchar(128)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_reserveMonthly`
--- (See below for the actual view)
---
-CREATE TABLE `view_reserveMonthly` (
-`account` bigint(20)
-,`dateSet` date
-,`amount` decimal(20,10)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_transactionsWithoutAccountingEntry`
--- (See below for the actual view)
---
-CREATE TABLE `view_transactionsWithoutAccountingEntry` (
-`account` bigint(20)
-,`description` varchar(378)
-,`transactionId` bigint(20)
-);
-
--- --------------------------------------------------------
-
---
--- Placeholder structure for view `view_transactionsWithoutCategory`
--- (See below for the actual view)
---
-CREATE TABLE `view_transactionsWithoutCategory` (
-`account` bigint(20)
-,`description` varchar(378)
-,`transactionId` bigint(20)
-);
-
---
--- Indexes for dumped tables
---
+-- ========================================
+-- DATABASE INDEXES
+-- ========================================
 
 --
 -- Indexes for table `tbl_account`
@@ -472,14 +347,6 @@ ALTER TABLE `tbl_loan`
   ADD KEY `tbl_loan_idx_tbl_category_categoryIntrest` (`categoryIntrest`);
 
 --
--- Indexes for table `tbl_loanSumExclude`
---
-ALTER TABLE `tbl_loanSumExclude`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `tbl_loanSumExclude_idx_tbl_loan_loanId` (`loanId`),
-  ADD KEY `tbl_loanSumExclude_idx_tbl_category_category` (`category`);
-
---
 -- Indexes for table `tbl_planning`
 --
 ALTER TABLE `tbl_planning`
@@ -507,7 +374,8 @@ ALTER TABLE `tbl_planningEntry`
 --
 ALTER TABLE `tbl_share`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `isin` (`isin`),
+  ADD INDEX `idx_isin` (`isin`),
+  ADD UNIQUE KEY `unique_isin` (`isin`),
   ADD UNIQUE KEY `wkn` (`wkn`);
 
 --
@@ -523,6 +391,7 @@ ALTER TABLE `tbl_shareHistory`
 --
 ALTER TABLE `tbl_shareTransaction`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uq_share_transaction_unique` (`share`, `tradingVolume`, `dateTransaction`),
   ADD KEY `tbl_shareTransaction_idx_tbl_share_share` (`share`),
   ADD KEY `tbl_shareTransaction_idx_tbl_accountingEntry_accountingEntry` (`accountingEntry`);
 
@@ -534,9 +403,9 @@ ALTER TABLE `tbl_transaction`
   ADD UNIQUE KEY `duplicateHash` (`duplicateHashComputed`),
   ADD KEY `tbl_transaction_idx_tbl_account_account` (`account`);
 
---
--- AUTO_INCREMENT for dumped tables
---
+-- ========================================
+-- AUTO_INCREMENT CONFIGURATION
+-- ========================================
 
 --
 -- AUTO_INCREMENT for table `tbl_account`
@@ -593,12 +462,6 @@ ALTER TABLE `tbl_loan`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `tbl_loanSumExclude`
---
-ALTER TABLE `tbl_loanSumExclude`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `tbl_planning`
 --
 ALTER TABLE `tbl_planning`
@@ -640,53 +503,22 @@ ALTER TABLE `tbl_shareTransaction`
 ALTER TABLE `tbl_transaction`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
--- --------------------------------------------------------
+-- ========================================
+-- DATABASE VIEWS
+-- ========================================
 
+-- View: Accounting entries not yet checked
 --
--- Structure for view `view_accountingEntriesNotChecked`
---
-DROP TABLE IF EXISTS `view_accountingEntriesNotChecked`;
 
 CREATE VIEW `view_accountingEntriesNotChecked` AS SELECT `tbl_transaction`.`account` AS `account`, `tbl_transaction`.`description` AS `description`, `tbl_transaction`.`id` AS `transactionId` FROM (`tbl_transaction` left join `tbl_accountingEntry` on(`tbl_accountingEntry`.`transaction` = `tbl_transaction`.`id`)) WHERE `tbl_accountingEntry`.`checked` = 0 GROUP BY `tbl_transaction`.`id` ;
 
--- --------------------------------------------------------
-
+-- View: Planning balances aggregated by category and month
 --
--- Structure for view `view_balances`
---
-DROP TABLE IF EXISTS `view_balances`;
-
-CREATE VIEW `view_balances` AS WITH qry AS (SELECT `view_balancesPlanning`.`amountSum` AS `amountSum`, `view_balancesPlanning`.`categoryID` AS `categoryID`, `view_balancesPlanning`.`accountID` AS `accountID`, `view_balancesPlanning`.`dateValue` AS `dateValue`, `view_balancesPlanning`.`categoryName` AS `categoryName` FROM `view_balancesPlanning` WHERE `view_balancesPlanning`.`dateValue` > current_timestamp() UNION ALL SELECT `view_balancesTransactions`.`amountSum` AS `amountSum`, `view_balancesTransactions`.`categoryID` AS `categoryID`, `view_balancesTransactions`.`accountID` AS `accountID`, `view_balancesTransactions`.`dateValue` AS `dateValue`, `view_balancesTransactions`.`categoryName` AS `categoryName` FROM `view_balancesTransactions`) SELECT `qry`.`amountSum` AS `amountSum`, `qry`.`categoryID` AS `categoryID`, `qry`.`accountID` AS `accountID`, `qry`.`dateValue` AS `dateValue`, `qry`.`categoryName` AS `categoryName` FROM `qry`  ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `view_balancesPlanning`
---
-DROP TABLE IF EXISTS `view_balancesPlanning`;
-
 CREATE VIEW `view_balancesPlanning` AS SELECT sum(`tbl_planning`.`amount`) AS `amountSum`, `tbl_planning`.`category` AS `categoryID`, `tbl_planning`.`account` AS `accountID`, `tbl_planningEntry`.`dateValue` AS `dateValue`, `tbl_category`.`name` AS `categoryName` FROM ((`tbl_planningEntry` left join `tbl_planning` on(`tbl_planningEntry`.`planning` = `tbl_planning`.`id`)) left join `tbl_category` on(`tbl_planning`.`category` = `tbl_category`.`id`)) GROUP BY `tbl_category`.`name`, `tbl_planning`.`account`, year(`tbl_planningEntry`.`dateValue`), month(`tbl_planningEntry`.`dateValue`) ;
 
--- --------------------------------------------------------
-
+-- View: Share portfolio values (current holdings with market value)
+-- Calculates: currentVolume = sum of all transactions, currentPrice = latest history, portfolioValue = volume × price
 --
--- Structure for view `view_balancesTransactions`
---
-DROP TABLE IF EXISTS `view_balancesTransactions`;
-
-CREATE VIEW `view_balancesTransactions` AS SELECT sum(`tbl_accountingEntry`.`amount`) AS `amountSum`, `tbl_accountingEntry`.`category` AS `categoryID`, `tbl_transaction`.`account` AS `accountID`, `tbl_transaction`.`dateValue` AS `dateValue`, `tbl_category`.`name` AS `categoryName` FROM ((`tbl_accountingEntry` left join `tbl_category` on(`tbl_accountingEntry`.`category` = `tbl_category`.`id`)) left join `tbl_transaction` on(`tbl_accountingEntry`.`transaction` = `tbl_transaction`.`id`)) GROUP BY `tbl_category`.`name`, `tbl_transaction`.`account`, year(`tbl_transaction`.`dateValue`), month(`tbl_transaction`.`dateValue`) ;
-
--- --------------------------------------------------------
-
---
--- Structure for view `view_sharePortfolioValue`
--- Calculates current portfolio value for each share:
--- currentVolume = sum of all share transactions
--- currentPrice = latest price from shareHistory (or most recent if current month is empty)
--- portfolioValue = currentVolume * currentPrice
---
-DROP TABLE IF EXISTS `view_sharePortfolioValue`;
-
 CREATE VIEW `view_sharePortfolioValue` AS
 SELECT
   s.id,
@@ -709,27 +541,43 @@ LEFT JOIN (
 ) latest_history ON s.id = latest_history.share
 GROUP BY s.id, s.name, s.isin, s.wkn, latest_history.amount;
 
--- --------------------------------------------------------
-
+-- View: Monthly snapshot of portfolio values at month-end
+-- Uses latest price per month and cumulative transactions up to month-end
 --
--- Structure for view `view_shareMonthlySnapshot`
--- Calculates historical portfolio values for each share and month-end:
--- Uses the latest price per month and cumulative transactions up to month-end
--- Only includes (share, month) combinations where a price exists
--- share_id, share_name, YYYY-MM-DD (month-end date), price (course at month-end), 
--- volume (cumulative transactions until month-end), portfolio_value (price × volume)
---
-DROP TABLE IF EXISTS `view_shareMonthlySnapshot`;
-
 CREATE VIEW `view_shareMonthlySnapshot` AS
-WITH latest_prices AS (
-  SELECT
-    share,
-    LAST_DAY(date) AS month_end_date,
-    MAX(date) AS latest_price_date
+WITH RECURSIVE months AS (
+  -- Start at the earliest history month-end
+  SELECT LAST_DAY(MIN(date)) AS month_end_date
   FROM tbl_shareHistory
   WHERE amount IS NOT NULL
-  GROUP BY share, LAST_DAY(date)
+  UNION ALL
+  -- Generate month-ends up to one year in die Zukunft
+  SELECT LAST_DAY(month_end_date + INTERVAL 1 MONTH)
+  FROM months
+  WHERE month_end_date < LAST_DAY(CURRENT_DATE + INTERVAL 1 YEAR)
+),
+shares_with_history AS (
+  SELECT DISTINCT share
+  FROM tbl_shareHistory
+  WHERE amount IS NOT NULL
+),
+month_ends AS (
+  -- Cross join: alle relevanten Wertpapiere × alle Monatsenden
+  SELECT s.share, m.month_end_date
+  FROM shares_with_history s
+  CROSS JOIN months m
+),
+latest_prices AS (
+  -- Für jeden Monat eines Wertpapiers: letzter Preis vor/zu Monatsende
+  SELECT
+    me.share,
+    me.month_end_date,
+    MAX(sh.date) AS latest_price_date
+  FROM month_ends me
+  INNER JOIN tbl_shareHistory sh ON sh.share = me.share
+    AND sh.amount IS NOT NULL
+    AND DATE(sh.date) <= DATE(me.month_end_date)
+  GROUP BY me.share, me.month_end_date
 )
 SELECT
   h.share AS share_id,
@@ -739,48 +587,28 @@ SELECT
   COALESCE(SUM(t.tradingVolume), 0) AS volume,
   h.amount * COALESCE(SUM(t.tradingVolume), 0) AS portfolio_value
 FROM latest_prices lp
-INNER JOIN tbl_shareHistory h ON h.share = lp.share 
+INNER JOIN tbl_shareHistory h ON h.share = lp.share
   AND DATE(h.date) = DATE(lp.latest_price_date)
   AND h.amount IS NOT NULL
 INNER JOIN tbl_share s ON s.id = h.share
-LEFT JOIN tbl_shareTransaction t ON t.share = h.share 
+LEFT JOIN tbl_shareTransaction t ON t.share = h.share
   AND DATE(t.dateTransaction) <= DATE(lp.month_end_date)
 GROUP BY h.share, s.name, lp.month_end_date, h.amount;
 
--- --------------------------------------------------------
-
+-- View: Full hierarchical category names (parent - child - grandchild structure)
 --
--- Structure for view `view_categoryFullname`
---
-DROP TABLE IF EXISTS `view_categoryFullname`;
-
 CREATE VIEW `view_categoryFullname` AS WITH RECURSIVE Qry(`id`, `fullname`, `pID`) AS (SELECT `tbl_category`.`id` AS `id`, `tbl_category`.`name` AS `fullname`, `tbl_category`.`category` AS `pID` FROM `tbl_category` UNION SELECT `Qry`.`id` AS `id`, concat(`tbl_category`.`name`,' - ',`Qry`.`fullname`) AS `CONCAT(tbl_category.name, ' - ', Qry.fullname)`, `tbl_category`.`category` AS `category` FROM (`Qry` join `tbl_category` on(`Qry`.`pID` = `tbl_category`.`id`))) SELECT `Qry`.`id` AS `id`, `tbl_category`.`name` AS `name`, `Qry`.`fullname` AS `fullname` FROM (`tbl_category` left join `Qry` on(`Qry`.`id` = `tbl_category`.`id`)) WHERE `Qry`.`pID` is null GROUP BY `Qry`.`fullname`  ;
 
--- --------------------------------------------------------
-
+-- View: Monthly account reserves (tracks reserve amount for each month)
 --
--- Structure for view `view_reserveMonthly`
---
-DROP TABLE IF EXISTS `view_reserveMonthly`;
-
 CREATE VIEW `view_reserveMonthly` AS WITH RECURSIVE dateList AS (SELECT str_to_date(concat(year(min(`tbl_transaction`.`dateValue`)),'-01-01'),'%Y-%m-%d') AS `date` FROM `tbl_transaction` UNION ALL SELECT `dateList`.`date`+ interval 1 month AS `date + INTERVAL 1 month` FROM `dateList` WHERE `dateList`.`date` < current_timestamp() + interval 1 year)  SELECT `tbl_accountReserve`.`account` AS `account`, `dateList`.`date` AS `dateSet`, `tbl_accountReserve`.`amount` AS `amount` FROM ((`dateList` left join `tbl_accountReserve` on(`tbl_accountReserve`.`dateSet` < `dateList`.`date`)) left join (select `tbl_accountReserve`.`id` AS `id`,`tbl_accountReserve`.`dateImport` AS `dateImport`,`tbl_accountReserve`.`amount` AS `amount`,`tbl_accountReserve`.`dateSet` AS `dateSet`,`tbl_accountReserve`.`account` AS `account` from `tbl_accountReserve`) `t2` on(`tbl_accountReserve`.`dateSet` < `t2`.`dateSet` and `tbl_accountReserve`.`account` = `t2`.`account` and `t2`.`dateSet` < `dateList`.`date`)) WHERE `tbl_accountReserve`.`amount` is not null AND `t2`.`id` is null ORDER BY `tbl_accountReserve`.`account` ASC, `dateList`.`date` ASC;
 
--- --------------------------------------------------------
-
+-- View: Transactions without accounting entries (unprocessed transactions)
 --
--- Structure for view `view_transactionsWithoutAccountingEntry`
---
-DROP TABLE IF EXISTS `view_transactionsWithoutAccountingEntry`;
-
 CREATE VIEW `view_transactionsWithoutAccountingEntry` AS SELECT `tbl_transaction`.`account` AS `account`, `tbl_transaction`.`description` AS `description`, `tbl_transaction`.`id` AS `transactionId` FROM `tbl_transaction` WHERE !(`tbl_transaction`.`id` in (select `tbl_accountingEntry`.`transaction` from `tbl_accountingEntry`)) ;
 
--- --------------------------------------------------------
-
+-- View: Transactions without category assignment (uncategorized transactions)
 --
--- Structure for view `view_transactionsWithoutCategory`
---
-DROP TABLE IF EXISTS `view_transactionsWithoutCategory`;
-
 CREATE VIEW `view_transactionsWithoutCategory` AS SELECT `tbl_transaction`.`account` AS `account`, `tbl_transaction`.`description` AS `description`, `tbl_transaction`.`id` AS `transactionId` FROM (`tbl_transaction` left join `tbl_accountingEntry` on(`tbl_accountingEntry`.`transaction` = `tbl_transaction`.`id`)) WHERE `tbl_accountingEntry`.`category` is null GROUP BY `tbl_transaction`.`id` ;
 
 --
@@ -837,13 +665,6 @@ ALTER TABLE `tbl_loan`
   ADD CONSTRAINT `tbl_loan_idx_tbl_category_categoryRebooking` FOREIGN KEY (`categoryRebooking`) REFERENCES `tbl_category` (`id`);
 
 --
--- Constraints for table `tbl_loanSumExclude`
---
-ALTER TABLE `tbl_loanSumExclude`
-  ADD CONSTRAINT `tbl_loanSumExclude_idx_tbl_category_category` FOREIGN KEY (`category`) REFERENCES `tbl_category` (`id`),
-  ADD CONSTRAINT `tbl_loanSumExclude_idx_tbl_loan_loanId` FOREIGN KEY (`loanId`) REFERENCES `tbl_loan` (`id`);
-
---
 -- Constraints for table `tbl_planning`
 --
 ALTER TABLE `tbl_planning`
@@ -876,12 +697,9 @@ ALTER TABLE `tbl_shareTransaction`
 ALTER TABLE `tbl_transaction`
   ADD CONSTRAINT `tbl_transaction_idx_tbl_account_account` FOREIGN KEY (`account`) REFERENCES `tbl_account` (`id`);
 
--- --------------------------------------------------------
-
---
--- Populate planning cycles with standard values
--- Ensures correct interval interpretation for planning entry generation
---
+-- ========================================
+-- DATA INITIALIZATION & TRIGGERS
+-- ========================================
 UPDATE `tbl_planningCycle` 
 SET `periodValue` = 1.00, `periodUnit` = 'm' 
 WHERE LOWER(`cycle`) LIKE '%monat%' OR LOWER(`cycle`) LIKE '%month%';
@@ -918,12 +736,13 @@ UPDATE `tbl_planningCycle`
 SET `periodValue` = 2.00, `periodUnit` = 'm' 
 WHERE LOWER(`cycle`) LIKE '%zwei-monat%' OR LOWER(`cycle`) LIKE '%bimonth%';
 
--- --------------------------------------------------------
+-- ========================================
+-- PERFORMANCE INDEXES
+-- ========================================
 
 --
--- Indexes for performance optimization
+-- Composite and performance indexes for common queries
 --
--- Planning table indexes for common queries
 CREATE INDEX IF NOT EXISTS `idx_planning_dateStart` ON `tbl_planning` (`dateStart`);
 CREATE INDEX IF NOT EXISTS `idx_planning_account` ON `tbl_planning` (`account`);
 CREATE INDEX IF NOT EXISTS `idx_planning_category` ON `tbl_planning` (`category`);
@@ -948,10 +767,30 @@ CREATE INDEX IF NOT EXISTS `idx_accountingEntry_category` ON `tbl_accountingEntr
 CREATE INDEX IF NOT EXISTS `idx_account_type` ON `tbl_account` (`type`);
 CREATE INDEX IF NOT EXISTS `idx_account_name` ON `tbl_account` (`name`);
 
--- --------------------------------------------------------
+-- Share indexes
+CREATE INDEX IF NOT EXISTS `idx_share_isin` ON `tbl_share` (`isin`);
+
+-- ========================================
+-- AUTO-TRIGGERS
+-- ========================================
+
+--
+-- Table: tbl_setting (global and user-specific settings)
+--
+CREATE TABLE IF NOT EXISTS `tbl_setting` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `user_id` INT NULL,
+  `key` VARCHAR(100) NOT NULL,
+  `value` JSON NOT NULL,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  INDEX `idx_user_key_lookup` (`user_id`, `key`)
+);
+
 
 --
 -- Trigger: Auto-create accounting entry for each transaction
+-- Ensures every transaction has an associated accounting entry with initial state checked=0
 --
 DELIMITER $$
 CREATE TRIGGER `trg_transaction_create_accounting_entry`
@@ -976,6 +815,12 @@ BEGIN
   );
 END$$
 DELIMITER ;
+
+-- ========================================
+-- DATABASE INITIALIZATION COMPLETE
+-- ========================================
+-- All tables, indexes, views, constraints, and triggers created successfully.
+-- Ready for application usage.
 
 COMMIT;
 

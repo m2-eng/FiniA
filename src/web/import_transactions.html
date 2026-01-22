@@ -4,13 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FiniA - Import & Datenprüfung</title>
+  <link rel="icon" type="image/png" href="favicon.png">
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>FiniA - Finanzverwaltung</h1>
-    <div id="top-nav"></div>
+    <img src="favicon.png" alt="FiniA Logo" class="header-logo">
+    <div class="header-content">
+      <h1>FiniA - Finanzverwaltung</h1>
+      <div id="top-nav"></div>
+    </div>
   </header>
 
   <div class="container">
@@ -27,6 +31,25 @@
         <button class="btn" onclick="startImport()" id="importButton">Import starten</button>
         <button class="btn btn-secondary" onclick="startAutoCategorization()" id="autoCategorizeButton">Automatisch kategorisieren</button>
       </div>
+      <div style="display: flex; gap: 16px; align-items: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--color-border);">
+        <div>
+          <label for="csvFileInput" class="details-meta" style="display: block; margin-bottom: 4px;">Spezifische CSV-Datei importieren:</label>
+          <input type="file" id="csvFileInput" accept=".csv" class="input-sm" style="min-width: 300px; height: 36px;">
+        </div>
+        <div>
+          <label for="csvFormatSelect" class="details-meta" style="display: block; margin-bottom: 4px;">Format:</label>
+          <select id="csvFormatSelect" class="input-sm" style="min-width: 200px; height: 36px;">
+            <option value="">Format auswählen...</option>
+          </select>
+        </div>
+        <div>
+          <label for="csvAccountSelect" class="details-meta" style="display: block; margin-bottom: 4px;">Konto:</label>
+          <select id="csvAccountSelect" class="input-sm" style="min-width: 200px; height: 36px;">
+            <option value="">Konto auswählen...</option>
+          </select>
+        </div>
+        <button class="btn" onclick="importSpecificCSV()" id="csvImportButton" style="height: 36px;">CSV importieren</button>
+      </div>
       <div id="importStatus" class="details-meta" style="margin-top: 12px; display: none;"></div>
     </div>
 
@@ -35,25 +58,31 @@
         <div class="filter-bar">
           <button class="filter-btn active" data-filter="unchecked" onclick="setFilter('unchecked')">Ungeprüfte Einträge</button> 
           <button class="filter-btn" data-filter="no_entries" onclick="setFilter('no_entries')">Ohne Einträge</button>
+          <button class="filter-btn" data-filter="uncategorized" onclick="setFilter('uncategorized')">Nicht kategorisiert</button>
+          <button class="filter-btn" data-filter="categorized_unchecked" onclick="setFilter('categorized_unchecked')">Kategorisiert, ungeprüft</button>
           <button class="filter-btn" data-filter="all" onclick="setFilter('all')">Alle Transaktionen</button>
         </div>
         <div class="search-bar">
           <input type="text" id="searchInput" class="input-sm" placeholder="Nach Beschreibung oder IBAN suchen...">
           <button class="btn" onclick="loadTransactions()">Aktualisieren</button>
           <button class="btn btn-secondary" onclick="resetSearch()">Zurücksetzen</button>
+          <button class="btn btn-secondary" onclick="markSelectedChecked()" id="bulkCheckButton" disabled>Ausgewählte als geprüft (<span id="selectedCount">0</span>)</button>
         </div>
+        <div id="bulkStatus" class="details-meta" style="display:none; margin-bottom:6px;"></div>
         <div id="errorMessage" class="error" style="display: none;"></div>
         <div id="loadingIndicator" class="loading">Lade Transaktionen...</div>
         <table class="transactions-table" id="transactionsTable" style="display: none; table-layout: fixed;">
           <colgroup>
-            <col style="width: 15%;">   <!-- Datum -->
-            <col style="width: 40%;">   <!-- Beschreibung -->
-            <col style="width: 15%;">   <!-- Betrag -->
-            <col style="width: 18%;">   <!-- Konto -->
+            <col style="width: 5%;">    <!-- Checkbox -->
+            <col style="width: 14%;">   <!-- Datum -->
+            <col style="width: 38%;">   <!-- Beschreibung -->
+            <col style="width: 14%;">   <!-- Betrag -->
+            <col style="width: 17%;">   <!-- Konto -->
             <col style="width: 12%;">   <!-- Einträge -->
           </colgroup>
           <thead>
             <tr>
+              <th style="text-align: center;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Alle auswählen/abwählen"></th>
               <th onclick="sortTransactions('date')" style="cursor: pointer;">Datum</th>
               <th onclick="sortTransactions('description')" style="cursor: pointer;">Beschreibung</th>
               <th onclick="sortTransactions('amount')" style="cursor: pointer; text-align: right;">Betrag</th>
@@ -65,14 +94,16 @@
         </table>
         <div class="pagination" id="pagination"></div>
       </div>
-      <div class="detail-pane">
+      <div class="detail-pane" style="margin-top: 12px;">
+        <div id="detailsStatusBar" class="details-meta" style="display:none; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 10px;"></div>
         <div id="detailsPanel" class="details-panel" style="display: none;">
           <div class="details-info" id="detailsInfo"></div>
           <div class="details-toolbar">
             <div class="note">Bearbeitung der Buchungseinträge – Klicken Sie "Speichern", um die Änderungen in die Datenbank zu schreiben.</div>
-            <div style="display:flex; gap:8px; align-items:center;">
-              <button class="btn-ghost" onclick="addEntry()">+ Eintrag hinzufügen</button>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+              <button class="btn" onclick="addEntry()">+ Eintrag hinzufügen</button>
               <button class="btn" onclick="saveEntries()" id="saveButton">Speichern</button>
+              <span id="entriesSumDisplay" style="margin-left: auto; font-weight: 500; font-size: 0.95rem;"></span>
             </div>
           </div>
           <table class="details-table">

@@ -69,13 +69,13 @@ class TransactionRepository(BaseRepository):
       recipient_applicant: str | None = None,
    ) -> int | None:
       """
-      Insert transaction with INSERT IGNORE for duplicate detection.
+      Insert transaction with automatic ID generation.
       
       Returns:
-         Transaction ID if newly inserted, None if duplicate or failure.
+         Transaction ID if newly inserted, None if failure.
       """
       sql = (
-         """INSERT IGNORE INTO tbl_transaction
+         """INSERT INTO tbl_transaction
                (dateImport, iban, bic, description, amount, dateValue, recipientApplicant, account)
                VALUES (NOW(), %s, %s, %s, %s, %s, %s, %s)"""
       )
@@ -104,28 +104,74 @@ class TransactionRepository(BaseRepository):
       """
       return self.get_all_transactions_paginated(page=1, page_size=1000000)['transactions']
 
-   def get_all_transactions_paginated(self, page: int = 1, page_size: int = 100) -> dict:
+   def get_all_transactions_paginated(self, page: int = 1, page_size: int = 100, search: str = None, filter_type: str = None) -> dict:
       """
       Retrieve paginated transactions with their accounting entries.
       
       Args:
          page: Page number (1-based)
          page_size: Number of records per page (max 1000)
+         search: Optional search term for filtering
+         filter_type: Optional filter ('unchecked', 'no_entries', 'uncategorized', 'categorized_unchecked')
 
       Returns:
          Dict with 'transactions' list, 'page', 'page_size', and 'total' count
       """
       page = max(1, page)
-      page_size = min(max(1, page_size), 1000)
+      page_size = min(max(1, page_size), 100000)  # Increased limit to 100k for get_all_transactions()
       offset = (page - 1) * page_size
       
-      # Get total count
-      count_sql = "SELECT COUNT(*) FROM tbl_transaction"
-      self.cursor.execute(count_sql)
+      # Build WHERE clauses for filtering
+      where_clauses = []
+      params = []
+      
+      # Search filter in SQL
+      if search:
+         search_term = f"%{search}%"
+         where_clauses.append("""(
+            t.description LIKE %s OR 
+            t.recipientApplicant LIKE %s OR 
+            t.iban LIKE %s OR 
+            t.bic LIKE %s OR 
+            a.name LIKE %s OR
+            EXISTS (
+               SELECT 1 FROM tbl_accountingEntry ae 
+               LEFT JOIN tbl_category c ON ae.category = c.id 
+               WHERE ae.transaction = t.id AND c.name LIKE %s
+            )
+         )""")
+         params.extend([search_term] * 6)
+      
+      # Filter type in SQL  
+      if filter_type == "unchecked":
+         where_clauses.append("""EXISTS (
+            SELECT 1 FROM tbl_accountingEntry ae 
+            WHERE ae.transaction = t.id AND ae.checked = 0
+         )""")
+      elif filter_type == "no_entries":
+         where_clauses.append("""NOT EXISTS (
+            SELECT 1 FROM tbl_accountingEntry ae WHERE ae.transaction = t.id
+         )""")
+      elif filter_type == "uncategorized":
+         where_clauses.append("""EXISTS (
+            SELECT 1 FROM tbl_accountingEntry ae 
+            WHERE ae.transaction = t.id AND ae.category IS NULL
+         )""")
+      elif filter_type == "categorized_unchecked":
+         where_clauses.append("""EXISTS (
+            SELECT 1 FROM tbl_accountingEntry ae 
+            WHERE ae.transaction = t.id AND ae.category IS NOT NULL AND ae.checked = 0
+         )""")
+      
+      where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
+      
+      # Get total count with filters
+      count_sql = f"SELECT COUNT(*) FROM tbl_transaction t JOIN tbl_account a ON t.account = a.id WHERE {where_sql}"
+      self.cursor.execute(count_sql, params)
       total = self.cursor.fetchone()[0]
       
-      # Get paginated data
-      sql = """
+      # Get paginated data with filters
+      sql = f"""
          SELECT 
             t.id,
             t.dateImport,
@@ -140,10 +186,11 @@ class TransactionRepository(BaseRepository):
             a.iban_accountNumber
          FROM tbl_transaction t
          JOIN tbl_account a ON t.account = a.id
+         WHERE {where_sql}
          ORDER BY t.dateValue DESC, t.dateImport DESC
          LIMIT %s OFFSET %s
       """
-      self.cursor.execute(sql, (page_size, offset))
+      self.cursor.execute(sql, params + [page_size, offset])
       
       # Fetch all results first to avoid cursor conflicts
       rows = self.cursor.fetchall()
