@@ -374,7 +374,7 @@
       err.style.display = 'none';
       try {
         // Load all categories efficiently in single query
-        const res = await fetch(`${API_BASE}/categories/hierarchy/all`);
+        const res = await authenticatedFetch(`${API_BASE}/categories/hierarchy/all`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         allCategories = data.categories || [];
@@ -517,7 +517,7 @@
       }
 
       try {
-        const res = await fetch(`${API_BASE}/categories/${categoryId}`, {
+        const res = await authenticatedFetch(`${API_BASE}/categories/${categoryId}`, {
           method: 'DELETE'
         });
 
@@ -549,7 +549,7 @@
         let res;
         if (currentEditingId) {
           // Update existing category
-          res = await fetch(`${API_BASE}/categories/${currentEditingId}`, {
+          res = await authenticatedFetch(`${API_BASE}/categories/${currentEditingId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -559,7 +559,7 @@
           });
         } else {
           // Create new category
-          res = await fetch(`${API_BASE}/categories/`, {
+          res = await authenticatedFetch(`${API_BASE}/categories/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -585,7 +585,11 @@
     });
 
     async function initCategoriesPage() {
-      loadTopNav('categories');
+      // Don't reload top nav if we're embedded in settings page
+      const isEmbedded = document.getElementById('settings-container') !== null;
+      if (!isEmbedded) {
+        loadTopNav('categories');
+      }
       const searchEl = document.getElementById('categorySearch');
       if (searchEl) searchEl.addEventListener('input', renderCategories);
       const refreshEl = document.getElementById('refreshCategories');

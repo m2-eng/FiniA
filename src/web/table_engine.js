@@ -1,4 +1,8 @@
 // Zentrale Tabellen-Engine mit Retry-Logik und Fehlerbehandlung
+
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 class TableEngine {
   constructor(config) {
     this.config = config;
@@ -11,7 +15,7 @@ class TableEngine {
    */
   async fetchWithRetry(url, attempt = 0) {
     try {
-      const res = await fetch(url);
+      const res = await authenticatedFetch(url);
       if (!res.ok) {
         // Bei 503 (Service Unavailable) retry
         if (res.status === 503 && attempt < this.retryAttempts) {

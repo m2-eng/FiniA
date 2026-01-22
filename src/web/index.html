@@ -21,6 +21,36 @@
     </div>
 
     <script>
-        // Schlanke Startseite: direkte Weiterleitung auf Jahresübersicht
-        window.location.href = 'year_overview.html';
+        // Auth-Check vor Weiterleitung
+        const authToken = localStorage.getItem('auth_token');
+        
+        if (!authToken) {
+            // Kein Token → Login
+            window.location.href = 'login.html';
+        } else {
+            // Token vorhanden → Session prüfen
+            fetch('/api/auth/session', {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Session gültig → Weiterleitung zur Jahresübersicht
+                    window.location.href = 'year_overview.html';
+                } else {
+                    // Session ungültig → Login
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('username');
+                    localStorage.removeItem('database');
+                    window.location.href = 'login.html';
+                }
+            })
+            .catch(error => {
+                console.error('Session check failed:', error);
+                // Bei Fehler auch zum Login
+                localStorage.removeItem('auth_token');
+                window.location.href = 'login.html';
+            });
+        }
     </script>

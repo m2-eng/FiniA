@@ -7,3 +7,11 @@ cmd
 **/__pycache__/
 
 start.ps1
+
+# Legacy secrets (not used anymore - Memory-Only Auth)
+secrets.yaml
+.secrets.yaml
+
+# Auth Keys (if ever needed in future)
+*.key
+*.secret

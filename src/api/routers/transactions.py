@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from repositories.transaction_repository import TransactionRepository
 from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
-from api.dependencies import get_db_cursor, get_db_connection
+from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
 from api.models import TransactionResponse, TransactionListResponse, TransactionEntriesUpdate
 from typing import List
 from pydantic import BaseModel

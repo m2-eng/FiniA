@@ -11,6 +11,10 @@ let cachedAccounts = [];
 let currentAccountData = null;
 
 // Hilfsfunktion: Bestimme ob ein Konto aktiv oder beendet ist
+
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 function getAccountStatus(account) {
   if (!account.dateEnd) {
     return { text: 'Aktiv', class: 'status-active', isActive: true };
@@ -34,7 +38,7 @@ function getAccountStatus(account) {
 
 async function loadAccountTypes() {
   try {
-    const response = await fetch(`${API_BASE}/accounts/types/list`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/types/list`);
     const data = await response.json();
     allAccountTypes = data.types || [];
     populateAccountTypeDropdown();
@@ -46,7 +50,7 @@ async function loadAccountTypes() {
 
 async function loadImportFormats() {
   try {
-    const response = await fetch(`${API_BASE}/accounts/formats/list`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/formats/list`);
     const data = await response.json();
     allImportFormats = data.formats || [];
     populateImportFormatDropdown();
@@ -146,7 +150,7 @@ async function loadAccounts(page = 1) {
     const params = new URLSearchParams({ page, page_size: 50 });
     if (searchTerm) params.append('search', searchTerm);
 
-    const response = await fetch(`${API_BASE}/accounts/list?${params}`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/list?${params}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
     const data = await response.json();
@@ -241,7 +245,7 @@ function resetSearch() {
 
 async function showAccountDetails(accountId) {
   try {
-    const response = await fetch(`${API_BASE}/accounts/${accountId}`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/${accountId}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const account = await response.json();
     
@@ -280,7 +284,7 @@ async function showAccountDetails(accountId) {
 
 async function loadClearingAccounts(excludeId) {
   try {
-    const response = await fetch(`${API_BASE}/accounts/list?page_size=1000`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/list?page_size=1000`);
     const data = await response.json();
     const dropdown = document.getElementById('clearingAccount');
     dropdown.innerHTML = '<option value="">-- Keine Auswahl --</option>';
@@ -336,7 +340,7 @@ async function saveAccount() {
       importPath: document.getElementById('importPath').value
     };
 
-    const response = await fetch(`${API_BASE}/accounts/${selectedAccountId}`, {
+    const response = await authenticatedFetch(`${API_BASE}/accounts/${selectedAccountId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(accountData)
@@ -377,7 +381,7 @@ async function deleteAccount() {
   deleteButton.disabled = true;
 
   try {
-    const response = await fetch(`${API_BASE}/accounts/${selectedAccountId}`, {
+    const response = await authenticatedFetch(`${API_BASE}/accounts/${selectedAccountId}`, {
       method: 'DELETE'
     });
 

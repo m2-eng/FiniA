@@ -4,7 +4,7 @@ Year overview API router - exposes account balances at the start of each month f
 
 from fastapi import APIRouter, Depends, Query
 from mysql.connector import OperationalError
-from api.dependencies import get_db_cursor
+from api.dependencies import get_db_cursor_with_auth as get_db_cursor
 from typing import Tuple, List
 from api.error_handling import handle_db_errors
 

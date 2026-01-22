@@ -10,6 +10,10 @@ let historyFilter = 'unchecked';
 let currentTransactionsPage = 1;
 
 // Local formatDate as fallback (also defined in utils.js)
+
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 function formatDate(dateString) {
   if (!dateString) return '';
   const date = new Date(dateString);
@@ -254,7 +258,7 @@ async function loadShares(page = 1) {
     const searchQuery = searchParam ? `&search=${searchParam}` : '';
     const filterQuery = sharesFilter ? `&filter=${encodeURIComponent(sharesFilter)}` : '';
     const sortQuery = sharesSort.by ? `&sort_by=${encodeURIComponent(sharesSort.by)}&sort_dir=${encodeURIComponent(sharesSort.dir)}` : '';
-    const response = await fetch(`${API_BASE}/shares/?page=${page}&page_size=${PAGE_SIZE}${searchQuery}${filterQuery}${sortQuery}`);
+    const response = await authenticatedFetch(`${API_BASE}/shares/?page=${page}&page_size=${PAGE_SIZE}${searchQuery}${filterQuery}${sortQuery}`);
     const data = await response.json();
     
     const tbody = document.getElementById('sharesTbody');
@@ -372,7 +376,7 @@ async function loadTransactions(page = 1) {
     const searchParam = searchInput ? encodeURIComponent(searchInput.value.trim()) : '';
     const searchQuery = searchParam ? `&search=${searchParam}` : '';
     const sortQuery = transactionsSort.by ? `&sort_by=${encodeURIComponent(transactionsSort.by)}&sort_dir=${encodeURIComponent(transactionsSort.dir)}` : '';
-    const response = await fetch(`${API_BASE}/shares/transactions?page=${page}&page_size=${PAGE_SIZE}${searchQuery}${sortQuery}`);
+    const response = await authenticatedFetch(`${API_BASE}/shares/transactions?page=${page}&page_size=${PAGE_SIZE}${searchQuery}${sortQuery}`);
     const data = await response.json();
 
     currentTransactionsPage = data.page || page || 1;
@@ -436,7 +440,7 @@ async function loadHistory(page = 1) {
     const searchParam = searchInput ? encodeURIComponent(searchInput.value.trim()) : '';
     const searchQuery = searchParam ? `&search=${searchParam}` : '';
     const filterQuery = historyFilter ? `&checked=${encodeURIComponent(historyFilter)}` : '';
-    const response = await fetch(`${API_BASE}/shares/history?page=${page}&page_size=${PAGE_SIZE}${sortQuery}${searchQuery}${filterQuery}`);
+    const response = await authenticatedFetch(`${API_BASE}/shares/history?page=${page}&page_size=${PAGE_SIZE}${sortQuery}${searchQuery}${filterQuery}`);
     const data = await response.json();
     
     const tbody = document.getElementById('historyTbody');
@@ -508,7 +512,7 @@ async function handleImport(event, type) {
       ? `${API_BASE}/shares/import/transactions`
       : `${API_BASE}/shares/import/history`;
     
-    const response = await fetch(endpoint, {
+    const response = await authenticatedFetch(endpoint, {
       method: 'POST',
       body: formData
     });
@@ -695,7 +699,7 @@ function formatCheckedBadge(checked) {
 async function ensureSharesOptions() {
   if (sharesOptions.length > 0) return sharesOptions;
   try {
-    const response = await fetch(`${API_BASE}/shares/?page=1&page_size=2000`);
+    const response = await authenticatedFetch(`${API_BASE}/shares/?page=1&page_size=2000`);
     const data = await response.json();
     if (data && data.shares) {
       sharesOptions = data.shares.map(s => ({
@@ -795,7 +799,7 @@ async function showAddHistoryDialog() {
 // Add new share via API
 async function addShare(name, wkn, isin) {
   try {
-    const response = await fetch(`${API_BASE}/shares/`, {
+    const response = await authenticatedFetch(`${API_BASE}/shares/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -827,7 +831,7 @@ async function addShare(name, wkn, isin) {
 
 async function updateShare(id, name, wkn, isin) {
   try {
-    const response = await fetch(`${API_BASE}/shares/${id}`, {
+    const response = await authenticatedFetch(`${API_BASE}/shares/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -854,7 +858,7 @@ async function deleteShare(id) {
   const confirmed = confirm('Wertpapier wirklich löschen?');
   if (!confirmed) return;
   try {
-    const response = await fetch(`${API_BASE}/shares/${id}`, { method: 'DELETE' });
+    const response = await authenticatedFetch(`${API_BASE}/shares/${id}`, { method: 'DELETE' });
     const result = await response.json();
     if (response.ok && result.status === 'success') {
       showStatus('Wertpapier gelöscht', 'success');
@@ -905,7 +909,7 @@ async function addTransaction(isin, dateStr, timeStr, volumeStr, accountingEntry
       params.append('accountingEntryId', accountingEntryId);
     }
     
-    const response = await fetch(`${API_BASE}/shares/transactions`, {
+    const response = await authenticatedFetch(`${API_BASE}/shares/transactions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -964,7 +968,7 @@ async function updateTransaction(id, isin, dateStr, timeStr, volumeStr, accounti
       params.append('accountingEntryId', accountingEntryId);
     }
 
-    const response = await fetch(`${API_BASE}/shares/transactions/${id}`, {
+    const response = await authenticatedFetch(`${API_BASE}/shares/transactions/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params
@@ -987,7 +991,7 @@ async function updateTransaction(id, isin, dateStr, timeStr, volumeStr, accounti
 async function deleteTransaction(id) {
   if (!confirm('Transaktion wirklich löschen?')) return false;
   try {
-    const response = await fetch(`${API_BASE}/shares/transactions/${id}`, { method: 'DELETE' });
+    const response = await authenticatedFetch(`${API_BASE}/shares/transactions/${id}`, { method: 'DELETE' });
     const result = await response.json();
     if (response.ok && result.status === 'success') {
       showStatus('Transaktion gelöscht', 'success');
@@ -1017,7 +1021,7 @@ async function addHistory(isin, dateStr, amountStr) {
       return false;
     }
     
-    const response = await fetch(`${API_BASE}/shares/history`, {
+    const response = await authenticatedFetch(`${API_BASE}/shares/history`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -1059,7 +1063,7 @@ async function updateHistory(id, isin, dateStr, amountStr, checkedVal) {
       return false;
     }
 
-    const response = await fetch(`${API_BASE}/shares/history/${id}`, {
+    const response = await authenticatedFetch(`${API_BASE}/shares/history/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
@@ -1148,7 +1152,7 @@ async function openEditTransaction(tx) {
     if (tx.accountingEntry && !entries.some(e => e.id === tx.accountingEntry)) {
       // Fetch the current accounting entry details
       try {
-        const res = await fetch(`${API_BASE}/shares/accounting-entries/${tx.accountingEntry}`);
+        const res = await authenticatedFetch(`${API_BASE}/shares/accounting-entries/${tx.accountingEntry}`);
         const data = await res.json();
         if (data.entry) {
           entries.unshift(data.entry);
@@ -1204,7 +1208,7 @@ async function fetchAccountingEntries({ type = null, date = null, useDateFilter 
     if (type) params.append('type', type);
     if (useDateFilter && date) params.append('date', date);
     const query = params.toString() ? `?${params.toString()}` : '';
-    const res = await fetch(`${API_BASE}/shares/accounting-entries${query}`);
+    const res = await authenticatedFetch(`${API_BASE}/shares/accounting-entries${query}`);
     const data = await res.json();
     return data.entries || [];
   } catch (error) {
@@ -1231,7 +1235,7 @@ function setAccountingSelectOptions(selectEl, entries, selectedId = null) {
 async function deleteHistory(id) {
   if (!confirm('Historischen Datensatz wirklich löschen?')) return false;
   try {
-    const response = await fetch(`${API_BASE}/shares/history/${id}`, { method: 'DELETE' });
+    const response = await authenticatedFetch(`${API_BASE}/shares/history/${id}`, { method: 'DELETE' });
     const result = await response.json();
     if (response.ok && result.status === 'success') {
       showStatus('Historischer Datensatz gelöscht', 'success');
@@ -1249,7 +1253,7 @@ async function deleteHistory(id) {
 async function autoFillHistory() {
   try {
     showStatus('Fehlende Monatsendstände werden ergänzt...', 'info');
-    const response = await fetch(`${API_BASE}/shares/history/auto-fill`, { method: 'POST' });
+    const response = await authenticatedFetch(`${API_BASE}/shares/history/auto-fill`, { method: 'POST' });
     const result = await response.json();
     if (response.ok && result.status === 'success') {
       showStatus(`Erstellt: ${result.created}, Übersprungen: ${result.skipped}`, 'success');
@@ -1266,7 +1270,7 @@ async function autoFillHistory() {
 
 async function markHistoryChecked(id) {
   try {
-    const response = await fetch(`${API_BASE}/shares/history/${id}/checked`, {
+    const response = await authenticatedFetch(`${API_BASE}/shares/history/${id}/checked`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({ checked: 'true' })

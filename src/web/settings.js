@@ -1,6 +1,10 @@
 // Settings page logic
 
 // Global variables (shared with category_automation.js)
+
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 window.allCategories = [];
 let currentSettings = [];  // Array of {category_id, type}
 
@@ -99,19 +103,19 @@ function showFormModal({ title, fields, onSubmit }) {
 
 // API functions
 async function fetchCategories() {
-  const res = await fetch(`${API_BASE}/categories/list`);
+  const res = await authenticatedFetch(`${API_BASE}/categories/list`);
   const data = await res.json();
   return data.categories || [];
 }
 
 async function fetchSettings() {
-  const res = await fetch(`${API_BASE}/settings/shares-tx-categories`);
+  const res = await authenticatedFetch(`${API_BASE}/settings/shares-tx-categories`);
   const data = await res.json();
   return data.categories || [];
 }
 
 async function addSetting(categoryId, type) {
-  const res = await fetch(`${API_BASE}/settings/shares-tx-categories`, {
+  const res = await authenticatedFetch(`${API_BASE}/settings/shares-tx-categories`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ category_id: categoryId, type: type })
@@ -124,7 +128,7 @@ async function addSetting(categoryId, type) {
 }
 
 async function deleteSetting(categoryId, type) {
-  const res = await fetch(`${API_BASE}/settings/shares-tx-categories`, {
+  const res = await authenticatedFetch(`${API_BASE}/settings/shares-tx-categories`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ category_id: categoryId, type: type })
