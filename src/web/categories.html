@@ -584,11 +584,14 @@
       }
     });
 
-    document.addEventListener('DOMContentLoaded', () => {
+    async function initCategoriesPage() {
       loadTopNav('categories');
-      document.getElementById('categorySearch').addEventListener('input', renderCategories);
-      document.getElementById('refreshCategories').addEventListener('click', loadCategoriesPage);
-      document.getElementById('addCategoryBtn').addEventListener('click', () => {
+      const searchEl = document.getElementById('categorySearch');
+      if (searchEl) searchEl.addEventListener('input', renderCategories);
+      const refreshEl = document.getElementById('refreshCategories');
+      if (refreshEl) refreshEl.addEventListener('click', loadCategoriesPage);
+      const addBtn = document.getElementById('addCategoryBtn');
+      if (addBtn) addBtn.addEventListener('click', () => {
         currentEditingId = null;
         document.getElementById('categoryForm').reset();
         document.getElementById('modalTitle').textContent = 'Neue Kategorie';
@@ -604,8 +607,10 @@
         }
       });
 
-      loadCategoriesPage();
-    });
+      await loadCategoriesPage();
+    }
+
+    document.addEventListener('DOMContentLoaded', initCategoriesPage);
   </script>
 </body>
 </html>

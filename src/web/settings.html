@@ -7,6 +7,256 @@
   <link rel="icon" type="image/png" href="favicon.png">
   <style id="dynamic-theme">/* Theme variables loaded from API */</style>
   <link rel="stylesheet" href="style.css">
+  <style>
+    /* Tab Navigation */
+    .settings-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--color-border);
+    }
+    .tab-button {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      font-size: 1em;
+      color: var(--color-text);
+      transition: all 0.2s;
+    }
+    .tab-button:hover {
+      background-color: var(--color-bg-detail);
+    }
+    .tab-button.active {
+      border-bottom-color: var(--color-accent);
+      font-weight: 600;
+      color: var(--color-accent);
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Force settings container to full width on all tabs */
+    #settings-container {
+      width: 100% !important;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 20px 40px;
+      box-sizing: border-box;
+    }
+
+    /* Ensure page-card uses full width in automation tab */
+    #tab-automation .page-card {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+
+    /* Ensure rules-layout uses full available width */
+    #tab-automation .rules-layout {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+
+    /* Ensure inner page-cards in rules-layout also use full width */
+    #tab-automation .rules-layout .page-card {
+      max-width: 100% !important;
+      width: 100% !important;
+      box-sizing: border-box;
+    }
+
+    /* Force tab content to use full width */
+    #tab-automation,
+    #tab-shares,
+    #tab-categories,
+    #tab-accounts-management {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+
+    /* Make wrappers span full width */
+    #tab-shares .table-wrapper,
+    #tab-categories .table-wrapper,
+    #tab-accounts-management .table-wrapper,
+    #tab-automation .rules-layout,
+    #tab-automation .page-card {
+      max-width: 100% !important;
+      width: 100% !important;
+    }
+
+    /* Limit width of shares table to ~40% */
+    #tab-shares .table-wrapper {
+      max-width: 40% !important;
+      width: 40% !important;
+      min-width: 420px;
+    }
+
+    /* Constrain categories tab to 40% and let inner blocks fill that column */
+    #tab-categories #categoriesContainer {
+      max-width: 40% !important;
+      width: 40% !important;
+      min-width: 420px;
+      margin-left: 0 !important;
+      margin-right: auto !important;
+    }
+
+    #tab-categories #categoriesContainer .page-card,
+    #tab-categories #categoriesContainer .toolbar,
+    #tab-categories #categoriesContainer .category-tree,
+    #tab-categories #categoriesContainer #catError,
+    #tab-categories #categoriesContainer #catSuccess {
+      max-width: 100% !important;
+      width: 100% !important;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
+
+    /* Simplify toolbar layout inside the narrow column */
+    #tab-categories #categoriesContainer .toolbar {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    /* Fix table layout to prevent width changes */
+    #tab-automation .transactions-table {
+      table-layout: fixed !important;
+      width: 100% !important;
+    }
+
+    /* Set explicit column widths for rules table */
+    #rulesTable th:nth-child(1) { width: 40px; } /* Checkbox */
+    #rulesTable th:nth-child(2) { width: auto; min-width: 450px; } /* Beschreibung */
+    #rulesTable th:nth-child(3) { width: 300px; } /* Kategorie */
+    #rulesTable th:nth-child(4) { width: 100px; } /* Konten */
+    #rulesTable th:nth-child(5) { width: 100px; } /* Bedingungen */
+    #rulesTable th:nth-child(6) { width: 80px; } /* Aktiv */
+    #rulesTable th:nth-child(7) { width: 180px; } /* Aktionen */
+
+    /* Prevent text overflow in table cells */
+    #rulesTable td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Category Automation Styles */
+    .btn-small {
+      padding: 5px 10px;
+      font-size: 0.85em;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      background-color: var(--color-accent);
+      color: var(--color-text-selected);
+      transition: background-color 0.2s;
+    }
+    .btn-small:hover { background-color: var(--color-accent-hover); }
+    .btn-small.delete { background-color: #dc3545; }
+    .btn-small.delete:hover { background-color: #c82333; }
+    .btn-small.test { background-color: #17a2b8; }
+    .btn-small.test:hover { background-color: #138496; }
+
+    .rules-layout {
+      display: grid;
+      grid-template-columns: 0.55fr 0.45fr; /* 55% table, 45% details */
+      gap: 16px;
+      align-items: start;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .rule-row.selected { background-color: rgba(0, 0, 0, 0.06); }
+    .detail-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .detail-item span {
+      display: block;
+      color: var(--color-text-secondary, #555);
+      font-size: 0.9em;
+      margin-bottom: 4px;
+    }
+    .detail-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+    .condition-row {
+      display: grid;
+      grid-template-columns: 30px 110px 110px 1fr 100px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 0px;
+      padding: 2px 8px;
+      background-color: rgba(0, 0, 0, 0.02);
+      border-radius: 4px;
+    }
+    .condition-number { font-weight: 600; color: var(--color-accent); margin-right: 8px; }
+
+    .account-select-box {
+      border: 1px solid var(--color-border);
+      padding: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      border-radius: 4px;
+      background-color: var(--color-bg-detail);
+      color: var(--color-text);
+    }
+    .account-select-box label { display: block; margin-bottom: 4px; cursor: pointer; color: var(--color-text); }
+    .account-select-box input[type="checkbox"] { cursor: pointer; margin-right: 6px; }
+
+    .logic-preview {
+      padding: 8px;
+      background-color: rgba(0, 123, 255, 0.05);
+      border-left: 3px solid var(--color-accent);
+      font-family: monospace;
+      font-size: 0.9em;
+      margin-top: 4px;
+    }
+    .rule-actions { display: flex; gap: 5px; justify-content: center; }
+
+    @media (max-width: 1200px) {
+      .rules-layout { grid-template-columns: 1fr; }
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none; position: fixed; z-index: 1000; left: 0; top: 0;
+      width: 100%; height: 100%; overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: var(--color-bg-base); margin: 5% auto; padding: 0;
+      border: 1px solid var(--color-border); border-radius: 8px;
+      width: 80%; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      color: var(--color-text);
+    }
+    .modal-header {
+      padding: 16px; background-color: var(--color-accent);
+      color: white; border-radius: 8px 8px 0 0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal-header h3 { margin: 0; }
+    .modal-body { padding: 20px; color: var(--color-text); }
+    .modal-footer {
+      padding: 16px; background-color: var(--color-bg-detail); border-radius: 0 0 8px 8px;
+      display: flex; justify-content: flex-end; gap: 8px;
+    }
+
+    .test-result {
+      padding: 12px; border-radius: 4px; margin-top: 12px; font-weight: 500;
+    }
+    .test-result.success {
+      background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb;
+    }
+    .test-result.failure {
+      background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb;
+    }
+
+    .merge-preview {
+      background-color: var(--color-bg-detail); padding: 12px; border-radius: 4px;
+      border: 1px solid var(--color-border); margin-top: 12px;
+      color: var(--color-text);
+    }
+    .merge-preview h4 { margin-top: 0; margin-bottom: 8px; }
+    .disabled-overlay { opacity: 0.5; pointer-events: none; }
+  </style>
 </head>
 <body>
   <header>
@@ -17,46 +267,131 @@
     </div>
   </header>
 
-  <div class="container">
+  <div class="container" id="settings-container">
     <div class="page-card">
-      <div class="details-header">
-        <div>
-          <h3>Wertpapier-Transaktionen: Kategorien für Buchungseinträge</h3>
-          <p class="details-meta">Nur Buchungseinträge aus diesen Kategorien werden im Transaktions-Dialog angeboten.</p>
+      <h2>Einstellungen</h2>
+      
+      <!-- Tab Navigation -->
+      <div class="settings-tabs">
+        <button class="tab-button active" onclick="switchTab('shares')">Wertpapier-Kategorien</button>
+        <button class="tab-button" onclick="switchTab('categories')">Kategorien</button>
+        <button class="tab-button" onclick="switchTab('accounts-management')">Kontenbearbeitung</button>
+        <button class="tab-button" onclick="switchTab('automation')">Kategorisierungsregeln</button>
+      </div>
+
+      <!-- Tab: Wertpapier-Kategorien -->
+      <div id="tab-shares" class="tab-content active">
+        <div class="details-header">
+          <div>
+            <h3>Wertpapier-Transaktionen: Kategorien für Buchungseinträge</h3>
+            <p class="details-meta">Nur Buchungseinträge aus diesen Kategorien werden im Transaktions-Dialog angeboten.</p>
+          </div>
+        </div>
+
+        <div class="details-toolbar" style="margin-bottom: 12px;">
+          <button class="btn" id="add-category-btn">Kategorie hinzufügen</button>
+        </div>
+
+        <div class="table-wrapper" style="overflow-x:auto;">
+          <table id="settingsTable" class="simple-table">
+            <colgroup>
+              <col style="width: auto;">
+              <col style="width: 100px;">
+              <col style="width: 120px;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th style="text-align: left;">Kategorie</th>
+                <th style="text-align: center;">Typ</th>
+                <th style="text-align: center;">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="categories-tbody">
+              <tr>
+                <td colspan="3" style="text-align: center;">Lade Einstellungen...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="settings-status" class="details-meta" style="margin-top: 12px;"></div>
+      </div>
+
+      <!-- Tab: Kategorien -->
+      <div id="tab-categories" class="tab-content">
+        <div id="categoriesContainer"></div>
+      </div>
+
+      <!-- Tab: Kontenbearbeitung -->
+      <div id="tab-accounts-management" class="tab-content">
+        <div id="accountsManagementContainer"></div>
+      </div>
+      <!-- Tab: Kategorisierungsregeln -->
+      <div id="tab-automation" class="tab-content">
+        <div class="details-header">
+          <div>
+            <h3>Kategorisierungsregeln verwalten</h3>
+            <p class="details-meta">Verwalten Sie automatische Kategorisierungsregeln für Transaktionen. Regeln können mehrere Bedingungen und mehrere Konten haben.</p>
+          </div>
+        </div>
+        
+        <div style="margin-top: 16px; display: flex; gap: 8px; align-items: center;">
+          <button class="btn" onclick="createNewRule()">+ Neue Regel erstellen</button>
+          <button class="btn btn-secondary" onclick="mergeSelectedRules()" id="mergeButton" disabled>Ausgewählte zusammenführen (<span id="selectedRulesCount">0</span>)</button>
+        </div>
+
+        <div class="rules-layout" style="margin-top: 16px;">
+          <div class="page-card">
+            <h3>Regeln</h3>
+            <div style="margin-bottom: 12px; display: flex; gap: 12px; align-items: center;">
+              <input type="text" id="rulesSearch" class="input-sm" placeholder="Suche nach Beschreibung oder Kategorie..." oninput="renderRulesTable()" style="flex: 1;">
+              <label style="display: flex; align-items: center; gap: 6px; white-space: nowrap; cursor: pointer;">
+                <input type="checkbox" id="hideInactive" onchange="renderRulesTable()" style="cursor: pointer;">
+                <span>Inaktive ausblenden</span>
+              </label>
+              <button class="btn-small" onclick="loadRules()" title="Regeln neu laden">Neu laden</button>
+            </div>
+            <div id="errorMessage" class="error" style="display: none;"></div>
+            <div id="loadingIndicator" class="loading">Lade Regeln...</div>
+            <table class="transactions-table" id="rulesTable" style="display: none;">
+              <colgroup>
+                <col style="width: 40px;">
+                <col style="width: 340px;">
+                <col style="width: 260px;">
+                <col style="width: 110px;">
+                <col style="width: 110px;">
+                <col style="width: 80px;">
+                <col style="width: 180px;">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" title="Alle auswählen/abwählen"></th>
+                  <th class="sortable" onclick="sortRules('description')" style="cursor: pointer;">Beschreibung <span id="sort-description" class="sort-indicator"></span></th>
+                  <th class="sortable" onclick="sortRules('category')" style="cursor: pointer;">Kategorie <span id="sort-category" class="sort-indicator"></span></th>
+                  <th style="text-align: center;">Konten</th>
+                  <th style="text-align: center;">Bedingungen</th>
+                  <th style="text-align: center;">Aktiv</th>
+                  <th style="text-align: center;">Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="rulesBody"></tbody>
+            </table>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="page-card" id="ruleDetails">
+              <h3 id="detailsTitle">Details</h3>
+              <div id="detailsContent" class="detail-grid" style="margin-top: 12px;">
+                <p class="details-meta">Wählen Sie eine Regel aus der Liste, um Details anzuzeigen und zu bearbeiten.</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div class="details-toolbar" style="margin-bottom: 12px;">
-        <button class="btn" id="add-category-btn">Kategorie hinzufügen</button>
-      </div>
-
-      <div class="table-wrapper" style="overflow-x:auto;">
-        <table id="settingsTable" class="simple-table">
-          <colgroup>
-            <col style="width: auto;">
-            <col style="width: 100px;">
-            <col style="width: 120px;">
-          </colgroup>
-          <thead>
-            <tr>
-              <th style="text-align: left;">Kategorie</th>
-              <th style="text-align: center;">Typ</th>
-              <th style="text-align: center;">Aktionen</th>
-            </tr>
-          </thead>
-          <tbody id="categories-tbody">
-            <tr>
-              <td colspan="3" style="text-align: center;">Lade Einstellungen...</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div id="settings-status" class="details-meta" style="margin-top: 12px;"></div>
     </div>
   </div>
 
-  <!-- Modal for adding categories -->
+  <!-- Modal for adding categories (Shares) -->
   <div id="formModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -71,7 +406,212 @@
     </div>
   </div>
 
+  <!-- Test Rule Modal -->
+  <div id="testModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Regel testen</h3>
+        <button class="btn-ghost" onclick="closeTestModal()" aria-label="Schließen" style="color: white; font-size: 1.5em; background: none; border: none; cursor: pointer;">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="details-meta" style="margin-bottom: 12px;">Geben Sie Test-Transaktionsdaten ein, um die Regel zu testen:</p>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <span>Beschreibung</span>
+            <input type="text" id="testDescription" class="input-sm" placeholder="z.B. AMAZON Marketplace">
+          </div>
+          <div class="detail-item">
+            <span>Empfänger/Absender</span>
+            <input type="text" id="testRecipient" class="input-sm" placeholder="z.B. AMAZON EU S.a.r.L.">
+          </div>
+          <div class="detail-item">
+            <span>IBAN</span>
+            <input type="text" id="testIban" class="input-sm" placeholder="z.B. DE89370400440532013000">
+          </div>
+          <div class="detail-item">
+            <span>Betrag (€)</span>
+            <input type="number" id="testAmount" class="input-sm" step="0.01" placeholder="z.B. 49.99">
+          </div>
+        </div>
+        <button class="btn" onclick="executeTest()" style="margin-top: 12px; width: 100%;">Test ausführen</button>
+        <div id="testResult"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeTestModal()">Schließen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Merge Rules Modal -->
+  <div id="mergeModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Regeln zusammenführen</h3>
+        <button class="btn-ghost" onclick="closeMergeModal()" aria-label="Schließen" style="color: white; font-size: 1.5em; background: none; border: none; cursor: pointer;">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="details-meta">Die ausgewählten Regeln werden zu einer neuen Regel zusammengeführt. Die ursprünglichen Regeln werden gelöscht.</p>
+        <div id="mergePreview" class="merge-preview"></div>
+        <div class="detail-grid" style="margin-top: 16px;">
+          <div class="detail-item">
+            <span>Beschreibung der neuen Regel</span>
+            <input type="text" id="mergeDescription" class="input-sm" placeholder="Beschreiben Sie die zusammengeführte Regel">
+          </div>
+          <div class="detail-item">
+            <span>Konten</span>
+            <label style="margin-bottom: 8px; cursor: pointer;">
+              <input type="checkbox" id="merge-account-all" onchange="toggleMergeAllAccounts()" style="cursor: pointer;"> 
+              Alle Konten
+            </label>
+            <div id="mergeAccountsBox" class="account-select-box"></div>
+          </div>
+          <div class="detail-item">
+            <span>Bedingungslogik (optional anpassen)</span>
+            <input type="text" id="mergeLogic" class="input-sm" placeholder="z.B. 1 OR 2 OR 3">
+            <div class="logic-preview" id="mergeLogicPreview"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeMergeModal()">Abbrechen</button>
+        <button class="btn" onclick="executeMerge()">Zusammenführen</button>
+      </div>
+    </div>
+  </div>
+
   <script src="app.js"></script>
+  <script src="utils.js"></script>
   <script src="settings.js"></script>
+  <script src="category_automation.js"></script>
+  <script>
+    // Tab switching functionality
+    let automationInitialized = false;
+    let categoriesInitialized = false;
+    let accountsManagementInitialized = false;
+
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+      document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+      
+      // Show selected tab
+      if (tabName === 'shares') {
+        document.getElementById('tab-shares').classList.add('active');
+        document.querySelector('.tab-button:nth-child(1)').classList.add('active');
+      } else if (tabName === 'categories') {
+        document.getElementById('tab-categories').classList.add('active');
+        document.querySelector('.tab-button:nth-child(2)').classList.add('active');
+        if (!categoriesInitialized) {
+          categoriesInitialized = true;
+          loadCategoriesContent();
+        }
+      } else if (tabName === 'accounts-management') {
+        document.getElementById('tab-accounts-management').classList.add('active');
+        document.querySelector('.tab-button:nth-child(3)').classList.add('active');
+        if (!accountsManagementInitialized) {
+          accountsManagementInitialized = true;
+          loadAccountsManagementContent();
+        }
+      } else if (tabName === 'automation') {
+        document.getElementById('tab-automation').classList.add('active');
+        document.querySelector('.tab-button:nth-child(4)').classList.add('active');
+        // Initialize automation on first access
+        if (!automationInitialized && typeof initializeCategoryAutomation === 'function') {
+          automationInitialized = true;
+          initializeCategoryAutomation();
+        }
+      }
+    }
+
+    async function loadCategoriesContent() {
+      try {
+        const response = await fetch('categories.html');
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Extract main container content
+        const container = doc.querySelector('.container');
+        if (container) {
+          document.getElementById('categoriesContainer').innerHTML = container.innerHTML;
+        }
+
+        // Extract and append modals (categoryModal) to body
+        const modal = doc.getElementById('categoryModal');
+        if (modal && !document.getElementById('categoryModal')) {
+          document.body.appendChild(modal.cloneNode(true));
+        }
+
+        // Inject inline styles from categories.html
+        const headStyles = doc.querySelectorAll('style');
+        headStyles.forEach((styleTag, idx) => {
+          const s = document.createElement('style');
+          s.textContent = styleTag.textContent;
+          s.setAttribute('data-origin', `categories-inline-${idx}`);
+          document.head.appendChild(s);
+        });
+
+        // Execute scripts (inline and external)
+        const scripts = doc.querySelectorAll('script');
+        scripts.forEach(scr => {
+          // Avoid reloading app.js to prevent API_BASE redeclaration
+          if (scr.src && scr.src.includes('app.js')) return;
+          const s = document.createElement('script');
+          if (scr.src) {
+            s.src = scr.src;
+            s.onload = () => {
+              if (typeof initCategoriesPage === 'function') initCategoriesPage();
+            };
+          } else {
+            s.textContent = scr.textContent;
+          }
+          document.body.appendChild(s);
+        });
+        // Fallback: call init if already available
+        if (typeof initCategoriesPage === 'function') initCategoriesPage();
+      } catch (error) {
+        console.error('Error loading categories:', error);
+      }
+    }
+
+    async function loadAccountsManagementContent() {
+      try {
+        const response = await fetch('accounts_management.html');
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // Remove header/top-nav; extract only main container content
+        const container = doc.querySelector('.container');
+        if (container) {
+          document.getElementById('accountsManagementContainer').innerHTML = container.innerHTML;
+        }
+
+        // Execute scripts (inline and external)
+        const scripts = doc.querySelectorAll('script');
+        scripts.forEach(scr => {
+          // Avoid reloading app.js to prevent API_BASE redeclaration
+          if (scr.src && scr.src.includes('app.js')) return;
+          const s = document.createElement('script');
+          if (scr.src) {
+            s.src = scr.src;
+            s.onload = () => {
+              if (typeof initAccountsManagement === 'function') initAccountsManagement();
+            };
+          } else {
+            s.textContent = scr.textContent;
+          }
+          document.body.appendChild(s);
+        });
+        // Fallback: call init if already available
+        if (typeof initAccountsManagement === 'function') initAccountsManagement();
+      } catch (error) {
+        console.error('Error loading accounts management:', error);
+      }
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      loadTopNav('settings');
+    });
+  </script>
 </body>
 </html>

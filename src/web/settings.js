@@ -1,6 +1,7 @@
 // Settings page logic
 
-let allCategories = [];
+// Global variables (shared with category_automation.js)
+window.allCategories = [];
 let currentSettings = [];  // Array of {category_id, type}
 
 // Modal helper functions

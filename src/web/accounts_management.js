@@ -399,7 +399,7 @@ async function deleteAccount() {
 }
 
 // Page initialization
-window.addEventListener('DOMContentLoaded', async () => {
+async function initAccountsManagement() {
   await loadAccountTypes();
   await loadImportFormats();
   
@@ -409,5 +409,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (e.key === 'Enter') loadAccounts(1);
     });
   }
-  loadAccounts(1);
-});
+  await loadAccounts(1);
+}
+
+// Keep original behavior for standalone page
+window.addEventListener('DOMContentLoaded', initAccountsManagement);

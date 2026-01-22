@@ -129,21 +129,6 @@ CREATE TABLE `tbl_category` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `tbl_categoryAutomation`
---
-
-CREATE TABLE `tbl_categoryAutomation` (
-  `id` bigint(20) NOT NULL,
-  `dateImport` datetime NOT NULL,
-  `columnName` text NOT NULL,
-  `rule` varchar(400) NOT NULL,
-  `category` bigint(20) NOT NULL,
-  `account` bigint(20) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `tbl_loan`
 --
 
@@ -329,15 +314,6 @@ ALTER TABLE `tbl_category`
   ADD KEY `tbl_category_idx_tbl_category_category` (`category`);
 
 --
--- Indexes for table `tbl_categoryAutomation`
---
-ALTER TABLE `tbl_categoryAutomation`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `duplicateHash` (`rule`,`account`,`category`),
-  ADD KEY `tbl_categoryAutomation_idx_tbl_category_category` (`category`),
-  ADD KEY `tbl_categoryAutomation_idx_tbl_account_account` (`account`);
-
---
 -- Indexes for table `tbl_loan`
 --
 ALTER TABLE `tbl_loan`
@@ -447,12 +423,6 @@ ALTER TABLE `tbl_accountType`
 -- AUTO_INCREMENT for table `tbl_category`
 --
 ALTER TABLE `tbl_category`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `tbl_categoryAutomation`
---
-ALTER TABLE `tbl_categoryAutomation`
   MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
 
 --
@@ -648,13 +618,6 @@ ALTER TABLE `tbl_accountReserve`
 --
 ALTER TABLE `tbl_category`
   ADD CONSTRAINT `tbl_category_idx_tbl_category_category` FOREIGN KEY (`category`) REFERENCES `tbl_category` (`id`);
-
---
--- Constraints for table `tbl_categoryAutomation`
---
-ALTER TABLE `tbl_categoryAutomation`
-  ADD CONSTRAINT `tbl_categoryAutomation_idx_tbl_account_account` FOREIGN KEY (`account`) REFERENCES `tbl_account` (`id`),
-  ADD CONSTRAINT `tbl_categoryAutomation_idx_tbl_category_category` FOREIGN KEY (`category`) REFERENCES `tbl_category` (`id`);
 
 --
 -- Constraints for table `tbl_loan`

@@ -18,7 +18,7 @@ from Database import Database
 from services.account_data_importer import AccountDataImporter
 from infrastructure.unit_of_work import UnitOfWork
 from repositories.account_import_repository import AccountImportRepository
-from services.category_automation import get_all_account_rules, apply_rules_to_transaction
+from services.category_automation import load_rules, apply_rules_to_transaction
 import tempfile
 import os
 from pathlib import Path
@@ -42,8 +42,8 @@ def auto_categorize_entries(cursor, connection) -> dict:
     Returns:
         Dict with categorization statistics
     """
-    # Get all rules
-    rules = get_all_account_rules(cursor)
+    # Get all automation rules (no account filter = all rules)
+    rules = load_rules(cursor)
     if not rules:
         return {"categorized": 0, "total_checked": 0, "message": "Keine Kategorisierungsregeln gefunden"}
     
@@ -81,8 +81,14 @@ def auto_categorize_entries(cursor, connection) -> dict:
         }
         account_id = entry[6]
         
+        # Filter rules for this specific account
+        account_rules = [
+            rule for rule in rules
+            if not rule.get('accounts') or account_id in rule.get('accounts', [])
+        ]
+        
         # Apply rules
-        category_id = apply_rules_to_transaction(transaction_data, rules, account_id)
+        category_id = apply_rules_to_transaction(transaction_data, account_rules)
         
         if category_id:
             # Update entry with category
