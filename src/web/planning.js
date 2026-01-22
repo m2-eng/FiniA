@@ -12,6 +12,10 @@ let currentSortDirection = 'asc';
 let planningEntryCounts = {}; // Track entry count per planning
 
 // Initialize page
+
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 async function initPlanning() {
   // Load master data first, then plannings to ensure detail dropdowns are populated before selection
   await Promise.all([
@@ -49,7 +53,7 @@ async function refreshAll() {
 // Load all accounts
 async function loadAccounts() {
   try {
-    const response = await fetch(`${API_BASE}/accounts/list?page_size=1000`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/list?page_size=1000`);
     const data = await response.json();
     allAccounts = data.accounts || [];
     populateAccountSelect();
@@ -63,7 +67,7 @@ async function loadAccounts() {
 async function loadCategories() {
   try {
     // Use unpaginated list to avoid cutoff at default page_size (100)
-    const response = await fetch(`${API_BASE}/categories/list`);
+    const response = await authenticatedFetch(`${API_BASE}/categories/list`);
     const data = await response.json();
     allCategories = data.categories || [];
     populateCategorySelect();
@@ -76,7 +80,7 @@ async function loadCategories() {
 // Load all planning cycles
 async function loadCycles() {
   try {
-    const response = await fetch(`${API_BASE}/planning/cycles`);
+    const response = await authenticatedFetch(`${API_BASE}/planning/cycles`);
     allCycles = await response.json();
     populateCycleSelect();
   } catch (error) {
@@ -106,7 +110,7 @@ async function loadPlannings() {
     // Load all pages sequentially
     while (hasMore && attemptCount < maxAttempts) {
       attemptCount++;
-      const response = await fetch(`${API_BASE}/planning/?page=${page}&page_size=${pageSize}`);
+      const response = await authenticatedFetch(`${API_BASE}/planning/?page=${page}&page_size=${pageSize}`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const data = await response.json();
@@ -151,7 +155,7 @@ async function loadPlannings() {
 async function loadAllPlanningEntryCounts() {
   for (const planning of allPlannings) {
     try {
-      const response = await fetch(`${API_BASE}/planning/${planning.id}/entries`);
+      const response = await authenticatedFetch(`${API_BASE}/planning/${planning.id}/entries`);
       if (response.ok) {
         const data = await response.json();
         planningEntryCounts[planning.id] = (data.entries || []).length;
@@ -409,14 +413,14 @@ async function savePlanning(event) {
     let payload;
     if (currentEditId) {
       // Update existing planning
-      response = await fetch(`${API_BASE}/planning/${currentEditId}`, {
+      response = await authenticatedFetch(`${API_BASE}/planning/${currentEditId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
     } else {
       // Create new planning
-      response = await fetch(`${API_BASE}/planning/`, {
+      response = await authenticatedFetch(`${API_BASE}/planning/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -450,7 +454,7 @@ async function deletePlanning(planningId) {
   if (!confirm(confirmMsg)) return;
 
   try {
-    const response = await fetch(`${API_BASE}/planning/${planningId}`, {
+    const response = await authenticatedFetch(`${API_BASE}/planning/${planningId}`, {
       method: 'DELETE'
     });
 
@@ -578,7 +582,7 @@ async function loadPlanningEntries(planningId) {
   if (table) table.style.display = 'none';
 
   try {
-    const response = await fetch(`${API_BASE}/planning/${planningId}/entries`);
+    const response = await authenticatedFetch(`${API_BASE}/planning/${planningId}/entries`);
     const data = await response.json();
 
     if (!response.ok) {
@@ -649,7 +653,7 @@ async function generatePlanningEntries() {
   button.disabled = true;
 
   try {
-    const response = await fetch(`${API_BASE}/planning/${selectedPlanningId}/entries/generate`, {
+    const response = await authenticatedFetch(`${API_BASE}/planning/${selectedPlanningId}/entries/generate`, {
       method: 'POST'
     });
     const data = await response.json();
@@ -678,7 +682,7 @@ async function deletePlanningEntry(entryId) {
   if (!confirm('Diesen Planungseintrag wirklich löschen?')) return;
 
   try {
-    const response = await fetch(`${API_BASE}/planning/${selectedPlanningId}/entries/${entryId}`, { method: 'DELETE' });
+    const response = await authenticatedFetch(`${API_BASE}/planning/${selectedPlanningId}/entries/${entryId}`, { method: 'DELETE' });
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.detail || `HTTP error! status: ${response.status}`);
@@ -715,7 +719,7 @@ async function saveDetailsChanges() {
       dateEnd: document.getElementById('detailEnd').value ? new Date(document.getElementById('detailEnd').value).toISOString() : null
     };
 
-    const response = await fetch(`${API_BASE}/planning/${selectedPlanningId}`, {
+    const response = await authenticatedFetch(`${API_BASE}/planning/${selectedPlanningId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)

@@ -7,9 +7,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings
-from api.dependencies import set_database_instance, get_database_config, get_database_credentials
+from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings, auth
+from api.dependencies import set_database_instance, get_database_config, get_database_credentials, set_auth_managers
+from api.auth_middleware import set_auth_globals
 from Database import Database
+from auth.session_store import SessionStore
+from auth.connection_pool_manager import ConnectionPoolManager
+from auth.rate_limiter import LoginRateLimiter
+from cryptography.fernet import Fernet
+import yaml
+import asyncio
+import secrets
+from pathlib import Path
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -30,6 +39,7 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(theme.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
@@ -58,29 +68,105 @@ if web_path.exists():
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database connection on startup"""
-    config = get_database_config()
-    credentials = get_database_credentials()
+    """Initialize database connection and auth modules on startup"""
+    # Load config for auth
+    config_path = Path(__file__).parent.parent.parent / "cfg" / "config.yaml"
+    with open(config_path, 'r', encoding='utf-8') as f:
+        config = yaml.safe_load(f)
     
-    # Use credentials from dependencies, with config file as fallback
-    db = Database(
-        host=credentials.get('host') or config.get('host', 'localhost'),
-        user=credentials.get('user') or config.get('user', ''),
-        password=credentials.get('password') or config.get('password', ''),
-        database_name=credentials.get('name') or config.get('name', 'FiniA'),
-        port=credentials.get('port') or config.get('port', 3306)
+    # MEMORY-ONLY: Generate fresh keys on every start (never stored on disk!)
+    encryption_key = Fernet.generate_key().decode()
+    jwt_secret = secrets.token_urlsafe(32)
+    
+    print("✓ Auth keys generated in memory (never stored on disk)")
+    print("⚠ All sessions will be invalidated on restart (by design)")
+    
+    # Initialize auth modules
+    auth_config = config.get('auth', {})
+    session_store = SessionStore(
+        encryption_key=encryption_key,
+        timeout_seconds=auth_config.get('session_timeout_seconds', 3600)
     )
     
-    if not db.connect():
-        raise RuntimeError("Failed to connect to database")
+    # Get database config
+    db_config = get_database_config()
+    db_credentials = get_database_credentials()
+    db_host = db_credentials.get('host') or db_config.get('host', 'localhost')
+    db_port = db_credentials.get('port') or db_config.get('port', 3306)
     
-    set_database_instance(db)
-    print("✓ Database connected successfully")
+    pool_manager = ConnectionPoolManager(
+        host=db_host,
+        port=db_port,
+        pool_size=auth_config.get('pool_size', 5)
+    )
+    
+    rate_limiter = LoginRateLimiter(
+        max_attempts=auth_config.get('max_login_attempts', 5),
+        window_minutes=auth_config.get('rate_limit_window_minutes', 15)
+    )
+    
+    # Set auth managers in dependencies and auth router
+    set_auth_managers(session_store, pool_manager, rate_limiter)
+    
+    # Update config with loaded secrets for auth router
+    auth_config_with_secrets = {**config}
+    auth_config_with_secrets['auth']['jwt_secret'] = jwt_secret
+    auth.set_auth_managers(session_store, pool_manager, rate_limiter, auth_config_with_secrets)
+    
+    # Set auth globals in middleware (für get_current_session dependency)
+    set_auth_globals(session_store, pool_manager, auth_config_with_secrets)
+    
+    print("✓ Auth modules initialized")
+    
+    # Start background session cleanup task
+    asyncio.create_task(session_cleanup_task(session_store))
+    
+    # Legacy database connection (optional, nur für alte Routes die noch nicht auf Auth umgestellt sind)
+    # Mit dem neuen Auth-System ist dies nicht mehr zwingend nötig
+    credentials = get_database_credentials()
+    db_user = credentials.get('user') or db_config.get('user', '')
+    db_password = credentials.get('password') or db_config.get('password', '')
+    
+    if db_user and db_password:
+        # Legacy-DB nur verbinden wenn Credentials vorhanden
+        db = Database(
+            host=credentials.get('host') or db_config.get('host', 'localhost'),
+            user=db_user,
+            password=db_password,
+            database_name=credentials.get('name') or db_config.get('name', 'FiniA'),
+            port=credentials.get('port') or db_config.get('port', 3306)
+        )
+        
+        if db.connect():
+            set_database_instance(db)
+            print("✓ Legacy database connected (for non-auth routes)")
+        else:
+            print("⚠ Legacy database connection failed (not critical for auth-based routes)")
+    else:
+        print("⚠ No legacy database credentials - using auth-based connections only")
+        print("  (This is normal for full auth-based deployment)")
+
+
+async def session_cleanup_task(session_store: SessionStore):
+    """Background task to clean up expired sessions"""
+    while True:
+        await asyncio.sleep(300)  # Run every 5 minutes
+        cleaned = session_store.cleanup_expired_sessions()
+        if cleaned > 0:
+            print(f"✓ Cleaned up {cleaned} expired session(s)")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Close database connection on shutdown"""
+    """Close database connection and cleanup auth resources on shutdown"""
+    # Cleanup connection pools
+    from api.dependencies import _pool_manager
+    if _pool_manager:
+        for session_id in list(_pool_manager._pools.keys()):
+            _pool_manager.close_pool(session_id)
+        print("✓ All connection pools closed")
+    
+    # Close legacy database
     from api.dependencies import get_database
     try:
         db = get_database()

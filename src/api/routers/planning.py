@@ -4,7 +4,7 @@ Planning API router
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from repositories.planning_repository import PlanningRepository
-from api.dependencies import get_db_cursor, get_db_connection
+from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
 from api.models import (
     PlanningResponse,
     PlanningListResponse,

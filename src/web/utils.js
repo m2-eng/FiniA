@@ -2,7 +2,116 @@
  * Shared utility functions for FiniA web pages
  */
 
+// ============================================================================
+// Authentication Utilities
+// ============================================================================
+
+/**
+ * Prüft ob User eingeloggt ist. Wenn nicht → Weiterleitung zu login.html
+ */
+function requireAuth() {
+  const token = localStorage.getItem('auth_token');
+  
+  if (!token) {
+    window.location.href = '/login.html';
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Gibt Auth-Header für API-Requests zurück
+ */
+function getAuthHeaders() {
+  const token = localStorage.getItem('auth_token');
+  
+  if (!token) {
+    return {};
+  }
+  
+  return {
+    'Authorization': `Bearer ${token}`
+  };
+}
+
+/**
+ * Fetch-Wrapper mit automatischer Auth und Error-Handling
+ */
+async function authenticatedFetch(url, options = {}) {
+  const token = localStorage.getItem('auth_token');
+  
+  if (!token) {
+    window.location.href = '/login.html';
+    throw new Error('Not authenticated');
+  }
+  
+  // Merge auth headers
+  const headers = {
+    ...options.headers,
+    'Authorization': `Bearer ${token}`
+  };
+  
+  const response = await fetch(url, { ...options, headers });
+  
+  // Bei 401 → Session abgelaufen → Login
+  if (response.status === 401) {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('username');
+    localStorage.removeItem('database');
+    window.location.href = '/login.html';
+    throw new Error('Session expired');
+  }
+  
+  return response;
+}
+
+/**
+ * Logout-Funktion für alle Seiten
+ */
+async function logout() {
+  const token = localStorage.getItem('auth_token');
+  
+  if (token) {
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  }
+  
+  // Cleanup local storage
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('username');
+  localStorage.removeItem('database');
+  
+  // Redirect to login
+  window.location.href = '/login.html';
+}
+
+/**
+ * Gibt aktuellen Username zurück
+ */
+function getCurrentUsername() {
+  return localStorage.getItem('username') || 'Unbekannt';
+}
+
+/**
+ * Gibt aktuelle Datenbank zurück
+ */
+function getCurrentDatabase() {
+  return localStorage.getItem('database') || 'Unbekannt';
+}
+
+// ============================================================================
 // String & Display
+// ============================================================================
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;

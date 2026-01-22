@@ -57,7 +57,7 @@ function setActiveNav(currentRoute) {
 // Load year dropdown options
 async function loadYearDropdown() {
   try {
-    const response = await fetch(`${API_BASE}/years/`);
+    const response = await authenticatedFetch(`${API_BASE}/years/`);
     const data = await response.json();
     const yearSelector = document.getElementById('year-selector');
     
@@ -111,6 +111,14 @@ async function loadTopNav(currentRoute) {
     const html = await res.text();
     placeholder.innerHTML = html;
     setActiveNav(currentRoute);
+    
+    // Update user info display
+    const usernameDisplay = document.getElementById('username-display');
+    if (usernameDisplay) {
+      const username = getCurrentUsername();
+      const db = getCurrentDatabase();
+      usernameDisplay.textContent = `${username} (${db})`;
+    }
     
     // Add event listener to theme toggle button after nav is loaded
     const themeToggle = document.getElementById('theme-toggle');

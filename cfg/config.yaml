@@ -1,6 +1,26 @@
 database:
   host: 192.168.42.32
   port: 3306
-  name: sandbox_finia_test1
+  name: sandbox_finia_Markus
   sql_file: ./db/finia_draft.sql
   init_data: ./cfg/data.yaml
+
+auth:
+  # Auth-Keys werden bei jedem Server-Start NEU generiert (Memory-Only)
+  # KEINE Keys mehr in config.yaml oder .env nötig!
+  # Alle Sessions werden bei Server-Neustart ungültig (by design)
+  
+  # JWT Token Expiry (in Stunden)
+  jwt_expiry_hours: 24
+  
+  # Session-Einstellungen
+  session_timeout_seconds: 3600  # 1 Stunde Inaktivität
+  pool_size: 10  # Connections pro User-Session (für parallele Requests)
+  
+  # Username → Database Pattern
+  username_prefix: "finia_"
+  database_prefix: "finiaDB_"
+  
+  # Rate Limiting
+  max_login_attempts: 5
+  rate_limit_window_minutes: 15

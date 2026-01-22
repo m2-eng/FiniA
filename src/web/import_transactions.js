@@ -13,9 +13,13 @@ let cachedTransactions = [];
 let lastDisplayedTransactions = [];
 let selectedTransactionIds = new Set();
 
+
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 async function loadCategories() {
   try {
-    const response = await fetch(`${API_BASE}/categories/list`);
+    const response = await authenticatedFetch(`${API_BASE}/categories/list`);
     const data = await response.json();
     allCategories = data.categories || [];
     console.log('Categories loaded:', allCategories.length, allCategories);
@@ -144,7 +148,7 @@ async function loadTransactions(page = 1) {
     if (searchTerm) params.append('search', searchTerm);
     if (currentFilter && currentFilter !== 'all') params.append('filter', currentFilter);
 
-    const response = await fetch(`${API_BASE}/transactions/?${params}`);
+    const response = await authenticatedFetch(`${API_BASE}/transactions/?${params}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
     const data = await response.json();
@@ -268,7 +272,7 @@ async function markSelectedChecked() {
   }
 
   try {
-    const response = await fetch(`${API_BASE}/transactions/mark-checked`, {
+    const response = await authenticatedFetch(`${API_BASE}/transactions/mark-checked`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transaction_ids: ids, checked: true })
@@ -349,7 +353,7 @@ function resetSearch() {
 
 async function showTransactionDetails(transactionId) {
   try {
-    const response = await fetch(`${API_BASE}/transactions/${transactionId}`);
+    const response = await authenticatedFetch(`${API_BASE}/transactions/${transactionId}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
     const tx = await response.json();
     selectedTransactionId = tx.id;
@@ -465,6 +469,10 @@ function renderEntries() {
     const amountInput = isFirstEntry
       ? `<input class="input-sm ${cls}" type="number" step="0.01" value="${entry.amount}" readonly style="background-color: #f0f0f0; cursor: not-allowed;" title="Wird automatisch berechnet">`
       : `<input class="input-sm ${cls}" type="number" step="0.01" value="${entry.amount}" onchange="updateEntry(${originalIndex}, 'amount', parseFloat(this.value) || 0)">`;
+    
+    const deleteButton = isFirstEntry
+      ? '' // Kein Button für den ersten Eintrag
+      : `<button class="btn btn-danger" onclick="removeEntry(${originalIndex})">Löschen</button>`;
 
     tr.innerHTML = `
       <td><input class="input-sm" type="date" value="${toDateInputValue(entry.dateImport)}" readonly style="background-color: #f0f0f0; cursor: not-allowed;" title="Importdatum kann nicht geändert werden"></td>
@@ -476,7 +484,7 @@ function renderEntries() {
       <td>${amountInput}</td>
       <td class="checkbox-cell"><input type="checkbox" ${entry.accountingPlanned ? 'checked' : ''} onchange="updateEntry(${originalIndex}, 'accountingPlanned', this.checked)"></td>
       <td class="checkbox-cell"><input type="checkbox" ${entry.checked ? 'checked' : ''} onchange="updateEntry(${originalIndex}, 'checked', this.checked)"></td>
-      <td class="actions-cell"><button class="btn-ghost" onclick="removeEntry(${originalIndex})">Entfernen</button></td>
+      <td class="actions-cell">${deleteButton}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -554,7 +562,7 @@ async function saveEntries() {
       accountingPlanned: entry.accountingPlanned,
       category_name: entry.category_name || null
     }));
-    const response = await fetch(`${API_BASE}/transactions/${selectedTransactionId}/entries`, {
+    const response = await authenticatedFetch(`${API_BASE}/transactions/${selectedTransactionId}/entries`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries })
     });
     if (!response.ok) {
@@ -590,7 +598,7 @@ async function saveEntries() {
 // Import functionality
 async function loadImportAccounts() {
   try {
-    const response = await fetch(`${API_BASE}/accounts/list?page_size=1000`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/list?page_size=1000`);
     const data = await response.json();
     importAccounts = data.accounts || [];
     
@@ -658,7 +666,7 @@ async function startImport() {
   statusDiv.style.color = 'var(--color-text-base)';
   
   try {
-    const response = await fetch(`${API_BASE}/transactions/import`, {
+    const response = await authenticatedFetch(`${API_BASE}/transactions/import`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ account_id: accountId })
@@ -730,7 +738,7 @@ async function startAutoCategorization() {
   statusDiv.style.color = 'var(--color-text-base)';
   
   try {
-    const response = await fetch(`${API_BASE}/transactions/auto-categorize`, {
+    const response = await authenticatedFetch(`${API_BASE}/transactions/auto-categorize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ account_id: null })
@@ -816,7 +824,7 @@ function handleTransactionNavigation(direction) {
 async function loadImportFormats() {
   try {
     // Formate sind im Backend definiert, wir laden sie über einen API-Endpunkt
-    const response = await fetch(`${API_BASE}/transactions/import-formats`);
+    const response = await authenticatedFetch(`${API_BASE}/transactions/import-formats`);
     
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
@@ -900,7 +908,7 @@ async function importSpecificCSV() {
       formData.append('account_id', accountId.toString());
     }
     
-    const response = await fetch(`${API_BASE}/transactions/import-csv`, {
+    const response = await authenticatedFetch(`${API_BASE}/transactions/import-csv`, {
       method: 'POST',
       body: formData
     });

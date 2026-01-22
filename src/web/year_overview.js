@@ -1,5 +1,8 @@
 // Jahresübersicht page logic - refaktoriert mit TableEngine
 
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 // Monatliche Header-Definition
 const MONTH_HEADERS = [
   'Konto',
@@ -254,7 +257,7 @@ async function fixAssetsJahresbilanzCells(loanSum, secSum) {
     let prevSecsDec = 0;
     
     // Darlehen: aus Darlehen-Tabelle Vorjahr Summenzeile
-    const resLoans = await fetch(`${API_BASE}/year-overview/loans?year=${prevYear}`);
+    const resLoans = await authenticatedFetch(`${API_BASE}/year-overview/loans?year=${prevYear}`);
     if (resLoans.ok) {
       const dataLoans = await resLoans.json();
       const rowsLoans = dataLoans.rows || [];
@@ -262,7 +265,7 @@ async function fixAssetsJahresbilanzCells(loanSum, secSum) {
     }
     
     // Wertpapiere: aus Wertpapiere-Tabelle Vorjahr Summenzeile
-    const resSecs = await fetch(`${API_BASE}/year-overview/securities?year=${prevYear}`);
+    const resSecs = await authenticatedFetch(`${API_BASE}/year-overview/securities?year=${prevYear}`);
     if (resSecs.ok) {
       const dataSecs = await resSecs.json();
       const rowsSecs = dataSecs.rows || [];

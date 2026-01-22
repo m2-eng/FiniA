@@ -7,7 +7,7 @@ from typing import Optional, List
 from pydantic import BaseModel
 import json
 import re
-from api.dependencies import get_db_cursor, get_db_connection
+from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
 from api.error_handling import handle_db_errors
 from services.category_automation import (
     evaluate_rule,

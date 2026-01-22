@@ -1,5 +1,8 @@
 // Accounts page logic - wiederverwendet TableEngine
 
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 // Monatliche Header-Definition (wie in year_overview.js)
 const MONTH_HEADERS = [
   'Kategorie',
@@ -159,7 +162,7 @@ function getSelectedAccount() {
 // Account-Dropdown laden
 async function loadAccountDropdown() {
   try {
-    const response = await fetch(`${API_BASE}/accounts/list`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/list`);
     const data = await response.json();
     const accountSelector = document.getElementById('account-selector');
 

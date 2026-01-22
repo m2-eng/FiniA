@@ -5,7 +5,7 @@ Handles global/user settings storage.
 
 import json
 from fastapi import APIRouter, Depends, HTTPException, status
-from api.dependencies import get_db_cursor, get_db_connection
+from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from repositories.settings_repository import SettingsRepository
 

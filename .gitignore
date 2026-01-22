@@ -7,3 +7,12 @@ cmd
 **/__pycache__/
 
 start.ps1
+
+# Secrets - NIEMALS committen!
+.env
+secrets.yaml
+.secrets.yaml
+
+# Auth Keys
+*.key
+*.secret

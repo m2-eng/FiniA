@@ -1,6 +1,10 @@
 // Category Automation Management - JavaScript Logic
 
 // Use existing variables from settings.js if available, otherwise initialize
+
+// Auth-Check: User muss eingeloggt sein
+requireAuth();
+
 if (typeof allRules === 'undefined') window.allRules = [];
 if (typeof allAccounts === 'undefined') window.allAccounts = [];
 if (typeof allCategories === 'undefined') window.allCategories = [];
@@ -35,7 +39,7 @@ async function initializeCategoryAutomation() {
 async function loadAccounts() {
   try {
     automationAccountsLoading = true;
-    const response = await fetch(`${API_BASE}/accounts/list?page_size=1000`);
+    const response = await authenticatedFetch(`${API_BASE}/accounts/list?page_size=1000`);
     const data = await response.json();
     window.allAccounts = data.accounts || [];
     allAccounts = window.allAccounts;
@@ -49,7 +53,7 @@ async function loadAccounts() {
 
 async function loadCategories() {
   try {
-    const response = await fetch(`${API_BASE}/categories/list`);
+    const response = await authenticatedFetch(`${API_BASE}/categories/list`);
     const data = await response.json();
     allCategories = data.categories || [];
   } catch (error) {
@@ -68,7 +72,7 @@ async function loadRules() {
   errorMessage.style.display = 'none';
 
   try {
-    const response = await fetch(`${API_BASE}/category-automation/rules`);
+    const response = await authenticatedFetch(`${API_BASE}/category-automation/rules`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
@@ -516,7 +520,7 @@ async function saveCurrentRule() {
   
   // Save to API
   try {
-    const response = await fetch(`${API_BASE}/category-automation/rules/${rule.id}`, {
+    const response = await authenticatedFetch(`${API_BASE}/category-automation/rules/${rule.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(rule)
@@ -566,7 +570,7 @@ async function deleteRule(ruleId) {
   if (!confirm('Möchten Sie diese Regel wirklich löschen?')) return;
   
   try {
-    const response = await fetch(`${API_BASE}/category-automation/rules/${ruleId}`, {
+    const response = await authenticatedFetch(`${API_BASE}/category-automation/rules/${ruleId}`, {
       method: 'DELETE'
     });
     
@@ -607,7 +611,7 @@ async function executeTest() {
   };
   
   try {
-    const response = await fetch(`${API_BASE}/category-automation/test-rule`, {
+    const response = await authenticatedFetch(`${API_BASE}/category-automation/test-rule`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ rule, transaction })
@@ -753,7 +757,7 @@ async function executeMerge() {
   
   try {
     // Create new merged rule
-    const response = await fetch(`${API_BASE}/category-automation/rules`, {
+    const response = await authenticatedFetch(`${API_BASE}/category-automation/rules`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(mergedRule)
@@ -763,7 +767,7 @@ async function executeMerge() {
     
     // Delete old rules
     for (const ruleId of selectedRules) {
-      await fetch(`${API_BASE}/category-automation/rules/${ruleId}`, { method: 'DELETE' });
+      await authenticatedFetch(`${API_BASE}/category-automation/rules/${ruleId}`, { method: 'DELETE' });
     }
     
     alert(`${selectedRules.size} Regeln erfolgreich zusammengeführt!`);

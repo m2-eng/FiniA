@@ -155,34 +155,85 @@ h1 { font-size: 24px; font-weight: bold; margin: 0; }
 }
 
 .top-nav .nav-item {
-  display: inline-block; padding: 8px 14px; border: 1px solid var(--color-border);
-  border-radius: 6px; background-color: var(--color-bg-base);
-  color: var(--color-text); text-decoration: none; font-weight: 600;
+  display: inline-block; 
+  padding: 8px 14px; 
+  border: 1px solid var(--color-border);
+  border-radius: 6px; 
+  background-color: var(--color-bg-base);
+  color: var(--color-text); 
+  text-decoration: none; 
+  font-weight: 600;
   transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+  margin-left: 8px;
 }
 .top-nav .nav-item:hover { background-color: var(--color-bg-detail); border-color: var(--color-accent); }
 .top-nav .nav-item.active { background-color: var(--color-accent); border-color: var(--color-accent); color: var(--color-text-selected); }
 
-/* Buttons - Unified Styles */
-.btn { 
-  padding: 10px 20px; 
-  background-color: var(--color-accent); 
-  color: var(--color-text-selected); 
-  border: none; 
-  border-radius: 4px; 
-  cursor: pointer; 
-  font-size: 14px;
-  font-weight: 600; 
-  transition: background-color 0.2s;
+/* User-Info in Navigation - gleiche Höhe wie nav-items */
+.top-nav #user-info {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background-color: var(--color-bg-base);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-left: 8px;
+  min-height: 34px;
+  box-sizing: border-box;
 }
-.btn:hover { background-color: var(--color-accent-hover); }
-.btn:active { background-color: var(--color-accent-pressed); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Logout-Button - gleiche Höhe wie nav-items */
+.btn-logout {
+  padding: 8px 14px;
+  background-color: var(--color-danger);
+  color: var(--color-text-selected);
+  border: 1px solid var(--color-danger);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, border-color 0.2s;
+  margin-left: 8px;
+  min-height: 34px;
+  box-sizing: border-box;
+}
+.btn-logout:hover { 
+  background-color: var(--color-danger-hover); 
+  border-color: var(--color-danger-hover);
+}
+
+/* Button Base Styles - für alle Standard-Buttons */
+.btn {
+  padding: 10px 20px;
+  background-color: var(--color-accent);
+  color: var(--color-text-selected);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+.btn:hover { 
+  background-color: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+.btn:active { 
+  background-color: var(--color-accent-pressed); 
+}
+.btn:disabled { 
+  opacity: 0.5; 
+  cursor: not-allowed; 
+}
 
 .btn-secondary { 
   background-color: var(--color-bg-detail); 
   color: var(--color-text); 
   border: 1px solid var(--color-border);
+  border-radius: 6px;
   padding: 10px 20px;
   font-size: 14px;
   font-weight: 600;
@@ -196,10 +247,18 @@ h1 { font-size: 24px; font-weight: bold; margin: 0; }
 
 .btn-danger { 
   background-color: var(--color-danger); 
-  color: var(--color-text-selected); 
+  color: var(--color-text-selected);
+  border: 1px solid var(--color-danger);
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
 }
 .btn-danger:hover { 
-  background-color: var(--color-danger-hover); 
+  background-color: var(--color-danger-hover);
+  border-color: var(--color-danger-hover);
 }
 
 .btn-success {
