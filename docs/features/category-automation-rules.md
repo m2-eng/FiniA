@@ -1,5 +1,5 @@
 ---
-title: Category Automation Rules - Data Model v2.0
+title: Category Automation Rules - Data Model
 version: 2.0
 feature: category-automation
 type: technical-specification
@@ -7,7 +7,7 @@ status: planned
 date: 2026-01-22
 ---
 
-# Category Automation Rules - Data Model v2.0
+# Category Automation Rules - Data Model
 
 ## Overview
 
@@ -383,7 +383,7 @@ function parseConditionLogic(logicStr, conditionResults) {
 }
 ```
 
-## Migration from v1.0 to v2.0
+## Migration from v1.0 to
 
 ### Step 1: Read Old Rules
 
@@ -589,7 +589,7 @@ POST   /api/category-automation/rules              - Create new rule
 PUT    /api/category-automation/rules/{id}         - Update rule
 DELETE /api/category-automation/rules/{id}         - Delete rule
 POST   /api/category-automation/rules/test         - Test rule against transaction
-POST   /api/category-automation/migrate            - Migrate from v1.0 to v2.0
+POST   /api/category-automation/migrate            - Migrate from v1.0 to
 ```
 
 ## References

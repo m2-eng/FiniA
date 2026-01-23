@@ -1,21 +1,4 @@
 # YAML 1.1
-accountType:
-  'Girokonto': 1
-  'Wertpapierdepot': 2
-  'Darlehen': 3
-  'Krypto': 4
-  'Investment-Plattform': 5
-
-planningCycle:
-  'einmalig': 1
-  'täglich': 2
-  'wöchentlich': 3
-  '14-tägig': 4
-  'monatlich': 5
-  'vierteljährlich': 6
-  'halbjährlich': 7
-  'jährlich': 8
-
 account_data:
   - account:
       name: 'Consorsbank - Girokonto'

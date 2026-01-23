@@ -113,6 +113,15 @@ CREATE TABLE `tbl_accountType` (
   `type` varchar(128) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
 
+-- Seed: fixed account types (id and name)
+INSERT INTO `tbl_accountType` (`id`, `dateImport`, `type`) VALUES
+  (1, NOW(), 'Girokonto'),
+  (2, NOW(), 'Wertpapierdepot'),
+  (3, NOW(), 'Darlehen'),
+  (4, NOW(), 'Krypto'),
+  (5, NOW(), 'Investment-Plattform')
+ON DUPLICATE KEY UPDATE `type` = VALUES(`type`);
+
 -- --------------------------------------------------------
 
 --
@@ -174,6 +183,18 @@ CREATE TABLE `tbl_planningCycle` (
   `periodValue` decimal(10,2) NOT NULL DEFAULT 1.00,
   `periodUnit` char(1) NOT NULL DEFAULT 'm' -- d=Tag, m=Monat, y=Jahr
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb3 COLLATE=utf8mb3_general_ci;
+
+-- Seed: fixed planning cycles with period length
+INSERT INTO `tbl_planningCycle` (`id`, `dateImport`, `cycle`, `periodValue`, `periodUnit`) VALUES
+  (1, NOW(), 'einmalig', 0.00, 'd'),      -- one-off, no recurrence
+  (2, NOW(), 'täglich', 1.00, 'd'),       -- every day
+  (3, NOW(), 'wöchentlich', 7.00, 'd'),   -- every week
+  (4, NOW(), '14-tägig', 14.00, 'd'),     -- every 14 days
+  (5, NOW(), 'monatlich', 1.00, 'm'),     -- every month
+  (6, NOW(), 'vierteljährlich', 3.00, 'm'), -- every quarter
+  (7, NOW(), 'halbjährlich', 6.00, 'm'),  -- every 6 months
+  (8, NOW(), 'jährlich', 1.00, 'y')       -- every year
+ON DUPLICATE KEY UPDATE `cycle` = VALUES(`cycle`), `periodValue` = VALUES(`periodValue`), `periodUnit` = VALUES(`periodUnit`);
 
 -- --------------------------------------------------------
 
