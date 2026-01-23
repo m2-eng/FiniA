@@ -1,5 +1,6 @@
 cmd
 
+.ignore_docs/
 *.backup
 
 /.vscode/

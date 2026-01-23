@@ -1,9 +1,17 @@
 database:
-  host: 192.168.42.32
+  host: 127.0.0.1        # Localhost works even from Docker bridge (NAS loopback)
   port: 3306
-  name: sandbox_finia_Markus
+  name: <YOUR_DATABASE_NAME>  # Only used for --setup/--init-database (not for API login)
+                              # API login uses: database_prefix + username (see auth.database_prefix)
   sql_file: ./db/finia_draft.sql
   init_data: ./cfg/data.yaml
+
+api:
+  # API Server Configuration (Docker & Local Development)
+  # These values are read from config.yaml ONLY (no .env needed)
+  host: 0.0.0.0          # Bind to all interfaces in Docker
+  port: 8000              # Default API port
+  # Optional: log_level: info  # Uncomment to override default
 
 auth:
   # Auth-Keys werden bei jedem Server-Start NEU generiert (Memory-Only)

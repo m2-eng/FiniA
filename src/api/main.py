@@ -8,9 +8,8 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
 from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings, auth
-from api.dependencies import set_database_instance, get_database_config, get_database_credentials, set_auth_managers
+from api.dependencies import get_database_config, set_auth_managers
 from api.auth_middleware import set_auth_globals
-from Database import Database
 from auth.session_store import SessionStore
 from auth.connection_pool_manager import ConnectionPoolManager
 from auth.rate_limiter import LoginRateLimiter
@@ -88,11 +87,10 @@ async def startup_event():
         timeout_seconds=auth_config.get('session_timeout_seconds', 3600)
     )
     
-    # Get database config
+    # Get database config (single source of truth)
     db_config = get_database_config()
-    db_credentials = get_database_credentials()
-    db_host = db_credentials.get('host') or db_config.get('host', 'localhost')
-    db_port = db_credentials.get('port') or db_config.get('port', 3306)
+    db_host = db_config.get('host', 'localhost')
+    db_port = db_config.get('port', 3306)
     
     pool_manager = ConnectionPoolManager(
         host=db_host,
@@ -117,34 +115,11 @@ async def startup_event():
     set_auth_globals(session_store, pool_manager, auth_config_with_secrets)
     
     print("✓ Auth modules initialized")
+    print("✓ Database config read from cfg/config.yaml")
+    print("✓ All connections use Memory-Only session-based authentication")
     
     # Start background session cleanup task
     asyncio.create_task(session_cleanup_task(session_store))
-    
-    # Legacy database connection (optional, nur für alte Routes die noch nicht auf Auth umgestellt sind)
-    # Mit dem neuen Auth-System ist dies nicht mehr zwingend nötig
-    credentials = get_database_credentials()
-    db_user = credentials.get('user') or db_config.get('user', '')
-    db_password = credentials.get('password') or db_config.get('password', '')
-    
-    if db_user and db_password:
-        # Legacy-DB nur verbinden wenn Credentials vorhanden
-        db = Database(
-            host=credentials.get('host') or db_config.get('host', 'localhost'),
-            user=db_user,
-            password=db_password,
-            database_name=credentials.get('name') or db_config.get('name', 'FiniA'),
-            port=credentials.get('port') or db_config.get('port', 3306)
-        )
-        
-        if db.connect():
-            set_database_instance(db)
-            print("✓ Legacy database connected (for non-auth routes)")
-        else:
-            print("⚠ Legacy database connection failed (not critical for auth-based routes)")
-    else:
-        print("⚠ No legacy database credentials - using auth-based connections only")
-        print("  (This is normal for full auth-based deployment)")
 
 
 async def session_cleanup_task(session_store: SessionStore):
