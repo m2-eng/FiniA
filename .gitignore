@@ -9,6 +9,10 @@ cmd
 
 start.ps1
 
+# Docker Compose environment-specific overrides (user configuration)
+docker-compose.override.yml
+docker-compose.override.yml.local
+
 # Legacy secrets (not used anymore - Memory-Only Auth)
 secrets.yaml
 .secrets.yaml
