@@ -1,0 +1,58 @@
+services:
+  # Note: No database service here!
+  # Using existing external MariaDB (see cfg/config.yaml for host configuration)
+  # Already integrated in backup cycle - no need for Docker DB container
+
+  # FiniA API Application
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finia-api
+    # No depends_on - uses external database from cfg/config.yaml
+    
+    # cfg/ folder volume mounting
+    # LINUX/MAC: Works perfectly with ./cfg:/app/cfg:ro
+    # WINDOWS: Docker Desktop WSL2 has path translation issues
+    # volumes:
+    #   - ./cfg:/app/cfg:ro  # Uncomment for Linux/Mac production
+    
+    ports:
+      - "8000:8000"
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    restart: unless-stopped
+    
+    # API reads all config from cfg/config.yaml via mounted volume
+    # No environment variables needed - Single Source of Truth!
+    # User credentials come from login form (Memory-Only Auth)
+    command: >
+      python3 src/main.py 
+      --api 
+      --host 0.0.0.0 
+      --port 8000
+      --config cfg/config.yaml
+
+  # Optional: Nginx Reverse Proxy for production
+  # Uncomment and configure if you want to serve on a different port or add SSL
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: finia-nginx
+  #   depends_on:
+  #     - api
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   restart: unless-stopped
+
+# No volumes needed - external database
+# No network needed - using host network for external DB access

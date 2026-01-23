@@ -35,11 +35,9 @@ if __name__ == "__main__":
       """
    )
    parser.add_argument('--user',
-                       required=True,
-                       help='MySQL user')
+                       help='MySQL user (only required for --setup, --init-database, --import-account-data)')
    parser.add_argument('--password',
-                       required=True,
-                       help='MySQL password')
+                       help='MySQL password (only required for --setup, --init-database, --import-account-data)')
    parser.add_argument('--config',
                        default='cfg/config.yaml',
                        help='Path to config file (default: cfg/config.yaml)')
@@ -78,6 +76,7 @@ if __name__ == "__main__":
       print(f"Starting FiniA API server on http://{args.host}:{args.port}")
       print(f"API Documentation: http://{args.host}:{args.port}/api/docs")
       print(f"Web Interface: http://{args.host}:{args.port}/")
+      print("Note: User authentication via login form - Memory-Only sessions")
       
       # Windows: use SelectorEventLoop to avoid Proactor connection_lost errors (WinError 10054)
       if platform.system() == "Windows":
@@ -87,12 +86,14 @@ if __name__ == "__main__":
             # If setting the policy fails, continue with default
             pass
 
-      # Set database credentials in dependencies module for API startup
+      # Set database connection info (no user credentials - they come from login!)
+      # Users authenticate via /api/auth/login with their DB credentials
+      # Database config is read directly from cfg/config.yaml
       set_database_credentials(
-         user=args.user,
-         password=args.password,
+         user=None,  # Not used - credentials from login
+         password=None,  # Not used - credentials from login
          host=db_config.get('host', 'localhost'),
-         name=db_config.get('name', 'FiniA'),
+         name=None,  # Each user has their own DB: finiaDB_<username>
          port=db_config.get('port', 3306)
       )
       
