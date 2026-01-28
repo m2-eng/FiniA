@@ -314,8 +314,8 @@ async def update_rule(
         SET `value` = %s
         WHERE id = %s
     """
-    
-    cursor.execute(update_query, (json.dumps(rule), setting_id))
+    jsonValue = json.dumps(rule)
+    cursor.execute(update_query, (jsonValue, setting_id))
     connection.commit()
     
     return {
