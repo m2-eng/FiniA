@@ -58,7 +58,7 @@ class ConnectionPoolManager:
                 user=username,
                 password=password,
                 database=database,
-                autocommit=False,
+                autocommit=True, # must be true for proper transaction handling, see issue #55
                 use_pure=True
             )
         except Error as e:
