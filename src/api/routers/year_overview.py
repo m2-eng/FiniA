@@ -850,20 +850,23 @@ async def get_assets_month_end(
 
     # Build params for Girokonto months
     params: list = []
+    year_first_day = f"{year}-01-01"
+    dec_first = f"{year}-12-01"
+
     for md in month_dates:
         # Each month_sum_column expects: (month_date, today, typeName, month_date, typeName, typeName, today, typeName, today, month_date, typeName)
         params.extend([md, today, 'Girokonto', md, 'Girokonto', 'Girokonto', today, 'Girokonto', today, md, 'Girokonto'])
+     
+    params.extend([dec_first, today, 'Girokonto', dec_first, 'Girokonto', 'Girokonto', today, 'Girokonto', today, year, 'Girokonto']) # Jahresendwert (Dez 31) Parameter-Blöcke für year_end_sum_expr
+    params.extend(['Girokonto', 'Girokonto', year_first_day]) # Baseline (Start des Jahres 1.1.) für Differenz
+
     # Darlehen months
     for md in month_dates:
         params.extend([md, today, 'Darlehen', md, 'Darlehen', 'Darlehen', today, 'Darlehen', today, md, 'Darlehen'])
-    # Jahresendwert (Dez 31) Parameter-Blöcke für year_end_sum_expr
-    dec_first = f"{year}-12-01"
-    params.extend([dec_first, today, 'Girokonto', dec_first, 'Girokonto', 'Girokonto', today, 'Girokonto', today, year, 'Girokonto'])
-    params.extend([dec_first, today, 'Darlehen', dec_first, 'Darlehen', 'Darlehen', today, 'Darlehen', today, year, 'Darlehen'])
-    # Baseline (Start des Jahres 1.1.) für Differenz
-    year_first_day = f"{year}-01-01"
-    params.extend(['Girokonto', 'Girokonto', year_first_day])
-    params.extend(['Darlehen', 'Darlehen', year_first_day])
+    
+    params.extend([dec_first, today, 'Darlehen', dec_first, 'Darlehen', 'Darlehen', today, 'Darlehen', today, year, 'Darlehen']) # Jahresendwert (Dez 31) Parameter-Blöcke für year_end_sum_expr
+    params.extend(['Darlehen', 'Darlehen', year_first_day]) # Baseline (Start des Jahres 1.1.) für Differenz
+
     # Securities: vorheriges Jahr (Dezember) und aktuelles Jahr für Subquery
     previous_year = year - 1
     params.extend([previous_year, year])
