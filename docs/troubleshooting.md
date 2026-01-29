@@ -1,4 +1,4 @@
-# 🪲 bugs 
+# 🪲 fixed bugs 
 
 ## [issue #55](https://github.com/m2-eng/FiniA/issues/55): MariaDB JSON Update Not Persisting When Using `cursor.execute()` in Python
 
