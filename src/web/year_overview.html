@@ -17,6 +17,18 @@
     </div>
   </header>
   <div class="container">
+    <div class="page-card" id="year-overview-card">
+      <div class="details-header">
+        <div>
+          <h3>Jahresübersicht <span class="details-meta" id="year-overview-year-label"></span></h3>
+        </div>
+      </div>
+      <div id="year-overview-feedback" class="details-meta"></div>
+      <div class="details-toolbar" style="margin-bottom:8px;">
+        <button class="btn" id="year-overview-refresh">Alle Tabellen aktualisieren</button>
+      </div>
+    </div>
+
     <div class="page-card" id="assets-card">
       <div class="details-header">
         <div>
@@ -25,9 +37,6 @@
         </div>
       </div>
       <div id="assets-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="assets-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="assets-table">
           <thead></thead>
@@ -44,9 +53,6 @@
         </div>
       </div>
       <div id="balances-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="balances-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="balances-table">
           <thead></thead>
@@ -63,9 +69,6 @@
         </div>
       </div>
       <div id="monthly-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="monthly-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="monthly-table">
           <thead></thead>
@@ -82,9 +85,6 @@
         </div>
       </div>
       <div id="investments-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="investments-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="investments-table">
           <thead></thead>
@@ -101,9 +101,6 @@
         </div>
       </div>
       <div id="loans-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="loans-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="loans-table">
           <thead></thead>
@@ -120,9 +117,6 @@
         </div>
       </div>
       <div id="securities-feedback" class="details-meta"></div>
-      <div class="details-toolbar" style="margin-bottom:8px;">
-        <button class="btn" id="securities-refresh">Aktualisieren</button>
-      </div>
       <div class="table-wrapper" style="overflow-x:auto;">
         <table class="simple-table equal-cols" id="securities-table">
           <thead></thead>
