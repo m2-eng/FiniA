@@ -92,15 +92,35 @@ header {
   min-width: 0;
 }
 
+.header-top-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 h1 { font-size: 24px; font-weight: bold; margin: 0; }
 
 /* Top navigation */
 .top-nav { 
-  display: flex; 
-  gap: 8px; 
-  margin-top: 10px; 
-  flex-wrap: wrap; 
-  align-items: center; 
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+  flex: 1;
 }
 
 .top-nav .nav-item.nav-right {
@@ -154,7 +174,8 @@ h1 { font-size: 24px; font-weight: bold; margin: 0; }
   box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
 }
 
-.top-nav .nav-item {
+.top-nav .nav-item,
+.header-actions .nav-item {
   display: inline-block; 
   padding: 8px 14px; 
   border: 1px solid var(--color-border);
@@ -170,7 +191,8 @@ h1 { font-size: 24px; font-weight: bold; margin: 0; }
 .top-nav .nav-item.active { background-color: var(--color-accent); border-color: var(--color-accent); color: var(--color-text-selected); }
 
 /* User-Info in Navigation - gleiche Höhe wie nav-items */
-.top-nav #user-info {
+.top-nav #user-info,
+.header-actions #user-info {
   display: inline-flex;
   align-items: center;
   padding: 8px 14px;
@@ -604,8 +626,247 @@ th.sortable.sorted-desc::after {
   justify-content: flex-end;
   gap: 12px;
   margin-top: 16px;
-  padding: 14px 24px 22px 24px;
-  border-top: 1px solid var(--color-border);
+}
+
+/* Help Button */
+.btn-help {
+  padding: 8px 14px;
+  background-color: var(--color-accent);
+  color: var(--color-text-selected);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s, border-color 0.2s;
+  min-height: 34px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-help:hover {
+  background-color: var(--color-accent-hover, #0066b3);
+  border-color: var(--color-accent-hover, #0066b3);
+}
+
+/* Help Modal */
+.help-modal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.help-modal-content {
+  background-color: var(--color-bg-base);
+  margin: 5% auto;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 75vw;
+  max-height: 80vh;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.help-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg-detail);
+}
+
+.help-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.help-close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--color-text);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.help-close-btn:hover {
+  color: var(--color-accent);
+}
+
+.help-modal-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.help-sidebar {
+  width: 280px;
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  padding: 16px;
+  background-color: var(--color-bg-detail);
+}
+
+.help-search-box {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background-color: var(--color-bg-base);
+  color: var(--color-text);
+  font-size: 14px;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+}
+
+.help-search-box::placeholder {
+  color: var(--color-text-secondary, #999);
+}
+
+.help-doc-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.help-doc-item {
+  margin-bottom: 8px;
+}
+
+.help-doc-link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: var(--color-bg-base);
+  color: var(--color-text);
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color 0.2s, border-color 0.2s;
+  font-size: 13px;
+}
+
+.help-doc-link:hover {
+  background-color: var(--color-bg-base);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.help-doc-link.active {
+  background-color: var(--color-accent);
+  color: var(--color-text-selected);
+  border-color: var(--color-accent);
+}
+
+.help-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+.help-content h1,
+.help-content h2,
+.help-content h3 {
+  margin-top: 20px;
+  margin-bottom: 12px;
+  color: var(--color-text);
+}
+
+.help-content h1 { font-size: 24px; }
+.help-content h2 { font-size: 20px; }
+.help-content h3 { font-size: 16px; }
+
+.help-content p {
+  margin: 12px 0;
+  line-height: 1.6;
+  color: var(--color-text);
+}
+
+.help-content ul,
+.help-content ol {
+  margin: 12px 0;
+  padding-left: 24px;
+  color: var(--color-text);
+}
+
+.help-content li {
+  margin: 6px 0;
+  line-height: 1.6;
+}
+
+.help-content a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.help-content a:hover {
+  text-decoration: underline;
+}
+
+.help-content code {
+  background-color: var(--color-bg-detail);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: monospace;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.help-content pre {
+  background-color: var(--color-bg-detail);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border-left: 3px solid var(--color-accent);
+}
+
+.help-content pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.help-api-link {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 10px 16px;
+  background-color: var(--color-accent);
+  color: var(--color-text-selected);
+  border: 1px solid var(--color-accent);
+  border-radius: 6px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-weight: 600;
+}
+
+.help-api-link:hover {
+  background-color: var(--color-accent-hover, #0066b3);
+  border-color: var(--color-accent-hover, #0066b3);
+}
+
+.help-no-results {
+  padding: 24px;
+  text-align: center;
+  color: var(--color-text-secondary, #999);
 }
 
 /* Modal-specific button sizing (align with Kategorien-Seite) */
