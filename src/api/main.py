@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 
-from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings, auth
+from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings, auth, docs
 from api.dependencies import get_database_config, set_auth_managers
 from api.auth_middleware import set_auth_globals
 from auth.session_store import SessionStore
@@ -49,6 +49,7 @@ app.include_router(category_automation.router, prefix="/api")
 app.include_router(planning.router, prefix="/api")
 app.include_router(shares.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
+app.include_router(docs.router, prefix="/api")
 
 @app.get("/api/health")
 def health_check():

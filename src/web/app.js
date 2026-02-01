@@ -101,15 +101,15 @@ async function loadYearDropdown() {
   }
 }
 
-// Load shared top nav into placeholder
+// Load shared header into placeholder
 async function loadTopNav(currentRoute) {
-  const placeholder = document.getElementById('top-nav');
-  if (!placeholder) return;
+  const headerContainer = document.getElementById('header-container');
+  if (!headerContainer) return;
   try {
-    const res = await fetch('top_nav.html', { cache: 'no-cache' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const html = await res.text();
-    placeholder.innerHTML = html;
+    const headerRes = await fetch('header.html', { cache: 'no-cache' });
+    if (!headerRes.ok) throw new Error(`HTTP ${headerRes.status}`);
+    const headerHtml = await headerRes.text();
+    headerContainer.innerHTML = headerHtml;
     setActiveNav(currentRoute);
     
     // Update user info display
@@ -128,10 +128,34 @@ async function loadTopNav(currentRoute) {
 
     // Load year dropdown after nav is loaded
     await loadYearDropdown();
+    
+    // Load help modal
+    await loadHelpModal();
   } catch (e) {
-    console.error('Failed to load top nav:', e);
+    console.error('Failed to load header:', e);
+  }
+}
+
+// Load help modal HTML and initialize
+async function loadHelpModal() {
+  try {
+    const res = await fetch('help_modal.html', { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const html = await res.text();
+    
+    // Create a container for the modal and inject it
+    let modalContainer = document.getElementById('help-modal-container');
+    if (!modalContainer) {
+      modalContainer = document.createElement('div');
+      modalContainer.id = 'help-modal-container';
+      document.body.appendChild(modalContainer);
+    }
+    modalContainer.innerHTML = html;
+  } catch (e) {
+    console.error('Failed to load help modal:', e);
   }
 }
 
 // Initialize theme on all pages
 document.addEventListener('DOMContentLoaded', () => { loadTheme(); });
+

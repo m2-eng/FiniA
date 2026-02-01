@@ -1,0 +1,40 @@
+<!-- Help Modal -->
+<div id="help-modal" class="help-modal">
+  <div class="help-modal-content">
+    <!-- Header -->
+    <div class="help-modal-header">
+      <h2>📚 FiniA Hilfe & Dokumentation</h2>
+      <button class="help-close-btn" onclick="closeHelpModal()" title="Schließen">&times;</button>
+    </div>
+
+    <!-- Body: Sidebar + Content -->
+    <div class="help-modal-body">
+      <!-- Left Sidebar: Document List & Search -->
+      <div class="help-sidebar">
+        <input 
+          type="text" 
+          id="help-search" 
+          class="help-search-box" 
+          placeholder="Dokumentation durchsuchen..."
+          onkeyup="searchHelpDocs()"
+        >
+        
+        <ul class="help-doc-list" id="help-doc-list">
+          <!-- Populated by JavaScript -->
+        </ul>
+
+        <!-- API Docs Link -->
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+          <a id="api-docs-link" class="help-api-link" href="#" target="_blank" style="display: block; text-align: center;">
+            API Dokumentation ↗
+          </a>
+        </div>
+      </div>
+
+      <!-- Right Content Area -->
+      <div class="help-content" id="help-content">
+        <p>Wählen Sie ein Dokument aus, um mehr Informationen zu erhalten.</p>
+      </div>
+    </div>
+  </div>
+</div>
