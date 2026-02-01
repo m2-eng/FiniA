@@ -1,0 +1,25 @@
+planningCycle:
+  - cycle: 'einmalig'
+    periodValue: 0
+    periodUnit: 'd'
+  - cycle: 'täglich'
+    periodValue: 1
+    periodUnit: 'd'
+  - cycle: 'wöchentlich'
+    periodValue: 7
+    periodUnit: 'd'
+  - cycle: '14-tägig'
+    periodValue: 14
+    periodUnit: 'd'
+  - cycle: 'monatlich'
+    periodValue: 1
+    periodUnit: 'm'
+  - cycle: 'vierteljährlich'
+    periodValue: 3
+    periodUnit: 'm'
+  - cycle: 'halbjährlich'
+    periodValue: 6
+    periodUnit: 'm'
+  - cycle: 'jährlich'
+    periodValue: 1
+    periodUnit: 'y'

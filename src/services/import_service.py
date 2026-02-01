@@ -1,55 +1,77 @@
 from typing import List, Optional, Any
 from services.import_steps.base import ImportStep
+from services.csv_utils import read_csv_rows, parse_amount, parse_date
 from infrastructure.unit_of_work import UnitOfWork
-import csv
 from pathlib import Path
 from decimal import Decimal
 from datetime import datetime
-import re
 
 
 class ImportService:
-   def __init__(self, connection, steps: List[ImportStep]):
-      self.connection = connection
+   def __init__(self, pool_manager, session_id: str, steps: List[ImportStep]):
+      """
+      Initialisiert den Import-Service mit Connection Pool Manager.
+      
+      Args:
+         pool_manager: ConnectionPoolManager Instanz
+         session_id: Session-ID für den Connection Pool
+         steps: Liste von ImportStep Instanzen
+      """
+      self.pool_manager = pool_manager
+      self.session_id = session_id
       self.steps = steps
 
    def run(self, data: dict) -> bool:
+      """
+      Führt alle Import-Schritte nacheinander aus.
+      
+      Args:
+         data: Daten für den Import
+         
+      Returns:
+         True wenn alle Schritte erfolgreich waren, False sonst
+      """
       success = True
       for step in self.steps:
          print(f"Running step: {step.name()}")
-         with UnitOfWork(self.connection) as uow:
-            ok = step.run(data, uow)
-            success = success and ok
+         connection = self.pool_manager.get_connection(self.session_id)
+         try:
+            with UnitOfWork(connection) as uow:
+               ok = step.run(data, uow)
+               success = success and ok
+         finally:
+            # Verbindung wird automatisch zum Pool zurückgegeben
+            pass
       return success
 
 
 def import_csv_with_optional_account(
-    db,
+    pool_manager,
+    session_id: str,
     csv_path: Path,
     format_name: str,
     mapping: dict,
     default_account_id: Optional[int],
-    cursor
 ) -> dict:
     """
     Import CSV file with support for optional account column.
+    Nutzt Connection Pool Manager für Datenbankzugriff.
     
     If the CSV has an account column, use it to determine the account for each row.
     Otherwise, use the default_account_id for all rows.
     
     Args:
-        db: Database instance
+        pool_manager: ConnectionPoolManager Instanz
+        session_id: Session-ID für den Connection Pool
         csv_path: Path to CSV file
         format_name: Format name (e.g., 'csv-loan')
         mapping: Format mapping configuration
         default_account_id: Default account ID if not specified in CSV
-        cursor: Database cursor for categorization
     
     Returns:
         Dict with import results
     """
     from repositories.transaction_repository import TransactionRepository
-    from repositories.accounting_entry_repository import AccountingEntryRepository
     from repositories.account_repository import AccountRepository
     
     delimiter = mapping.get("delimiter", ";")
@@ -65,37 +87,9 @@ def import_csv_with_optional_account(
     warnings = []
     account_cache = {}  # Cache account lookups by name
     
-    # Detect encoding
-    encodings_to_try = [encoding]
-    if encoding.lower() == "utf-8":
-        encodings_to_try.extend(["latin-1", "iso-8859-1", "cp1252"])
-    
-    detected_encoding = None
-    last_error = None
-    
-    for enc in encodings_to_try:
-        try:
-            with open(csv_path, "r", encoding=enc, newline="") as test_handle:
-                test_handle.read(4096)
-            detected_encoding = enc
-            break
-        except (UnicodeDecodeError, Exception) as e:
-            last_error = e
-            continue
-    
-    if detected_encoding is None:
-        raise RuntimeError(f"Could not detect encoding for {csv_path.name}. Tried: {encodings_to_try}")
-    
-    # Read CSV and import
-    with open(csv_path, "r", encoding=detected_encoding, newline="") as handle:
-        reader = csv.DictReader(handle, delimiter=delimiter)
-        
-        if reader.fieldnames is None:
-            raise ValueError("CSV file has no header row or is empty")
-        # Normalize header names by stripping whitespace to avoid mismatches like 'Betrag '
-        reader.fieldnames = [fn.strip() if isinstance(fn, str) else fn for fn in reader.fieldnames]
-        
-        for row in reader:
+    # Read and process CSV using centralized utilities
+    try:
+        for row in read_csv_rows(csv_path, delimiter=delimiter, encoding=encoding):
             total += 1
             try:
                 # Determine account ID for this row
@@ -107,29 +101,27 @@ def import_csv_with_optional_account(
                     if account_name_raw:
                         account_name = account_name_raw.strip()
                         
-                        # Look up account by name
+                        # Look up account by name using Connection Pool
                         if account_name not in account_cache:
-                            # Query account by name using SQL directly
-                            cursor_lookup = db.connection.cursor()
                             try:
-                                cursor_lookup.execute(
-                                    "SELECT id FROM tbl_account WHERE name = %s",
-                                    (account_name,)
-                                )
-                                result = cursor_lookup.fetchone()
-                                
-                                if result:
-                                    account_cache[account_name] = result[0]
-                                else:
-                                    # Account not found - use default if available, otherwise skip
-                                    if default_account_id:
-                                        account_cache[account_name] = default_account_id
-                                        warnings.append(f"Account '{account_name}' not found, using default account")
+                                connection = pool_manager.get_connection(session_id)
+                                with UnitOfWork(connection) as uow:
+                                    account_repo = AccountRepository(uow)
+                                    account = account_repo.find_by_name(account_name)
+                                    
+                                    if account:
+                                        account_cache[account_name] = account.id
                                     else:
-                                        warnings.append(f"Account '{account_name}' not found, skipping row {total}")
-                                        continue
-                            finally:
-                                cursor_lookup.close()
+                                        # Account not found - use default if available, otherwise skip
+                                        if default_account_id:
+                                            account_cache[account_name] = default_account_id
+                                            warnings.append(f"Account '{account_name}' not found, using default account")
+                                        else:
+                                            warnings.append(f"Account '{account_name}' not found, skipping row {total}")
+                                            continue
+                            except Exception as lookup_error:
+                                warnings.append(f"Error looking up account '{account_name}': {str(lookup_error)}")
+                                continue
                         
                         row_account_id = account_cache.get(account_name)
                 
@@ -145,14 +137,14 @@ def import_csv_with_optional_account(
                 bic = _get_field_value(row, columns.get("bic"))
                 recipient = _get_field_value(row, columns.get("recipientApplicant"))
                 
-                # Parse values
-                date_value = _parse_date(date_value_raw, date_format)
-                amount = _parse_amount(amount_raw, decimal_sep)
+                # Parse values using centralized utilities
+                date_value = parse_date(date_value_raw, date_format)
+                amount = parse_amount(amount_raw, decimal_sep)
                 
-                # Insert transaction
-                with UnitOfWork(db.connection) as uow:
+                # Insert transaction and accounting entry using Connection Pool
+                connection = pool_manager.get_connection(session_id)
+                with UnitOfWork(connection) as uow:
                     tx_repo = TransactionRepository(uow)
-                    ae_repo = AccountingEntryRepository(uow)
                     
                     transaction_id = tx_repo.insert_ignore(
                         account_id=row_account_id,
@@ -165,14 +157,8 @@ def import_csv_with_optional_account(
                     )
                     
                     if isinstance(transaction_id, int) and transaction_id > 0:
-                        # Create accounting entry
-                        ae_repo.insert(
-                            amount=amount,
-                            transaction_id=transaction_id,
-                            checked=False,
-                            accounting_planned_id=None,
-                            category_id=None,
-                        )
+                        # Accounting entry is automatically created by database trigger
+                        # trg_transaction_create_accounting_entry - NO manual insert needed
                         inserted += 1
             
             except Exception as exc:
@@ -180,12 +166,29 @@ def import_csv_with_optional_account(
                 if "duplicate" not in error_msg and "unique" not in error_msg:
                     warnings.append(f"Row {total}: {str(exc)}")
     
+    except (ValueError, RuntimeError) as file_error:
+        # CSV reading errors (encoding, no header, etc.)
+        raise HTTPException(
+            status_code=400,
+            detail=f"CSV file error: {str(file_error)}"
+        ) from file_error
+    
     # Apply auto-categorization
     categorization_result = {"categorized": 0, "total_checked": 0}
     if inserted > 0:
         try:
             from api.routers.transactions import auto_categorize_entries
-            categorization_result = auto_categorize_entries(cursor, db.connection)
+            connection = pool_manager.get_connection(session_id)
+            cursor = None
+            try:
+                cursor = connection.cursor(buffered=True)
+                categorization_result = auto_categorize_entries(cursor, connection)
+            finally:
+                if cursor:
+                    try:
+                        cursor.close()
+                    except Exception:
+                        pass
         except Exception as cat_error:
             warnings.append(f"Auto-categorization failed: {str(cat_error)}")
     
@@ -252,22 +255,3 @@ def _get_field_value(row: dict[str, Any], mapping: Any) -> str:
             return ""
     
     return ""
-
-
-def _parse_amount(raw: str, decimal_sep: str) -> Decimal:
-    """Parse amount string to Decimal.
-    Handles various whitespace (including NBSP) and thousands separators.
-    """
-    if raw is None:
-        raw = ""
-    # Remove all whitespace characters including non-breaking space and narrow no-break space
-    normalized = re.sub(r"[\s\u00A0\u202F]", "", str(raw))
-    if decimal_sep == ",":
-        # Remove thousands dots and convert comma to dot
-        normalized = normalized.replace(".", "").replace(",", ".")
-    return Decimal(normalized)
-
-
-def _parse_date(raw: str, date_format: str) -> datetime:
-    """Parse date string to datetime."""
-    return datetime.strptime(raw, date_format)

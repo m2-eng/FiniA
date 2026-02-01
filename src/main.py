@@ -11,7 +11,6 @@ import argparse
 from Database import Database
 from DatabaseCreator import DatabaseCreator
 from DataImporter import DataImporter
-from services.account_data_importer import AccountDataImporter
 
 from pathlib import Path
 from utils import load_config
@@ -27,7 +26,6 @@ if __name__ == "__main__":
    Examples:
      python main.py --user root --password secret --setup
      python main.py -u dbuser -p dbpass --init-database
-     python main.py --user root --password secret --config custom_config.yaml --import-account-data
      python main.py --api --user root --password secret --config cfg/config.yaml
   
    Note: Most parameters are read from config.yaml by default.
@@ -35,9 +33,9 @@ if __name__ == "__main__":
       """
    )
    parser.add_argument('--user',
-                       help='MySQL user (only required for --setup, --init-database, --import-account-data)')
+                       help='MySQL user (only required for --setup, --init-database)')
    parser.add_argument('--password',
-                       help='MySQL password (only required for --setup, --init-database, --import-account-data)')
+                       help='MySQL password (only required for --setup, --init-database)')
    parser.add_argument('--config',
                        default='cfg/config.yaml',
                        help='Path to config file (default: cfg/config.yaml)')
@@ -47,9 +45,6 @@ if __name__ == "__main__":
    parser.add_argument('--setup',
                        action="store_true",
                        help='Can be empty, used to create the database')
-   parser.add_argument('--import-account-data',
-                       action="store_true",
-                       help='Import account transactions from CSV files based on tbl_accountImportPath')
    parser.add_argument('--api',
                        action="store_true",
                        help='Launch the web API server (FastAPI)')
@@ -160,15 +155,4 @@ if __name__ == "__main__":
    else:
       print("No '--init-database' argument provided, skipping data import.")
 
-   # import of account CSV data
-   if args.import_account_data:
-      try:
-         csv_importer = AccountDataImporter(db)
-         csv_importer.import_account_data()
-      except Exception as e:
-         print(f"Error: {e}")
-         success = False
-   else:
-      print("No '--import-account-data' argument provided, skipping account CSV import.")
-      
    sys.exit(0 if success else 1)

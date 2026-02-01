@@ -2,13 +2,50 @@
 Account details API router - provides income/expense breakdown per account
 """
 
-from fastapi import APIRouter, Depends, Query, HTTPException, Path
+from fastapi import APIRouter, Depends, Query, HTTPException, Path, UploadFile, File
 from typing import Optional
 from pydantic import BaseModel
-from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
+from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection, get_pool_manager
 from api.error_handling import handle_db_errors
+from api.auth_middleware import get_current_session
+from services.import_service import ImportService
+from services.import_steps.accounts import AccountsStep
+import yaml
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
+
+
+@router.post("/import-yaml")
+@handle_db_errors("import accounts from YAML")
+async def import_accounts_from_yaml(
+  file: UploadFile = File(...),
+  pool_manager = Depends(get_pool_manager),
+  session_id: str = Depends(get_current_session)
+):
+  """Import accounts from YAML file using account_data syntax."""
+  if not file:
+    raise HTTPException(status_code=400, detail="Keine Datei übergeben")
+
+  try:
+    content = await file.read()
+    data = yaml.safe_load(content)
+  except Exception as e:
+    raise HTTPException(status_code=400, detail=f"Ungültige YAML-Datei: {e}")
+
+  if not isinstance(data, dict) or "account_data" not in data:
+    raise HTTPException(status_code=400, detail="YAML-Datei enthält keinen 'account_data'-Abschnitt")
+
+  if not isinstance(data.get("account_data"), list):
+    raise HTTPException(status_code=400, detail="'account_data' muss eine Liste sein")
+
+  steps = [AccountsStep()]
+  service = ImportService(pool_manager, session_id, steps)
+  success = service.run(data)
+
+  count = len(data.get("account_data", []))
+  if success:
+    return {"status": "success", "imported": count, "message": f"{count} Konten importiert."}
+  return {"status": "warning", "imported": count, "message": "Import abgeschlossen mit Warnungen."}
 
 
 @router.get("/income")

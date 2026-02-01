@@ -10,6 +10,8 @@ from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 import csv
 import io
 from datetime import datetime, date, timedelta
+from decimal import Decimal
+from services.csv_utils import parse_amount, parse_date
 
 from repositories.share_repository import ShareRepository
 from repositories.share_history_repository import ShareHistoryRepository
@@ -387,11 +389,11 @@ async def import_share_history(
                     skipped += 1
                     continue
                 
-                # Parse amount (German format: comma as decimal)
-                amount = float(amount_str.replace(',', '.'))
+                # Parse amount using centralized utility
+                amount = float(parse_amount(amount_str, decimal_separator=","))
                 
-                # Parse date (German format: DD.MM.YYYY)
-                date_obj = datetime.strptime(date_str, '%d.%m.%Y')
+                # Parse date using centralized utility
+                date_obj = parse_date(date_str, '%d.%m.%Y')
                 date_only = date_obj.date().isoformat()
                 
                 # Look up share by ISIN or WKN
@@ -612,16 +614,16 @@ async def import_share_transactions(
                 if not shares_str or shares_str == '':
                     trading_volume = 0
                 else:
-                    # Parse shares (German format: comma as decimal)
-                    trading_volume = float(shares_str.replace(',', '.'))
+                    # Parse shares using centralized utility
+                    trading_volume = float(parse_amount(shares_str, decimal_separator=","))
                 
                 if not all([identifier, date_str]):
                     errors.append(f"Row {row_num}: Missing ISIN/WKN or Datum")
                     skipped += 1
                     continue
                 
-                # Parse date (German format: DD.MM.YYYY)
-                date_obj = datetime.strptime(date_str, '%d.%m.%Y')
+                # Parse date using centralized utility
+                date_obj = parse_date(date_str, '%d.%m.%Y')
                 
                 # Look up share by ISIN or WKN
                 # identifier can be ISIN or WKN

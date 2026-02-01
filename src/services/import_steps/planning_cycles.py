@@ -13,8 +13,23 @@ class PlanningCyclesStep(ImportStep):
          return True
       repo = PlanningCycleRepository(uow)
       inserted = 0
-      for cycle_name, cycle_id in data[key].items():
-         repo.insert_ignore(cycle_id, cycle_name)
-         inserted += 1
+      cycles = data[key]
+
+      if isinstance(cycles, dict):
+         for cycle_name, cycle_id in cycles.items():
+            repo.insert_ignore(cycle_id, cycle_name)
+            inserted += 1
+      elif isinstance(cycles, list):
+         for item in cycles:
+            cycle_name = item.get("cycle") if isinstance(item, dict) else None
+            period_value = item.get("periodValue", 1) if isinstance(item, dict) else 1
+            period_unit = item.get("periodUnit", "m") if isinstance(item, dict) else "m"
+            if not cycle_name:
+               continue
+            repo.insert(cycle_name, period_value, period_unit)
+            inserted += 1
+      else:
+         print("  Unsupported planningCycle format in YAML")
+         return True
       print(f"  Inserted {inserted} planning cycles into tbl_planningCycle")
       return True
