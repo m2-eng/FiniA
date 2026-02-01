@@ -1,176 +1,85 @@
-# FiniA - Financial Assistant
+# FiniA
 
-## Overview
+FiniA is a lightweight personal finance assistant with a FastAPI backend, web UI, and CSV import with duplicate detection.
 
-FiniA is a modern financial management tool for household and personal finance. It replaces complex Excel ledgers with a database-backed, web-based solution. Data import, visualization, and automation are core features.
-
-## Features
-
-- MariaDB/MySQL database backend
-- Web API and browser-based UI
-- Automated CSV transaction import
-- Duplicate detection for incremental imports
-- Grafana dashboard integration
-
-## Installation
-
-**Requirements:**
-- Python 3.8+
-- MariaDB or MySQL
-- Grafana (optional)
-
-**Steps:**
-1. Clone the repository:
-  ```bash
-  git clone https://github.com/m2-eng/FiniA.git
-  cd FiniA
-  ```
-2. Install dependencies:
-  ```bash
-  pip install -r requirements.txt
-  ```
-3. Configure your database connection in `cfg/config.yaml`.
-
-## Usage
-
-Start the API server and open the web UI:
+## Quickstart (local)
+- Requirements: Python 3.10+, MySQL/MariaDB.
+- Install dependencies (recommended venv):
 ```bash
-python src/main.py --api --user <db_user> --password <db_pass>
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
 ```
-- Web UI: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
-- API docs: [http://127.0.0.1:8000/api/docs](http://127.0.0.1:8000/api/docs)
-
-### Command-line options
-
+- Adjust database and import paths in `cfg/config.yaml` and `cfg/data.yaml`.
+- Create schema and seed data:
+```bash
+python src/main.py --setup --init-database --user <db_user> --password <db_pass> --config cfg/config.yaml
 ```
---api                 Start API server (web UI)
---user <db_user>      Database user
---password <db_pass>  Database password
---setup               Create database schema
---init-database       Import initial configuration data
---config <file>       Path to config file
+- Start API and web UI (login uses DB credentials, in-memory sessions):
+```bash
+python src/main.py --api --host 127.0.0.1 --port 8000 --config cfg/config.yaml
+```
+  - Web UI: http://127.0.0.1:8000/
+  - API docs: http://127.0.0.1:8000/api/docs
+- Trigger CSV import from paths defined in `cfg/data.yaml`:
+```bash
+python src/main.py --import-account-data --user <db_user> --password <db_pass> --config cfg/config.yaml
 ```
 
-## Security Notice
+## Quickstart (Docker)
+- Requirements: Docker and Docker Compose; external MySQL/MariaDB.
+- Adjust database host in `cfg/config.yaml` (e.g., `host: db.example.com` or host IP).
+- For local/non-standard setups, copy `docker-compose.override.yml.example` → `docker-compose.override.yml` to customize port mappings, volumes, or environment variables (especially for Synology or port conflicts).
+- Start the API container:
+```bash
+docker-compose up -d
+```
+- Access the web UI: http://localhost:8000/
+- Check logs: `docker-compose logs -f api`
+- Stop: `docker-compose down`
 
-Keep your database credentials secure. Do not share your config files or passwords.
+**Note**: The container uses an external database defined in `cfg/config.yaml`; no embedded DB service is included. Override file is typically needed only for non-standard environments (Synology, port conflicts, etc.).
 
-## Contributing
+## Documentation
 
-Contributions are welcome! Please open issues or pull requests on GitHub.
+### Getting Started
+- [Getting Started Guide](docs/tutorials/getting_started.md) – Your first steps with FiniA, account setup, dashboard overview
+- [Quick Reference: Import CSV Data](docs/import/csv_import.md) – CSV format requirements, import process, troubleshooting
+
+### Architecture & Technical Design
+- [Repository Pattern & Data Access](docs/architecture/repositories.md) – 13 repositories, BaseRepository, Unit of Work pattern, usage examples, testing strategies
+- [Services Layer & Import Pipeline](docs/architecture/services.md) – AccountDataImporter, CategoryAutomation, ImportService, 5 import steps, dependency diagram
+
+### Features & User Guides
+- [Planning & Budgeting System](docs/features/planning.md) – Recurring budgets, planning cycles, entry generation, integration with year overview
+- [Share Portfolio Management](docs/features/shares.md) – Securities tracking, transactions (buy/sell/dividend), portfolio valuations, performance analysis
+- [Category Automation Rules](docs/features/category_automation.md) – Automatic categorization, rule matching types, condition logic, rule testing
+
+### Configuration & Operations
+- [Application Configuration](cfg/config.yaml) – Database connection, API settings, logging
+- [Data Import Formats](cfg/data.yaml) – CSV source definitions, import paths, field mappings
+- [Import Format Definitions](cfg/import_formats.yaml) – Detailed import format specifications
+
+### Production & Deployment
+- [Production Deployment Guide](docs/deployment/production.md) – Security hardening, database optimization, backup strategies, monitoring, SSL/TLS setup
+- [Docker Deployment](docs/docker/docker.md) – Container configuration, volume management, networking, health checks
+
+### Development
+- [Development Setup Guide](docs/development/setup.md) – Local Python environment, Docker development, VS Code configuration, debugging (backend/frontend), code quality, Git workflow, common tasks
+- [Database Schema Reference](docs/database/schema.md) – 15 tables, 6 views, ERD, key relationships, data integrity constraints
+
+## Project layout
+- `cfg/`: Configuration (DB, data paths, import formats)
+- `db/`: SQL dump for schema
+- `src/main.py`: CLI entry and API start
+- `src/api/`: FastAPI routers and middleware
+- `src/services/` and `src/repositories/`: Business logic and data access
+- `src/web/`: Static frontend
+- `test/data/`: Sample and test data
+
+## Security
+- Do not commit passwords or secrets; use local `cfg/` files or environment variables.
+- Database operations require explicit `--user` and `--password` for setup/imports.
 
 ## License
-
-This project is licensed under the MIT License.
-
-#### Combined Setup (All in One)
-
-Run all steps together:
-
-```bash
-python main.py \
-  --user root \
-  --password your_password \
-  --setup \
-  --init-database
-```
-
-### Command-Line Options
-
-| Option | Required | Default | Description |
-|--------|----------|---------|-------------|
-| `--user` | Yes | - | MySQL username |
-| `--password` | Yes | - | MySQL password |
-| `--config` | No | `config.yaml` | Path to configuration file |
-| `--setup` | No | - | Create database schema from SQL dump |
-| `--init-database` | No | - | Import initial data (account types, planning cycles, accounts) |
-
-## CSV Import Formats
-
-The system supports multiple CSV formats defined in `src/import_formats.yaml`:
-
-### Currently Supported Formats
-
-- **csv-cb**: Consorsbank format (semicolon-delimited, German decimal/date format)
-- **csv-spk**: Sparkasse format (semicolon-delimited, German decimal/date format)
-- **csv-mintos**: Mintos format (comma-delimited, international format)
-
-Feel free to add more formats by editing `src/import_formats.yaml`.
-
-### Configuring Import Paths
-
-Import paths are configured in `test/data/data.yaml` under the `account_data` section:
-
-```yaml
-account_data:
-  - account:
-      name: 'Account Name'
-      iban_accountNumber: 'DE89...'
-      type: 'Girokonto'
-      importFolder: ./test/data/FolderName
-      importFileEnding: csv
-      importType: csv-cb  # Format identifier from import_formats.yaml
-```
-
-The system will automatically:
-1. Look for CSV files in the specified folder
-2. Use the mapping from `import_formats.yaml` based on `importType`
-3. Parse and import transactions with delta detection (duplicates are skipped)
-
-## Architecture
-
-The project follows a layered architecture for clean separation of concerns:
-
-- **Domain Layer** (`src/domain/`): Business entities and domain models
-- **Repository Layer** (`src/repositories/`): Data access and persistence
-- **Service Layer** (`src/services/`): Business logic and orchestration
-- **Infrastructure** (`src/infrastructure/`): Cross-cutting concerns (Unit of Work, etc.)
-
-### Key Components
-
-- `Database.py`: Database connection management
-- `DatabaseCreator.py`: Schema initialization from SQL dump
-- `DataImporter.py`: Initial configuration data import from YAML
-- `services/account_data_importer.py`: CSV transaction import with format mapping
-- `import_formats.yaml`: Centralized CSV format definitions
-- `repositories/`: Data access layer with Repository pattern
-- `infrastructure/unit_of_work.py`: Transaction management
-
-## Project Structure
-
-```
-FiniA/
-├── cfg/
-│   └── config.yaml          # Database configuration
-├── requirements.txt         # Python dependencies
-├── db/
-│   └── finia_draft.sql     # Database schema
-├── src/
-│   ├── main.py             # CLI entry point
-│   ├── api/                # FastAPI application and routers
-│   ├── web/                # Static web UI served by the API
-│   ├── config/             # Theme and UI config for web
-│   ├── import_formats.yaml # CSV format definitions
-│   ├── domain/             # Domain models
-│   ├── repositories/       # Data access layer
-│   ├── services/           # Business logic
-│   └── infrastructure/     # Cross-cutting concerns
-└── test/
-    └── data/               # Test data and CSV samples
-```
-
-## Security Notes
-
-⚠️ **Important**: Never commit passwords or credentials to version control. Consider using:
-- Configuration files (added to `.gitignore`)
-- Environment variables
-- Secret management tools
-
-## Roadmap
-See the Issues tab of this repository.
-
-## Contributing
-Contributions are welcome! Please fork the repository and submit a pull request.
-
-## [Licence](./LICENSE)
-AGPL-3.0 license
+AGPL-3.0, see `LICENSE`.
