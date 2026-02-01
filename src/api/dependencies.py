@@ -355,3 +355,21 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
                 conn.close()  # Zurück an Pool
             except Exception:
                 pass
+
+
+def get_pool_manager():
+    """
+    Liefert den ConnectionPoolManager für Importe.
+    
+    Returns:
+        ConnectionPoolManager Instanz
+        
+    Raises:
+        HTTPException: Wenn Pool Manager nicht initialisiert
+    """
+    if not _pool_manager:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Session-based authentication not configured"
+        )
+    return _pool_manager

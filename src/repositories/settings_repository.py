@@ -47,3 +47,38 @@ class SettingsRepository:
         query = "DELETE FROM tbl_setting WHERE id = %s"
         self.cursor.execute(query, (setting_id,))
         return self.cursor.rowcount
+
+    def get_setting_entries(self, key: str, user_id: int | None = None):
+        """Get setting entries with ids for a given key."""
+        if user_id is None:
+            query = """
+                SELECT id, `value`, user_id
+                FROM tbl_setting
+                WHERE `key` = %s AND user_id IS NULL
+            """
+            self.cursor.execute(query, (key,))
+        else:
+            query = """
+                SELECT id, `value`, user_id
+                FROM tbl_setting
+                WHERE `key` = %s AND (user_id = %s OR user_id IS NULL)
+                ORDER BY user_id DESC
+            """
+            self.cursor.execute(query, (key, user_id))
+        rows = self.cursor.fetchall()
+        if not rows:
+            return []
+        return [
+            {
+                "id": row[0],
+                "value": row[1],
+                "user_id": row[2]
+            }
+            for row in rows
+        ]
+
+    def update_setting_value(self, setting_id: int, value_json):
+        """Update setting value by ID."""
+        query = "UPDATE tbl_setting SET `value` = %s WHERE id = %s"
+        self.cursor.execute(query, (value_json, setting_id))
+        return self.cursor.rowcount

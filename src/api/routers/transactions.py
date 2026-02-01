@@ -8,7 +8,12 @@ from pydantic import BaseModel
 from repositories.transaction_repository import TransactionRepository
 from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
-from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
+from api.dependencies import (
+    get_db_cursor_with_auth as get_db_cursor, 
+    get_db_connection_with_auth as get_db_connection,
+    get_pool_manager
+)
+from api.auth_middleware import get_current_session
 from api.models import TransactionResponse, TransactionListResponse, TransactionEntriesUpdate
 from typing import List
 from pydantic import BaseModel
@@ -22,7 +27,7 @@ from services.category_automation import load_rules, apply_rules_to_transaction
 import tempfile
 import os
 from pathlib import Path
-import yaml
+import json
 
 
 class ImportRequest(BaseModel):
@@ -109,33 +114,35 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
 @router.get("/import-formats")
-async def get_import_formats():
+async def get_import_formats(
+    cursor=Depends(get_db_cursor),
+    connection=Depends(get_db_connection)
+):
     """
-    Get list of available import formats from configuration.
+    Get list of available import formats from database settings table.
     """
+    from repositories.settings_repository import SettingsRepository
+    settings_key = "import_format"
+
     try:
-        repo_root = Path(__file__).resolve().parents[3]
-        formats_file = repo_root / "cfg" / "import_formats.yaml"
-        
-        if not formats_file.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Import formats configuration file not found"
-            )
-        
-        with open(formats_file, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-        
-        formats = list(data.get("formats", {}).keys())
-        
-        return {
-            "success": True,
-            "formats": formats
-        }
-    
+        repo = SettingsRepository(cursor)
+        entries = repo.get_setting_entries(settings_key)
+
+        formats = []
+        for entry in entries:
+            try:
+                data = json.loads(entry.get("value") or "{}")
+                if data.get("name"):
+                    formats.append(data.get("name"))
+            except Exception:
+                continue
+
+        return {"success": True, "formats": formats}
+
     except HTTPException:
         raise
     except Exception as e:
+        safe_rollback(connection)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to load import formats: {str(e)}"
@@ -314,6 +321,8 @@ async def bulk_mark_transactions_checked(
 @handle_db_errors("import transactions")
 async def import_transactions(
     request: ImportRequest,
+    session_id: str = Depends(get_current_session),
+    pool_manager = Depends(get_pool_manager),
     cursor = Depends(get_db_cursor)
 ):
     """
@@ -321,38 +330,10 @@ async def import_transactions(
     
     - **account_id**: If provided, imports only for this account. If None, imports all accounts.
     """
-    from api.dependencies import get_database_credentials, get_database_config
-    
-    # Get database credentials that were set on API startup
-    credentials = get_database_credentials()
-    db_config = get_database_config()
-    
-    if not credentials or not credentials.get('user') or not credentials.get('password'):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database credentials not configured"
-        )
-    
-    # Create Database instance for importer
-    db = Database(
-        user=credentials['user'],
-        password=credentials['password'],
-        host=credentials.get('host') or db_config.get('host', 'localhost'),
-        port=credentials.get('port') or db_config.get('port', 3306),
-        database_name=credentials.get('name') or db_config.get('name', 'FiniA')
-    )
+    # Create importer instance with session-based connection pool
+    importer = AccountDataImporter(pool_manager, session_id)
     
     try:
-        # Connect to database
-        if not db.connect(use_database=True):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to connect to database"
-            )
-        
-        # Create importer instance
-        importer = AccountDataImporter(db)
-        
         # If account_id is specified, filter jobs
         if request.account_id:
             # Get all jobs
@@ -362,7 +343,6 @@ async def import_transactions(
             jobs = [job for job in jobs if job.account_id == request.account_id]
             
             if not jobs:
-                db.close()
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"No import configuration found for account ID {request.account_id}"
@@ -391,17 +371,13 @@ async def import_transactions(
                     continue
                 
                 for csv_file in files:
-                    with UnitOfWork(db.connection) as uow:
-                        from repositories.transaction_repository import TransactionRepository
-                        from repositories.accounting_entry_repository import AccountingEntryRepository
-                        tx_repo = TransactionRepository(uow)
-                        ae_repo = AccountingEntryRepository(uow)
-                        inserted, total = importer._import_file(csv_file, mapping, job, tx_repo, ae_repo)
-                        overall_inserted += inserted
-                        overall_total += total
-                        imported_files.append({
-                            "file": csv_file.name,
-                            "account": job.account_name,
+                    connection = pool_manager.get_connection(session_id)
+                    inserted, total = importer._import_file(csv_file, mapping, job)
+                    overall_inserted += inserted
+                    overall_total += total
+                    imported_files.append({
+                        "file": csv_file.name,
+                        "account": job.account_name,
                             "inserted": inserted,
                             "total": total
                         })
@@ -410,11 +386,10 @@ async def import_transactions(
             categorization_result = {"categorized": 0, "total_checked": 0}
             try:
                 if overall_inserted > 0:
-                    categorization_result = auto_categorize_entries(cursor, db.connection)
+                    connection = pool_manager.get_connection(session_id)
+                    categorization_result = auto_categorize_entries(cursor, connection)
             except Exception as cat_error:
                 skipped_info.append(f"Automatische Kategorisierung fehlgeschlagen: {cat_error}")
-            
-            db.close()
             
             result = {
                 "success": True,
@@ -434,7 +409,6 @@ async def import_transactions(
         else:
             # Import all accounts
             success = importer.import_account_data()
-            db.close()
             
             if success:
                 return {
@@ -448,12 +422,8 @@ async def import_transactions(
                 )
     
     except HTTPException:
-        if db:
-            db.close()
         raise
     except Exception as e:
-        if db:
-            db.close()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Import fehlgeschlagen: {str(e)}"
@@ -497,55 +467,32 @@ async def import_csv_file(
     file: UploadFile = File(...),
     format: str = Form(...),
     account_id: Optional[int] = Form(None),
+    session_id: str = Depends(get_current_session),
+    pool_manager = Depends(get_pool_manager),
     cursor = Depends(get_db_cursor)
 ):
     """
     Import transactions from a specific CSV file.
+    Nutzt Session-basierte Connection Pools für Datenbankzugriff.
     
     - **file**: CSV file to import
     - **format**: Import format name (e.g., 'csv-cb', 'csv-loan')
     - **account_id**: Optional account ID. Required if format doesn't specify account column.
     """
-    from api.dependencies import get_database_credentials, get_database_config
     from repositories.account_repository import AccountRepository
-    
-    # Get database credentials
-    credentials = get_database_credentials()
-    db_config = get_database_config()
-    
-    if not credentials or not credentials.get('user') or not credentials.get('password'):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database credentials not configured"
-        )
-    
-    # Create Database instance
-    db = Database(
-        user=credentials['user'],
-        password=credentials['password'],
-        host=credentials.get('host') or db_config.get('host', 'localhost'),
-        port=credentials.get('port') or db_config.get('port', 3306),
-        database_name=credentials.get('name') or db_config.get('name', 'FiniA')
-    )
+    from services.import_service import import_csv_with_optional_account
     
     temp_file_path = None
     
     try:
-        # Connect to database
-        if not db.connect(use_database=True):
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to connect to database"
-            )
+        # Create importer instance for format validation
+        importer = AccountDataImporter(pool_manager, session_id)
         
         # Create temporary file
         with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.csv') as temp_file:
             content = await file.read()
             temp_file.write(content)
             temp_file_path = temp_file.name
-        
-        # Create importer instance
-        importer = AccountDataImporter(db)
         
         # Get format mapping
         try:
@@ -567,29 +514,21 @@ async def import_csv_file(
                 detail="Account ID is required for this format (no account column in CSV)"
             )
         
-        # Import the file
-        from services.import_service import import_csv_with_optional_account
-        
+        # Import the file using session-based connection pool
         result = import_csv_with_optional_account(
-            db=db,
+            pool_manager=pool_manager,
+            session_id=session_id,
             csv_path=Path(temp_file_path),
             format_name=format,
             mapping=mapping,
             default_account_id=account_id,
-            cursor=cursor
         )
-        
-        db.close()
         
         return result
     
     except HTTPException:
-        if db:
-            db.close()
         raise
     except Exception as e:
-        if db:
-            db.close()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Import fehlgeschlagen: {str(e)}"
@@ -601,3 +540,4 @@ async def import_csv_file(
                 os.unlink(temp_file_path)
             except:
                 pass
+

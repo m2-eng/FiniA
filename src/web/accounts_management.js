@@ -402,6 +402,37 @@ async function deleteAccount() {
   }
 }
 
+async function handleAccountsYamlUpload(event) {
+  const file = event.target.files[0];
+  if (!file) {
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await authenticatedFetch(`${API_BASE}/accounts/import-yaml`, {
+      method: 'POST',
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    alert(result.message || 'Accounts erfolgreich importiert.');
+    await loadAccounts(1);
+  } catch (error) {
+    console.error('YAML import failed:', error);
+    alert(`Fehler beim YAML-Import: ${error.message}`);
+  } finally {
+    event.target.value = '';
+  }
+}
+
 // Page initialization
 async function initAccountsManagement() {
   await loadAccountTypes();
@@ -412,6 +443,11 @@ async function initAccountsManagement() {
     searchInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') loadAccounts(1);
     });
+  }
+
+  const yamlInput = document.getElementById('accounts-yaml-file-input');
+  if (yamlInput) {
+    yamlInput.addEventListener('change', handleAccountsYamlUpload);
   }
   await loadAccounts(1);
 }

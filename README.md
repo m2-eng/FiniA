@@ -48,7 +48,6 @@ python src/main.py --api --user <db_user> --password <db_pass>
 --password <db_pass>  Database password
 --setup               Create database schema
 --init-database       Import initial configuration data
---import-accounts     Import account transactions from CSV
 --config <file>       Path to config file
 ```
 
@@ -64,10 +63,6 @@ Contributions are welcome! Please open issues or pull requests on GitHub.
 
 This project is licensed under the MIT License.
 
-```bash
-python main.py --user root --password your_password --import-account-data
-```
-
 #### Combined Setup (All in One)
 
 Run all steps together:
@@ -77,8 +72,7 @@ python main.py \
   --user root \
   --password your_password \
   --setup \
-  --init-database \
-  --import-account-data
+  --init-database
 ```
 
 ### Command-Line Options
@@ -90,7 +84,6 @@ python main.py \
 | `--config` | No | `config.yaml` | Path to configuration file |
 | `--setup` | No | - | Create database schema from SQL dump |
 | `--init-database` | No | - | Import initial data (account types, planning cycles, accounts) |
-| `--import-account-data` | No | - | Import CSV transaction data for configured accounts |
 
 ## CSV Import Formats
 

@@ -276,6 +276,9 @@
         <button class="tab-button active" onclick="switchTab('shares')">Wertpapier-Kategorien</button>
         <button class="tab-button" onclick="switchTab('categories')">Kategorien</button>
         <button class="tab-button" onclick="switchTab('accounts-management')">Kontenbearbeitung</button>
+        <button class="tab-button" onclick="switchTab('import-formats')">Import-Formate</button>
+        <button class="tab-button" onclick="switchTab('account-types')">Kontotypen</button>
+        <button class="tab-button" onclick="switchTab('planning-cycles')">Planungszyklen</button>
         <button class="tab-button" onclick="switchTab('automation')">Kategorisierungsregeln</button>
       </div>
 
@@ -326,6 +329,139 @@
       <div id="tab-accounts-management" class="tab-content">
         <div id="accountsManagementContainer"></div>
       </div>
+
+      <!-- Tab: Import-Formate -->
+      <div id="tab-import-formats" class="tab-content">
+        <div class="details-header">
+          <div>
+            <h3>CSV-Importformate verwalten</h3>
+            <p class="details-meta">Bearbeiten Sie die CSV-Formate, die für den Import verwendet werden.</p>
+          </div>
+        </div>
+
+        <div class="details-toolbar" style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
+          <button class="btn" id="add-import-format-btn">Format hinzufügen</button>
+          <button class="btn btn-secondary" id="reload-import-formats-btn">Neu laden</button>
+          <div style="border-left: 1px solid var(--color-border); height: 24px; margin: 0 8px;"></div>
+          <label for="import-format-file-input" class="btn" style="margin: 0; cursor: pointer;">
+            YAML-Datei importieren
+          </label>
+          <input type="file" id="import-format-file-input" accept=".yaml,.yml" style="display: none;">
+        </div>
+
+        <div class="table-wrapper" style="overflow-x:auto;">
+          <table id="importFormatsTable" class="simple-table">
+            <colgroup>
+              <col style="width: 200px;">
+              <col style="width: auto;">
+              <col style="width: 160px;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th style="text-align: left;">Name</th>
+                <th style="text-align: left;">Konfiguration (JSON)</th>
+                <th style="text-align: center;">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="import-formats-tbody">
+              <tr>
+                <td colspan="3" style="text-align: center;">Lade Formate...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="import-formats-status" class="details-meta" style="margin-top: 12px;"></div>
+      </div>
+
+      <!-- Tab: Kontotypen -->
+      <div id="tab-account-types" class="tab-content">
+        <div class="details-header">
+          <div>
+            <h3>Kontotypen verwalten</h3>
+            <p class="details-meta">Verwalten Sie die Typen von Konten (z.B. Girokonto, Wertpapierdepot, Darlehen).</p>
+          </div>
+        </div>
+
+        <div class="details-toolbar" style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
+          <button class="btn" id="add-account-type-btn">Kontotyp hinzufügen</button>
+          <button class="btn btn-secondary" id="reload-account-types-btn">Neu laden</button>
+          <div style="border-left: 1px solid var(--color-border); height: 24px; margin: 0 8px;"></div>
+          <label for="account-type-file-input" class="btn" style="margin: 0; cursor: pointer;">
+            YAML-Datei importieren
+          </label>
+          <input type="file" id="account-type-file-input" accept=".yaml,.yml" style="display: none;">
+        </div>
+
+        <div class="table-wrapper" style="overflow-x:auto; max-width: 600px;">
+          <table id="accountTypesTable" class="simple-table">
+            <colgroup>
+              <col style="width: 80px;">
+              <col style="width: auto;">
+              <col style="width: 200px;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th style="text-align: left;">ID</th>
+                <th style="text-align: left;">Typ</th>
+                <th style="text-align: center;">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="account-types-tbody">
+              <tr>
+                <td colspan="3" style="text-align: center;">Lade Kontotypen...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="account-types-status" class="details-meta" style="margin-top: 12px;"></div>
+      </div>
+
+      <!-- Tab: Planungszyklen -->
+      <div id="tab-planning-cycles" class="tab-content">
+        <div class="details-header">
+          <div>
+            <h3>Planungszyklen verwalten</h3>
+            <p class="details-meta">Verwalten Sie Zyklen für Planungsbuchungen.</p>
+          </div>
+        </div>
+
+        <div class="details-toolbar" style="margin-bottom: 12px; display: flex; gap: 8px; align-items: center;">
+          <button class="btn" id="add-planning-cycle-btn">Zyklus hinzufügen</button>
+          <button class="btn btn-secondary" id="reload-planning-cycles-btn">Neu laden</button>
+          <div style="border-left: 1px solid var(--color-border); height: 24px; margin: 0 8px;"></div>
+          <label for="planning-cycle-file-input" class="btn" style="margin: 0; cursor: pointer;">
+            YAML-Datei importieren
+          </label>
+          <input type="file" id="planning-cycle-file-input" accept=".yaml,.yml" style="display: none;">
+        </div>
+
+        <div class="table-wrapper" style="overflow-x:auto; max-width: 600px;">
+          <table id="planningCyclesTable" class="simple-table">
+            <colgroup>
+              <col style="width: 200px;">
+              <col style="width: 160px;">
+              <col style="width: 200px;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th style="text-align: left;">Zyklus</th>
+                <th style="text-align: left;">Wert/Einheit</th>
+                <th style="text-align: center;">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="planning-cycles-tbody">
+              <tr>
+                <td colspan="3" style="text-align: center;">Lade Zyklen...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="planning-cycles-status" class="details-meta" style="margin-top: 12px;"></div>
+      </div>
+
       <!-- Tab: Kategorisierungsregeln -->
       <div id="tab-automation" class="tab-content">
         <div class="details-header">
@@ -487,6 +623,9 @@
     let automationInitialized = false;
     let categoriesInitialized = false;
     let accountsManagementInitialized = false;
+    let importFormatsInitialized = false;
+    let accountTypesInitialized = false;
+    let planningCyclesInitialized = false;
 
     function switchTab(tabName) {
       // Hide all tabs
@@ -511,9 +650,36 @@
           accountsManagementInitialized = true;
           loadAccountsManagementContent();
         }
+      } else if (tabName === 'import-formats') {
+        document.getElementById('tab-import-formats').classList.add('active');
+        document.querySelector('.tab-button:nth-child(4)').classList.add('active');
+        if (!importFormatsInitialized) {
+          importFormatsInitialized = true;
+          if (typeof initializeImportFormats === 'function') {
+            initializeImportFormats();
+          }
+        }
+      } else if (tabName === 'account-types') {
+        document.getElementById('tab-account-types').classList.add('active');
+        document.querySelector('.tab-button:nth-child(5)').classList.add('active');
+        if (!accountTypesInitialized) {
+          accountTypesInitialized = true;
+          if (typeof initializeAccountTypes === 'function') {
+            initializeAccountTypes();
+          }
+        }
+      } else if (tabName === 'planning-cycles') {
+        document.getElementById('tab-planning-cycles').classList.add('active');
+        document.querySelector('.tab-button:nth-child(6)').classList.add('active');
+        if (!planningCyclesInitialized) {
+          planningCyclesInitialized = true;
+          if (typeof initializePlanningCycles === 'function') {
+            initializePlanningCycles();
+          }
+        }
       } else if (tabName === 'automation') {
         document.getElementById('tab-automation').classList.add('active');
-        document.querySelector('.tab-button:nth-child(4)').classList.add('active');
+        document.querySelector('.tab-button:nth-child(7)').classList.add('active');
         // Initialize automation on first access
         if (!automationInitialized && typeof initializeCategoryAutomation === 'function') {
           automationInitialized = true;
