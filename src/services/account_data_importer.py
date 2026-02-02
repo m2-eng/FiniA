@@ -1,5 +1,6 @@
 import csv
 import re
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -8,7 +9,8 @@ from typing import Any
 import warnings
 
 import json
-from services.csv_utils import read_csv_rows, parse_amount, parse_date
+from services.csv_utils import read_csv_rows, parse_amount, parse_date, detect_csv_encoding
+from services.field_extractor import extract_field_value
 from infrastructure.unit_of_work import UnitOfWork
 from repositories.account_import_repository import AccountImportRepository
 from repositories.transaction_repository import TransactionRepository
@@ -16,6 +18,8 @@ from repositories.settings_repository import SettingsRepository
 
 # Suppress MySQL duplicate entry warnings
 warnings.filterwarnings("ignore", message=".*duplicate.*", category=UserWarning)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -38,21 +42,20 @@ class AccountDataImporter:
       """
       self.pool_manager = pool_manager
       self.session_id = session_id
-      self._formats_cache = None
       self._settings_key = "import_format"
 
    def _load_all_formats(self) -> dict:
-      if self._formats_cache is not None:
-         return self._formats_cache
-      # Load import formats from settings table
-      formats = self._load_formats_from_settings()
-      self._formats_cache = formats
-      return self._formats_cache
+      """Load import formats from database settings table.
+      
+      Formats are always loaded fresh to ensure consistency with database state.
+      """
+      return self._load_formats_from_settings()
 
    def _load_formats_from_settings(self) -> dict:
-      connection = self.pool_manager.get_connection(self.session_id)
+      connection = None
       cursor = None
       try:
+         connection = self.pool_manager.get_connection(self.session_id)
          cursor = connection.cursor(buffered=True)
          repo = SettingsRepository(cursor)
          entries = repo.get_setting_entries(self._settings_key)
@@ -63,6 +66,8 @@ class AccountDataImporter:
                name = data.get("name")
                config = data.get("config")
                if name and isinstance(config, dict):
+                  # Repair malformed configs (strings instead of objects)
+                  config = self._repair_config(config)
                   formats[name] = config
             except Exception:
                continue
@@ -73,84 +78,241 @@ class AccountDataImporter:
                cursor.close()
             except Exception:
                pass
+         # Gebe Connection zurück an Pool (wichtig!)
+         if connection:
+            try:
+               connection.close()  # Zurück an Pool
+            except Exception:
+               pass
 
-   def _load_formats_from_yaml(self) -> dict:
-      """Deprecated: Import formats are now loaded only from database settings table."""
-      raise NotImplementedError(
-         "Import formats must be stored in the database settings table. "
-         "Use the Settings API to manage formats (POST/PUT/DELETE /settings/import-formats)"
-      )
+   def _repair_config(self, config: dict) -> dict:
+      """Repair malformed config where nested objects became strings.
+      
+      This handles backwards compatibility with database entries created by
+      the old JavaScript YAML parser that sometimes converted nested objects to strings.
+      New uploads use Python's yaml.safe_load() which handles nesting correctly.
+      
+      Note: This function can be removed once all database entries have been updated
+            (estimated 3-6 months after Python parser deployment).
+      """
+      if not isinstance(config, dict):
+         return config
+      
+      repairs_applied = False
+      
+      # Recursively repair all nested structures
+      if "columns" in config and isinstance(config["columns"], dict):
+         for col_name, col_config in config["columns"].items():
+            if isinstance(col_config, dict):
+               # Repair sources array
+               if "sources" in col_config and isinstance(col_config["sources"], list):
+                  repaired_sources = []
+                  for item in col_config["sources"]:
+                     if isinstance(item, str):
+                        # Try to parse string as key:value pairs
+                        try:
+                           # String like "name: Einzelheiten" -> {name: "Einzelheiten"}
+                           if ':' in item:
+                              key, value = item.split(':', 1)
+                              repaired_sources.append({key.strip(): value.strip()})
+                              repairs_applied = True
+                           else:
+                              # Can't repair, keep as is
+                              repaired_sources.append(item)
+                        except Exception:
+                           repaired_sources.append(item)
+                     elif isinstance(item, dict):
+                        repaired_sources.append(item)
+                     else:
+                        repaired_sources.append(item)
+                  col_config["sources"] = repaired_sources
+      
+      if repairs_applied:
+         logger.warning("Applied legacy config repairs (old JavaScript parser format detected)")
+      
+      return config
 
-   def _seed_settings_with_formats(self, formats: dict) -> None:
-      """Deprecated: Auto-seeding from YAML is no longer supported."""
-      pass
-
-   def _get_mapping(self, format_name: str) -> dict:
+   def _get_mapping(self, format_name: str, csv_path: Path = None) -> tuple[dict, str]:
+      """Get format mapping, optionally with automatic version detection.
+      
+      Args:
+         format_name: Format name (e.g. 'csv-cb')
+         csv_path: Optional path to CSV file for header-based version detection
+      
+      Returns:
+         tuple: (mapping_config, detected_version)
+      """
       formats = self._load_all_formats()
       if format_name not in formats:
          raise ValueError(
             f"Format '{format_name}' not found in settings. Available: {list(formats.keys())}"
          )
-      return formats[format_name]
-
-   def _get_field(self, row: dict[str, Any], mapping: dict, field_name: str = "") -> tuple[str, bool]:
-      """Get field value from row using Strategy 1: Exact column names with priority fallbacks.
       
-      Note: Header validation happens BEFORE import, so we can safely extract values here.
+      format_config = formats[format_name]
+      
+      # Check if format has nested versions
+      has_versions = any(k not in ['default'] and isinstance(v, dict) and 'encoding' in v 
+                        for k, v in format_config.items())
+      
+      if not has_versions:
+         # Legacy format without versions - return as-is
+         return format_config, "legacy"
+      
+      # Format has versions - try to detect best match
+      detected_version = None
+      detection_method = None
+      
+      if csv_path and csv_path.exists():
+         # Try automatic header detection
+         detected_version = self._detect_format_version(format_name, format_config, csv_path)
+         if detected_version:
+            detection_method = "header-match"
+      
+      # Fallback to default version
+      if not detected_version:
+         detected_version = format_config.get('default', None)
+         if detected_version:
+            detection_method = "default"
+            if csv_path:
+               logger.warning(
+                  f"No header match for '{format_name}', using default version '{detected_version}'"
+               )
+      
+      # Fallback to first available version
+      if not detected_version:
+         versions = [k for k in format_config.keys() if k != 'default' and isinstance(format_config[k], dict)]
+         if versions:
+            detected_version = versions[0]
+            detection_method = "first-available"
+            logger.warning(
+               f"No default for '{format_name}', using first available version '{detected_version}'"
+            )
+      
+      if not detected_version or detected_version not in format_config:
+         raise ValueError(
+            f"No valid version found for format '{format_name}'. Available versions: {list(format_config.keys())}"
+         )
+      
+      version_config = format_config[detected_version]
+      
+      # Log the config being used
+      if logger.isEnabledFor(logging.DEBUG):
+         logger.debug(
+            f"Using config for '{format_name}' version '{detected_version}': "
+            f"encoding={version_config.get('encoding')}, "
+            f"delimiter={version_config.get('delimiter')}, "
+            f"date_format={version_config.get('date_format')}, "
+            f"header_columns={len(version_config.get('header', []))} cols"
+         )
+         
+         # Detailed field mapping logging
+         columns_cfg = version_config.get('columns', {})
+         date_col_config = columns_cfg.get('dateValue', {})
+         logger.debug(f"dateValue mapping: {date_col_config}")
+         
+         iban_col_config = columns_cfg.get('iban', {})
+         if 'sources' in iban_col_config:
+            sources = iban_col_config['sources']
+            logger.debug(
+               f"iban.sources: type={type(sources).__name__}, "
+               f"count={len(sources) if isinstance(sources, list) else 0}"
+            )
+      
+      return version_config, f"{detected_version} ({detection_method})"
+
+   def _detect_format_version(self, format_name: str, format_config: dict, csv_path: Path) -> str | None:
+      """Detect best matching format version based on CSV header columns.
+      
+      Uses flexible matching: all expected columns must be present in CSV header,
+      but order and extra columns don't matter.
+      
+      Tries each version with its own encoding/delimiter to handle different formats.
+      
+      Args:
+         format_name: Format name for logging
+         format_config: Format configuration with versions
+         csv_path: Path to CSV file
       
       Returns:
-         tuple: (value, unused_flag) - Returns (value, False) always since headers are pre-validated
+         Version key of best match, or None if no match found
       """
-      if mapping is None:
-         return "", False
+      versions = {k: v for k, v in format_config.items() 
+                 if k != 'default' and isinstance(v, dict) and 'header' in v}
       
-      if isinstance(mapping, str):
-         # Legacy: Simple string mapping (direct column name)
-         return (row.get(mapping, "") or "").strip(), False
+      if not versions:
+         return None
       
-      if isinstance(mapping, dict) and "join" in mapping:
-         # Strategy: Join multiple columns
-         separator = mapping.get("separator", " ")
-         parts = [
-            (row.get(item, "") or "").strip()
-            for item in mapping.get("join", [])
-            if (row.get(item, "") or "").strip()
-         ]
-         value = separator.join(parts)
-         return value, False
+      best_match = None
+      best_score = 0
       
-      if isinstance(mapping, dict) and "regex" in mapping:
-         # Strategy: Extract via regex from source column
-         pattern = mapping.get("regex")
-         target = mapping.get("source")
-         value = row.get(target, "") or ""
-         matches = re.findall(pattern, value)
-         if not matches:
-            return "", False
-         # Join all capture groups or matches into one string
-         def _flatten(m):
-            if isinstance(m, tuple):
-               return "".join(m)
-            return m
-         extracted = [ _flatten(m) for m in matches if _flatten(m) ]
-         return " | ".join(extracted), False
+      # Try each version with its specific encoding/delimiter
+      for version_key, version_config in versions.items():
+         try:
+            expected_headers = version_config.get('header', [])
+            if not expected_headers:
+               continue
+            
+            preferred_encoding = version_config.get('encoding', 'utf-8')
+            delimiter = version_config.get('delimiter', ';')
+            header_skip = version_config.get('header_skip', 0)
+            
+            # Detect actual encoding (with fallback like csv_utils does)
+            try:
+               actual_encoding = detect_csv_encoding(csv_path, preferred_encoding)
+            except RuntimeError as enc_error:
+               logger.debug(f"Version '{version_key}': Encoding detection failed - {enc_error}")
+               continue
+            
+            # Read CSV header with detected encoding
+            with open(csv_path, 'r', encoding=actual_encoding) as f:
+               # Skip header lines if configured
+               for _ in range(header_skip):
+                  f.readline()
+               
+               # Read header row
+               reader = csv.reader(f, delimiter=delimiter)
+               csv_header = next(reader)
+               csv_header_set = set(h.strip() for h in csv_header)
+            
+            expected_set = set(expected_headers)
+            
+            # Check if all expected columns are present (flexible matching)
+            if expected_set.issubset(csv_header_set):
+               # Calculate match score (more matching columns = better)
+               score = len(expected_set)
+               if score > best_score:
+                  best_score = score
+                  best_match = version_key
+                  logger.debug(f"Version '{version_key}': {score}/{len(expected_set)} columns found")
+         
+         except Exception as e:
+            # This version failed to parse - try next one
+            logger.debug(f"Version '{version_key}': Error reading - {e}")
+            continue
       
-      if isinstance(mapping, dict) and "names" in mapping:
-         # Strategy 1: Exact column names with priority fallbacks
-         names = mapping.get("names", [])
-         for name in names:
-            if name in row and (row.get(name) or "").strip():
-               return (row.get(name, "") or "").strip(), False
-         # Fallback: return empty string if no matching column found
-         return "", False
+      if best_match:
+         logger.info(f"Best match for '{format_name}': version '{best_match}' with {best_score} columns")
+      else:
+         logger.warning(f"No version found matching CSV columns for format '{format_name}'")
       
-      # Fallback for unmapped fields
-      return "", False
+      return best_match
+
+   def _get_field(self, row: dict[str, Any], mapping: dict, field_name: str = "") -> str:
+      """Get field value from row using various extraction strategies.
+      
+      Note: Header validation happens BEFORE import, so we can safely extract values here.
+      Delegates to extract_field_value() from field_extractor module.
+      
+      Returns:
+         Extracted value as string (empty string if not found)
+      """
+      return extract_field_value(row, mapping)
 
    def _validate_csv_headers(self, csv_fieldnames: list[str], columns: dict, csv_filename: str) -> bool:
       """Validate that all required columns are present in CSV file.
       
       Required columns are those that are NOT null in the format config.
+      Supports both new 'name' syntax and legacy 'names' syntax.
       
       Args:
          csv_fieldnames: List of column names from CSV header
@@ -175,19 +337,33 @@ class AccountDataImporter:
             # Simple string mapping
             field_found = field_config in csv_fieldnames
          elif isinstance(field_config, dict):
-            if "names" in field_config:
+            # Single column name (new syntax)
+            if "name" in field_config:
+               name = field_config.get("name")
+               field_found = name in csv_fieldnames
+            # Legacy: Multiple names
+            elif "names" in field_config:
                # Check if any of the alternative names exist
                for name in field_config.get("names", []):
                   if name in csv_fieldnames:
                      field_found = True
                      break
+            # Regex extraction - source column(s) must exist
+            elif "sources" in field_config:
+               sources = field_config.get("sources", [])
+               for source_config in sources:
+                  if isinstance(source_config, dict):
+                     source_name = source_config.get("name")
+                     if source_name and source_name in csv_fieldnames:
+                        field_found = True
+                        break
+            # Legacy regex extraction
             elif "regex" in field_config:
-               # Regex extraction - source column must exist
                source = field_config.get("source")
                if source and source in csv_fieldnames:
                   field_found = True
+            # Join columns - check if source columns exist
             elif "join" in field_config:
-               # Join columns - check if source columns exist
                join_fields = field_config.get("join", [])
                if any(f in csv_fieldnames for f in join_fields):
                   field_found = True
@@ -196,13 +372,31 @@ class AccountDataImporter:
             missing_fields.append(field_name)
       
       if missing_fields:
+         # Log for system logs
+         logger.error(
+            f"Required columns not found in {csv_filename}: {', '.join(missing_fields)}"
+         )
+         
+         # Print for user visibility (imports are often run in terminal)
          print(f"\n❌ FEHLER - Datei: {csv_filename}")
          print(f"   Erforderliche Spalten nicht gefunden:")
          for field in missing_fields:
             config = columns.get(field, {})
-            if isinstance(config, dict) and "names" in config:
-               names = config.get("names", [])
-               print(f"   - {field}: Erwartet eine dieser Spalten: {', '.join(names)}")
+            if isinstance(config, dict):
+               if "name" in config:
+                  print(f"   - {field}: Erwartet Spalte '{config.get('name')}'")
+               elif "names" in config:
+                  names = config.get("names", [])
+                  print(f"   - {field}: Erwartet eine dieser Spalten: {', '.join(names)}")
+               elif "sources" in config:
+                  sources = config.get("sources", [])
+                  source_names = [s.get("name") for s in sources if isinstance(s, dict) and s.get("name")]
+                  print(f"   - {field}: Erwartet eine dieser Quellspalten: {', '.join(source_names)}")
+               elif "join" in config:
+                  join_fields = config.get("join", [])
+                  print(f"   - {field}: Erwartet mindestens eine dieser Spalten: {', '.join(join_fields)}")
+               else:
+                  print(f"   - {field}")
             else:
                print(f"   - {field}")
          print(f"\n   Verfügbare Spalten in der CSV-Datei ({len(csv_fieldnames)}):")
@@ -239,8 +433,31 @@ class AccountDataImporter:
       inserted = 0
       total = 0
       
-      # Validate CSV headers before processing
+      # Hole EINMAL eine Connection für den gesamten Import (nicht pro Zeile!)
+      connection = None
       try:
+         connection = self.pool_manager.get_connection(self.session_id)
+      
+         # Batch settings (opt-in via mapping, default 1000)
+         batch_size = mapping.get("batch_size", 1000)
+         try:
+            batch_size = int(batch_size)
+         except Exception:
+            batch_size = 1000
+         batch_size = max(100, min(batch_size, 5000))
+
+         batch_rows: list[tuple] = []
+
+         def flush_batch() -> None:
+            nonlocal inserted
+            if not batch_rows:
+               return
+            with UnitOfWork(connection) as uow:
+               tx_repo = TransactionRepository(uow)
+               inserted += tx_repo.insert_ignore_many(batch_rows)
+            batch_rows.clear()
+
+         # Validate CSV headers before processing
          # Peek at first row to get fieldnames for validation
          first_pass = True
          for row in read_csv_rows(csv_path, delimiter=delimiter, encoding=encoding):
@@ -259,38 +476,39 @@ class AccountDataImporter:
             total += 1
             try:
                # Get field values (headers already validated)
-               date_value_raw, _ = self._get_field(row, columns.get("dateValue"), "dateValue")
-               amount_raw, _ = self._get_field(row, columns.get("amount"), "amount")
-               description, _ = self._get_field(row, columns.get("description"), "description")
-               iban, _ = self._get_field(row, columns.get("iban"), "iban")
-               bic, _ = self._get_field(row, columns.get("bic"), "bic")
-               recipient, _ = self._get_field(row, columns.get("recipientApplicant"), "recipientApplicant")
+               date_value_raw = self._get_field(row, columns.get("dateValue"), "dateValue")
+               
+               # Debug logging for first few rows
+               if total <= 3 and logger.isEnabledFor(logging.DEBUG):
+                  logger.debug(
+                     f"Row {total}: dateValue mapping={columns.get('dateValue')}, "
+                     f"raw_value='{date_value_raw}', csv_keys={list(row.keys())[:5]}"
+                  )
+               
+               amount_raw = self._get_field(row, columns.get("amount"), "amount")
+               description = self._get_field(row, columns.get("description"), "description")
+               iban = self._get_field(row, columns.get("iban"), "iban")
+               bic = self._get_field(row, columns.get("bic"), "bic")
+               recipient = self._get_field(row, columns.get("recipientApplicant"), "recipientApplicant")
 
                # Parse values using centralized utilities
                date_value = parse_date(date_value_raw, date_format)
                amount = parse_amount(amount_raw, decimal_sep)
 
-               # IMPORTANT: Commit each row immediately to ensure insert_ignore() duplicate detection works
-               # This prevents duplicate accounting entries from being created
-               connection = self.pool_manager.get_connection(self.session_id)
-               with UnitOfWork(connection) as uow:
-                  tx_repo = TransactionRepository(uow)
-                  
-                  transaction_id = tx_repo.insert_ignore(
-                     account_id=job.account_id,
-                     description=description,
-                     amount=amount,
-                     date_value=date_value,
-                     iban=iban,
-                     bic=bic,
-                     recipient_applicant=recipient,
+               # Batch insert rows for better performance
+               batch_rows.append(
+                  (
+                     iban,
+                     bic,
+                     description,
+                     amount,
+                     date_value,
+                     recipient,
+                     job.account_id,
                   )
-                  
-                  if isinstance(transaction_id, int) and transaction_id > 0:
-                     # Accounting entry is automatically created by database trigger
-                     # trg_transaction_create_accounting_entry - NO manual insert needed
-                     inserted += 1
-                  # UnitOfWork.__exit__() commits automatically
+               )
+               if len(batch_rows) >= batch_size:
+                  flush_batch()
             except Exception as exc:  # keep importing but report only relevant errors
                # Silently skip duplicate entries - they are expected and normal
                error_msg = str(exc).lower()
@@ -301,18 +519,30 @@ class AccountDataImporter:
                   # Only print unexpected errors
                   print(f"  Warning: skipping row {total} in {csv_path.name}: {exc}")
       
+         # Flush remaining rows
+         flush_batch()
+
       except ValueError as e:
          # CSV has no header or is empty
+         logger.error(f"CSV format error in {csv_path.name}: {str(e)}")
          print(f"\n❌ FEHLER - Datei: {csv_path.name}")
          print(f"   {str(e)}")
          print(f"   Import wird abgebrochen!\n")
          return 0, 0
       except RuntimeError as e:
          # Encoding detection failed
+         logger.error(f"Encoding error in {csv_path.name}: {str(e)}")
          print(f"\n❌ FEHLER - Datei: {csv_path.name}")
          print(f"   {str(e)}")
          print(f"   Import wird abgebrochen!\n")
          return 0, 0
+      finally:
+         # Gebe Connection zurück an Pool (wichtig!)
+         if connection:
+            try:
+               connection.close()  # Zurück an Pool
+            except Exception:
+               pass
       
       return inserted, total
 
@@ -321,10 +551,20 @@ class AccountDataImporter:
       Sammelt alle zu importierenden Jobs aus der Datenbank.
       Nutzt Connection Pool Manager für Datenbankzugriff.
       """
-      connection = self.pool_manager.get_connection(self.session_id)
-      with UnitOfWork(connection) as uow:
-         repo = AccountImportRepository(uow)
-         rows = repo.list_import_paths()
+      connection = None
+      try:
+         connection = self.pool_manager.get_connection(self.session_id)
+         with UnitOfWork(connection) as uow:
+            repo = AccountImportRepository(uow)
+            rows = repo.list_import_paths()
+      finally:
+         # Gebe Connection zurück an Pool (wichtig!)
+         if connection:
+            try:
+               connection.close()  # Zurück an Pool
+            except Exception:
+               pass
+      
       jobs = []
       
       # Get project root directory (2 levels up from this file: services -> src -> root)
@@ -372,11 +612,6 @@ class AccountDataImporter:
          if not job.path.exists():
             print(f"Skipping account '{job.account_name}': folder not found {job.path}")
             continue
-         try:
-            mapping = self._get_mapping(job.format)
-         except Exception as exc:
-            print(f"Skipping account '{job.account_name}' ({job.format}): {exc}")
-            continue
 
          files = sorted(job.path.glob(f"*.{job.file_ending}"))
          if not files:
@@ -384,6 +619,16 @@ class AccountDataImporter:
             continue
 
          for csv_file in files:
+            # Get mapping with version detection for this specific file
+            try:
+               mapping, detected_version = self._get_mapping(job.format, csv_file)
+               logger.info(f"Format '{job.format}' - Detected version: {detected_version} for {csv_file.name}")
+               print(f"\nℹ️  Format '{job.format}' - Erkannte Version: {detected_version} für {csv_file.name}")
+            except Exception as exc:
+               logger.error(f"Error loading format for {csv_file.name}: {exc}")
+               print(f"\n❌ FEHLER beim Laden des Formats für {csv_file.name}: {exc}")
+               continue
+            
             inserted, total = self._import_file(csv_file, mapping, job)
             overall_inserted += inserted
             overall_total += total

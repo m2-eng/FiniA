@@ -264,6 +264,9 @@ async def update_rule(
     connection = Depends(get_db_connection)
 ):
     """Update an existing rule."""
+
+    if rule_data is None:
+        raise HTTPException(status_code=400, detail="Regeldaten erforderlich")
     
     # Find existing rule
     find_query = """
@@ -277,6 +280,51 @@ async def update_rule(
     row = cursor.fetchone()
     
     if not row:
+        # Frontend sends PUT for new rules with id prefix "new-..."
+        if rule_id.startswith("new-"):
+            # Validate minimal fields (same as create)
+            if not rule_data.name:
+                raise HTTPException(status_code=400, detail="Regelname erforderlich")
+            if not rule_data.conditions:
+                raise HTTPException(status_code=400, detail="Mindestens eine Bedingung erforderlich")
+            if not rule_data.category:
+                raise HTTPException(status_code=400, detail="Kategorie erforderlich")
+
+            condition_ids = [c.id for c in rule_data.conditions]
+            if len(condition_ids) != len(set(condition_ids)):
+                raise HTTPException(status_code=400, detail="Bedingung-IDs müssen eindeutig sein")
+
+            # Generate UUID if not provided or invalid new-id
+            new_rule_id = rule_data.id or str(uuid4())
+            now = datetime.now().isoformat()
+            rule = {
+                "id": new_rule_id,
+                "name": rule_data.name,
+                "description": rule_data.description,
+                "conditions": [c.dict() for c in rule_data.conditions],
+                "conditionLogic": rule_data.conditionLogic,
+                "category": rule_data.category,
+                "accounts": rule_data.accounts,
+                "priority": rule_data.priority,
+                "enabled": rule_data.enabled,
+                "dateCreated": now,
+                "dateModified": now
+            }
+
+            insert_query = """
+                INSERT INTO tbl_setting (user_id, `key`, `value`)
+                VALUES (NULL, 'category_automation_rule', %s)
+            """
+
+            cursor.execute(insert_query, (json.dumps(rule),))
+            connection.commit()
+
+            return {
+                "id": new_rule_id,
+                "message": "Regel erfolgreich erstellt",
+                "rule": rule
+            }
+
         raise HTTPException(status_code=404, detail="Regel nicht gefunden")
     
     setting_id = row[0]

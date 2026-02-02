@@ -1,100 +1,213 @@
 formats:
   csv-cb:
-    encoding: utf-8
-    delimiter: ';'
-    decimal: ','
-    date_format: '%d.%m.%Y'
-    columns:
-      dateValue:
-        names:
-          - Valuta
-      amount:
-        names:
-          - Betrag
-      description:
-        join:
-          - Verwendungszweck
-        separator: ' | '
-      iban:
-        names:
-          - "IBAN"
-          - "IBAN / Konto-Nr."
-      bic:
-        names:
-          - "BIC"
-          - "BIC / BLZ"
-      recipientApplicant:
-        names:
-          - 'Sender / Empfänger'
+    default: v1
+    v1:
+      encoding: utf-8
+      delimiter: ';'
+      decimal: ','
+      date_format: '%d.%m.%Y'
+      header_skip: 0
+      header:
+        - Valuta
+        - Betrag
+        - Verwendungszweck
+        - "IBAN"
+        - "BIC"
+        - 'Sender / Empfänger'
+      columns:
+        dateValue:
+          name: Valuta
+        amount:
+          name: Betrag
+        description:
+          join:
+            - Verwendungszweck
+          separator: ' | '
+        iban:
+          name: "IBAN"
+        bic:
+          name: "BIC"
+        recipientApplicant:
+          name: 'Sender / Empfänger'
+
+    v2:
+      encoding: utf-8
+      delimiter: ';'
+      decimal: ','
+      date_format: '%d.%m.%Y'
+      header_skip: 0
+      header:
+        - Valuta
+        - Betrag
+        - Verwendungszweck
+        - "IBAN / Konto-Nr."
+        - "BIC / BLZ"
+        - 'Sender / Empfänger'
+      columns:
+        dateValue:
+          name: Valuta
+        amount:
+          name: Betrag
+        description:
+          join:
+            - Verwendungszweck
+          separator: ' | '
+        iban:
+          name: "IBAN / Konto-Nr."
+        bic:
+          name: "BIC / BLZ"
+        recipientApplicant:
+          name: 'Sender / Empfänger'
 
   csv-spk:
-    encoding: latin-1
-    delimiter: ';'
-    decimal: ','
-    date_format: '%d.%m.%Y'
-    columns:
-      dateValue:
-        names:
-          - Valuta
-      amount:
-        names:
-          - Betrag
-      description:
-        join:
-          - Verwendungszweck
-        separator: ' | '
-      iban:
-        names:
-          - Kontonummer
-      bic:
-        names:
-          - BLZ
-      recipientApplicant:
-        names:
-          - 'Beguenstigter/Zahlungspflichtiger'
+    default: v1
+    v1:
+      encoding: latin-1
+      delimiter: ';'
+      decimal: ','
+      date_format: '%d.%m.%Y'
+      header_skip: 0
+      header:
+        - Valuta
+        - Betrag
+        - Verwendungszweck
+        - Kontonummer
+        - BLZ
+        - 'Beguenstigter/Zahlungspflichtiger'
+      columns:
+        dateValue:
+          name: Valuta
+        amount:
+          name: Betrag
+        description:
+          join:
+            - Verwendungszweck
+          separator: ' | '
+        iban:
+          name: Kontonummer
+        bic:
+          name: BLZ
+        recipientApplicant:
+          name: 'Beguenstigter/Zahlungspflichtiger'
 
   csv-mintos:
-    encoding: utf-8
-    delimiter: ','
-    decimal: '.'
-    date_format: '%Y-%m-%d %H:%M:%S'
-    columns:
-      dateValue:
-        names:
-          - Datum
-      amount:
-        names:
-          - Umsatz
-      description: 
-        join:
-          - Details
-          - 'Transaktions-Nr.:'
-        separator: ' | '
-      iban:
-        regex: 'ISIN:\s*([A-Z0-9]{10,20})|Darlehen\s*([0-9\-]+)'
-        source: Details
-      bic: null
-      recipientApplicant: null
+    default: v2
+    v1:
+      encoding: utf-8
+      delimiter: ','
+      decimal: '.'
+      date_format: '%Y-%m-%d %H:%M:%S'
+      header_skip: 0
+      header:
+        - Datum
+        - 'Transaktions-Nr.:'
+        - Einzelheiten
+        - Umsatz
+        - Saldo
+        - Währung
+        - Zahlungsart
+      columns:
+        dateValue:
+          name: Datum
+        amount:
+          name: Umsatz
+        description:
+          join:
+            - Einzelheiten
+            - 'Transaktions-Nr.:'
+          separator: ' | '
+        iban:
+          sources:
+            - name: Einzelheiten
+              regex: 'ISIN:\s*([A-Z0-9]{10,20}) | Darlehen\s*([0-9\-]+)'
+        bic: null
+        recipientApplicant: null
+
+    v2:
+      encoding: utf-8
+      delimiter: ','
+      decimal: '.'
+      date_format: '%Y-%m-%d %H:%M:%S'
+      header_skip: 0
+      header:
+        - Datum
+        - 'Transaktions-Nr.:'
+        - Details
+        - Umsatz
+        - Kontostand
+        - Währung
+      columns:
+        dateValue:
+          name: Datum
+        amount:
+          name: Umsatz
+        description:
+          join:
+            - Details
+            - 'Transaktions-Nr.:'
+          separator: ' | '
+        iban:
+          sources:
+            - name: Details
+              regex: 'ISIN:\s*([A-Z0-9]{10,20})\s*\(Loan\s*([0-9\-]+)\)'
+        bic: null
+        recipientApplicant: null
+
+    v3:
+      encoding: utf-8
+      delimiter: ','
+      decimal: '.'
+      date_format: '%Y-%m-%d %H:%M:%S'
+      header_skip: 0
+      header:
+        - Date
+        - 'Transaction ID:'
+        - Details
+        - Turnover
+        - Balance
+        - Currency
+        - 'Payment Type'
+      columns:
+        dateValue:
+          name: Date
+        amount:
+          name: Turnover
+        description:
+          join:
+            - Details
+            - 'Transaction ID:'
+          separator: ' | '
+        iban:
+          sources:
+            - name: Details
+              regex: 'ISIN:\s*([A-Z0-9]{10,20})\s*\(Loan\s*([0-9\-]+)\)'
+        bic: null
+        recipientApplicant: null
 
   csv-loan:
-    encoding: utf-8
-    delimiter: ';'
-    decimal: ','
-    date_format: '%d.%m.%Y'
-    columns:
-      account:
-        names:
-          - Darlehen
-      dateValue:
-        names:
-          - Datum
-      amount:
-        names:
-          - Betrag
-      description:
-        join:
-          - Beschreibung
-        separator: ' | '
-      iban: null
-      bic: null
-      recipientApplicant: null
+    default: v1
+    v1:
+      encoding: utf-8
+      delimiter: ';'
+      decimal: ','
+      date_format: '%d.%m.%Y'
+      header_skip: 0
+      header:
+        - Darlehen
+        - Datum
+        - Betrag
+        - Beschreibung
+      columns:
+        account:
+          name: Darlehen
+        dateValue:
+          name: Datum
+        amount:
+          name: Betrag
+        description:
+          join:
+            - Beschreibung
+          separator: ' | '
+        iban: null
+        bic: null
+        recipientApplicant: null

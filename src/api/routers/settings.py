@@ -4,7 +4,8 @@ Handles global/user settings storage.
 """
 
 import json
-from fastapi import APIRouter, Depends, HTTPException, status
+import yaml
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from repositories.settings_repository import SettingsRepository
@@ -210,6 +211,100 @@ async def delete_import_format(
     except Exception as e:
         safe_rollback(connection)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.post("/import-formats/upload-yaml")
+@handle_db_errors("upload import formats YAML")
+async def upload_import_formats_yaml(
+    file: UploadFile = File(...),
+    cursor = Depends(get_db_cursor),
+    connection = Depends(get_db_connection)
+):
+    """Upload and parse import formats from YAML file using Python's yaml parser.
+    
+    This ensures correct parsing of nested structures including list-of-objects patterns.
+    """
+    try:
+        # Read file content
+        content = await file.read()
+        yaml_text = content.decode('utf-8')
+        
+        # Parse YAML using Python's yaml library
+        parsed = yaml.safe_load(yaml_text)
+        
+        if not parsed or not isinstance(parsed, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="YAML file must contain a dictionary"
+            )
+        
+        # Extract formats from root key 'formats'
+        formats_dict = parsed.get("formats", {})
+        if not isinstance(formats_dict, dict):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="YAML root must have 'formats' key containing format definitions"
+            )
+        
+        # Import each format into database
+        repo = SettingsRepository(cursor)
+        imported_count = 0
+        errors = []
+        
+        for format_name, format_config in formats_dict.items():
+            try:
+                if not isinstance(format_config, dict):
+                    errors.append(f"Format '{format_name}': config is not an object")
+                    continue
+                
+                # Store in database
+                value = json.dumps({"name": format_name, "config": format_config})
+                
+                # Check if exists
+                existing_entries = repo.get_setting_entries("import_format")
+                existing_id = None
+                for entry in existing_entries:
+                    data = json.loads(entry.get("value") or "{}")
+                    if data.get("name") == format_name:
+                        existing_id = entry.get("id")
+                        break
+                
+                if existing_id:
+                    # Update existing
+                    repo.update_setting_value(existing_id, value)
+                else:
+                    # Add new
+                    repo.add_setting("import_format", value)
+                
+                imported_count += 1
+            except Exception as e:
+                errors.append(f"Format '{format_name}': {str(e)}")
+        
+        safe_commit(connection)
+        
+        return {
+            "status": "success",
+            "imported_count": imported_count,
+            "total_formats": len(formats_dict),
+            "errors": errors if errors else None
+        }
+    
+    except yaml.YAMLError as e:
+        safe_rollback(connection)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"YAML parsing error: {str(e)}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        safe_rollback(connection)
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Upload failed: {str(e)}"
+        )
 
 
 @router.delete("/shares-tx-categories")

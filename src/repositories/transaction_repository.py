@@ -95,6 +95,27 @@ class TransactionRepository(BaseRepository):
          return self.cursor.lastrowid
       return None
 
+   def insert_ignore_many(self, rows: list[tuple]) -> int:
+      """
+      Batch insert transactions with INSERT IGNORE.
+
+      Args:
+         rows: List of tuples (iban, bic, description, amount, date_value, recipient_applicant, account_id)
+
+      Returns:
+         Number of rows inserted (duplicates ignored).
+      """
+      if not rows:
+         return 0
+
+      sql = (
+         """INSERT IGNORE INTO tbl_transaction
+               (dateImport, iban, bic, description, amount, dateValue, recipientApplicant, account)
+               VALUES (NOW(), %s, %s, %s, %s, %s, %s, %s)"""
+      )
+      self.cursor.executemany(sql, rows)
+      return max(self.cursor.rowcount or 0, 0)
+
    def get_all_transactions(self) -> list[dict]:
       """
       Retrieve all transactions with their accounting entries (legacy: returns all).
