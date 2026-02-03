@@ -288,11 +288,6 @@
 <body>
   <div id="header-container"></div>
   <div class="container">
-    <div class="page-card">
-      <h2>Kategorien</h2>
-      <p class="details-meta">Verwalten Sie Ihre Kategorien in hierarchischer Form.</p>
-    </div>
-
     <div class="toolbar">
       <div class="search-section">
         <input type="text" id="categorySearch" placeholder="Nach Kategorie suchen...">
@@ -306,7 +301,7 @@
     <div id="catError" class="error" style="display:none"></div>
     <div id="catSuccess" class="success" style="display:none"></div>
 
-    <div id="categoriesContainer" class="category-tree"></div>
+    <div id="categoriesTable" class="category-tree"></div>
   </div>
 
   <!-- Modal for Add/Edit Category -->
@@ -368,7 +363,9 @@
 
     async function loadCategoriesPage() {
       const err = document.getElementById('catError');
-      err.style.display = 'none';
+      if (err) {
+        err.style.display = 'none';
+      }
       try {
         // Load all categories efficiently in single query
         const res = await authenticatedFetch(`${API_BASE}/categories/hierarchy/all`);
@@ -416,8 +413,10 @@
     }
 
     function renderCategories() {
-      const term = (document.getElementById('categorySearch').value || '').toLowerCase();
-      const container = document.getElementById('categoriesContainer');
+      const searchEl = document.getElementById('categorySearch');
+      const term = (searchEl ? searchEl.value : '').toLowerCase();
+      const container = document.getElementById('categoriesTable');
+      if (!container) return;
       container.innerHTML = '';
 
       const tree = buildCategoryTree();
@@ -571,10 +570,10 @@
           throw new Error(error.detail || `HTTP ${res.status}`);
         }
 
+        closeCategoryModal();
         const message = currentEditingId ? 'Kategorie aktualisiert.' : 'Kategorie erstellt.';
         showSuccess(message);
-        closeCategoryModal();
-        loadCategoriesPage();
+        await loadCategoriesPage();
       } catch (e) {
         console.error(e);
         showError(`Fehler beim Speichern der Kategorie: ${e.message}`);
