@@ -359,19 +359,20 @@ async def import_transactions(
                     skipped_info.append(f"Pfad nicht gefunden: {job.path}")
                     continue
                     
-                try:
-                    mapping = importer._get_mapping(job.format)
-                except Exception as exc:
-                    skipped_info.append(f"Mapping-Fehler für {job.account_name}: {exc}")
-                    continue
-                
                 files = sorted(job.path.glob(f"*.{job.file_ending}"))
                 if not files:
                     skipped_info.append(f"Keine *.{job.file_ending} Dateien in {job.path}")
                     continue
                 
                 for csv_file in files:
-                    connection = pool_manager.get_connection(session_id)
+                    try:
+                        mapping, detected_version = importer._get_mapping(job.format, csv_file)
+                        print(f"ℹ️  API Import - Format '{job.format}' - Erkannte Version: {detected_version} für {csv_file.name}")
+                    except Exception as exc:
+                        skipped_info.append(f"Mapping-Fehler für {job.account_name}/{csv_file.name}: {exc}")
+                        continue
+                    
+                    # _import_file() holt intern bereits eine Connection aus dem Pool
                     inserted, total = importer._import_file(csv_file, mapping, job)
                     overall_inserted += inserted
                     overall_total += total
@@ -384,12 +385,20 @@ async def import_transactions(
             
             # Apply auto-categorization after import
             categorization_result = {"categorized": 0, "total_checked": 0}
-            try:
-                if overall_inserted > 0:
-                    connection = pool_manager.get_connection(session_id)
-                    categorization_result = auto_categorize_entries(cursor, connection)
-            except Exception as cat_error:
-                skipped_info.append(f"Automatische Kategorisierung fehlgeschlagen: {cat_error}")
+            if overall_inserted > 0:
+                cat_connection = None
+                try:
+                    cat_connection = pool_manager.get_connection(session_id)
+                    categorization_result = auto_categorize_entries(cursor, cat_connection)
+                except Exception as cat_error:
+                    skipped_info.append(f"Automatische Kategorisierung fehlgeschlagen: {cat_error}")
+                finally:
+                    # Gebe Connection zurück an Pool
+                    if cat_connection:
+                        try:
+                            cat_connection.close()  # Zurück an Pool
+                        except Exception:
+                            pass
             
             result = {
                 "success": True,
@@ -496,7 +505,8 @@ async def import_csv_file(
         
         # Get format mapping
         try:
-            mapping = importer._get_mapping(format)
+            mapping, detected_version = importer._get_mapping(format, Path(temp_file_path))
+            print(f"ℹ️  API Import - Format '{format}' - Erkannte Version: {detected_version}")
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

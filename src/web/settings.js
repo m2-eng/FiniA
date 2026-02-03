@@ -410,143 +410,8 @@ async function initializeImportFormats() {
   }
 }
 
-function parseYAML(yamlContent) {
-  /**
-   * Generic YAML parser for nested structures.
-   * Supports: root: { name: { key: value, nested: { key: value }, list: [...] } }
-   * Also supports: root: [item1, item2, ...]
-   */
-  const result = {};
-  let currentRoot = null;
-  let stack = []; // Stack to track nesting level: [{level, key, obj}, ...]
-
-  const lines = yamlContent.split('\n');
-
-  for (let lineNum = 0; lineNum < lines.length; lineNum++) {
-    const line = lines[lineNum];
-    
-    // Skip empty lines and comments
-    if (!line.trim() || line.trim().startsWith('#')) continue;
-
-    const leadingSpaces = line.match(/^(\s*)/)[1].length;
-    const trimmed = line.trim();
-
-    // Root element (0 spaces, ends with :)
-    if (leadingSpaces === 0 && trimmed.endsWith(':')) {
-      currentRoot = trimmed.slice(0, -1);
-      
-      // Check if next non-empty line is a list item
-      let isArray = false;
-      for (let j = lineNum + 1; j < lines.length; j++) {
-        const nextLine = lines[j];
-        if (!nextLine.trim() || nextLine.trim().startsWith('#')) continue;
-        if (nextLine.trim().startsWith('-')) {
-          isArray = true;
-        }
-        break;
-      }
-      
-      if (isArray) {
-        result[currentRoot] = [];
-        stack = [{level: 0, key: currentRoot, obj: result[currentRoot]}];
-      } else {
-        result[currentRoot] = {};
-        stack = [{level: 0, key: currentRoot, obj: result[currentRoot]}];
-      }
-      continue;
-    }
-
-    if (!currentRoot) continue;
-
-    // Handle nested structures and key-value pairs
-    if (trimmed.endsWith(':')) {
-      // Key with nested structure (object or array)
-      const key = trimmed.slice(0, -1);
-      
-      // Pop stack to current level
-      while (stack.length > 1 && stack[stack.length - 1].level >= leadingSpaces) {
-        stack.pop();
-      }
-
-      const parentObj = stack[stack.length - 1].obj;
-      
-      // Check if next non-empty line is a list item (starts with -)
-      let isArray = false;
-      for (let j = lineNum + 1; j < lines.length; j++) {
-        const nextLine = lines[j];
-        if (!nextLine.trim() || nextLine.trim().startsWith('#')) continue;
-        const nextSpaces = nextLine.match(/^(\s*)/)[1].length;
-        if (nextSpaces <= leadingSpaces) break;
-        if (nextLine.trim().startsWith('-')) {
-          isArray = true;
-        }
-        break;
-      }
-
-      if (isArray) {
-        parentObj[key] = [];
-        stack.push({level: leadingSpaces, key, obj: parentObj[key]});
-      } else {
-        parentObj[key] = {};
-        stack.push({level: leadingSpaces, key, obj: parentObj[key]});
-      }
-    } else if (trimmed.startsWith('-')) {
-      // List item
-      const parent = stack[stack.length - 1];
-      if (Array.isArray(parent.obj)) {
-        let value = trimmed.slice(1).trim();
-        // Parse the value
-        value = parseYAMLValue(value);
-        parent.obj.push(value);
-      }
-    } else if (trimmed.includes(':')) {
-      // Key-value pair
-      const colonIdx = trimmed.indexOf(':');
-      const key = trimmed.substring(0, colonIdx).trim();
-      let value = trimmed.substring(colonIdx + 1).trim();
-
-      // Pop stack to current level
-      while (stack.length > 1 && stack[stack.length - 1].level >= leadingSpaces) {
-        stack.pop();
-      }
-
-      value = parseYAMLValue(value);
-      const parent = stack[stack.length - 1].obj;
-      if (Array.isArray(parent)) {
-        parent.push({[key]: value});
-      } else {
-        parent[key] = value;
-      }
-    }
-  }
-
-  return result;
-}
-
-function parseYAMLValue(value) {
-  if (!value) return null;
-  
-  if (value === 'null') return null;
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  if (!isNaN(value) && value !== '') return Number(value);
-  
-  // Remove quotes
-  if ((value.startsWith("'") && value.endsWith("'")) ||
-      (value.startsWith('"') && value.endsWith('"'))) {
-    return value.slice(1, -1);
-  }
-  
-  return value;
-}
-
 async function handleImportFormatFileUpload(event) {
   console.log('🎯 handleImportFormatFileUpload() wurde aufgerufen!');
-  console.log('Event-Details:', {
-    type: event.type,
-    target: event.target,
-    files: event.target?.files?.length
-  });
   
   const file = event.target.files[0];
   if (!file) {
@@ -561,78 +426,57 @@ async function handleImportFormatFileUpload(event) {
   });
 
   try {
-    const content = await file.text();
-    console.log('📥 Dateiinhalt gelesen, starte YAML-Parsing...', {fileSize: content.length});
+    showImportFormatsStatus(`📤 Lade YAML-Datei hoch und parse mit Python-Parser...`);
     
-    let formats;
-
-    // Try to parse as YAML
-    try {
-      formats = parseYAML(content);
-      console.log('✅ YAML-Parsing erfolgreich. Formate gefunden:', Object.keys(formats));
-    } catch (err) {
-      console.error('❌ YAML-Parsing-Fehler:', err);
-      showImportFormatsStatus(`Fehler beim Parsen der YAML-Datei: ${err.message}`, true);
+    // Use Python's yaml parser on the backend for correct parsing
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const response = await fetch('/api/settings/import-formats/upload-yaml', {
+      method: 'POST',
+      headers: getAuthHeaders(),  // Add auth header
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      const errorMsg = result.detail || 'Unbekannter Fehler beim Upload';
+      console.error('❌ Backend-Fehler:', errorMsg);
+      showImportFormatsStatus(`❌ Fehler: ${errorMsg}`, true);
       event.target.value = '';
       return;
     }
-
-    if (!formats || Object.keys(formats).length === 0) {
-      console.warn('⚠️ Keine Formate in YAML gefunden');
-      showImportFormatsStatus('Keine Formate in der Datei gefunden.', true);
-      event.target.value = '';
-      return;
-    }
-
-    // Batch upload all formats
-    showImportFormatsStatus(`Lade ${Object.keys(formats).length} Format(e) hoch...`);
-    let successCount = 0;
-    let errorCount = 0;
-
-    for (const [name, config] of Object.entries(formats)) {
-      try {
-        console.log(`📤 Uploade Format: ${name}`, config);
-        
-        // Check if format already exists
-        const exists = importFormats.some(f => f.name === name);
-        if (exists) {
-          // Update existing
-          const existing = importFormats.find(f => f.name === name);
-          console.log(`🔄 Aktualisiere existierendes Format: ${name} (ID: ${existing.id})`);
-          await updateImportFormat(existing.id, name, config);
-          successCount++;
-        } else {
-          // Create new
-          console.log(`✨ Erstelle neues Format: ${name}`);
-          await addImportFormat(name, config);
-          successCount++;
-        }
-      } catch (err) {
-        console.error(`❌ Fehler beim Upload von Format '${name}':`, err);
-        errorCount++;
-      }
-    }
-
-    // Reload formats
-    console.log('🔄 Laden Formate neu...');
-    importFormats = await fetchImportFormats();
-    renderImportFormatsTable();
-
-    if (errorCount === 0) {
-      console.log(`✅ Erfolgreich: ${successCount} Format(e) importiert`);
-      showImportFormatsStatus(`✅ ${successCount} Format(e) erfolgreich importiert.`);
-    } else {
-      console.warn(`⚠️ Teilweise erfolgreich: ${successCount} OK, ${errorCount} Fehler`);
+    
+    console.log('✅ Python YAML-Parser erfolgreich:', result);
+    
+    if (result.imported_count > 0) {
       showImportFormatsStatus(
-        `⚠️ ${successCount} Format(e) importiert, ${errorCount} Fehler.`,
+        `✅ ${result.imported_count}/${result.total_formats} Formate erfolgreich importiert!`
+      );
+      
+      if (result.errors && result.errors.length > 0) {
+        console.warn('⚠️ Fehler bei einigen Formaten:', result.errors);
+        for (const error of result.errors) {
+          showImportFormatsStatus(`⚠️ ${error}`);
+        }
+      }
+      
+      // Reload formats list
+      console.log('🔄 Laden Formate neu...');
+      importFormats = await fetchImportFormats();
+      renderImportFormatsTable();
+    } else {
+      showImportFormatsStatus(
+        `⚠️ Keine Formate importiert. ${result.errors ? result.errors.join(', ') : ''}`,
         true
       );
     }
-
+    
     event.target.value = '';
   } catch (err) {
-    console.error('❌ File upload error:', err);
-    showImportFormatsStatus(`Fehler beim Hochladen der Datei: ${err.message}`, true);
+    console.error('❌ Upload-Fehler:', err);
+    showImportFormatsStatus(`❌ Fehler beim Upload: ${err.message}`, true);
     event.target.value = '';
   }
 }

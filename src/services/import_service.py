@@ -1,6 +1,7 @@
 from typing import List, Optional, Any
 from services.import_steps.base import ImportStep
 from services.csv_utils import read_csv_rows, parse_amount, parse_date
+from services.field_extractor import extract_field_value
 from infrastructure.unit_of_work import UnitOfWork
 from pathlib import Path
 from decimal import Decimal
@@ -87,6 +88,28 @@ def import_csv_with_optional_account(
     warnings = []
     account_cache = {}  # Cache account lookups by name
     
+    # Get a single connection from pool for all operations
+    connection = pool_manager.get_connection(session_id)
+    
+    # Batch settings (opt-in via mapping, default 1000)
+    batch_size = mapping.get("batch_size", 1000)
+    try:
+        batch_size = int(batch_size)
+    except Exception:
+        batch_size = 1000
+    batch_size = max(100, min(batch_size, 5000))
+
+    batch_rows: list[tuple] = []
+
+    def flush_batch() -> None:
+        nonlocal inserted
+        if not batch_rows:
+            return
+        with UnitOfWork(connection) as uow:
+            tx_repo = TransactionRepository(uow)
+            inserted += tx_repo.insert_ignore_many(batch_rows)
+        batch_rows.clear()
+
     # Read and process CSV using centralized utilities
     try:
         for row in read_csv_rows(csv_path, delimiter=delimiter, encoding=encoding):
@@ -101,10 +124,9 @@ def import_csv_with_optional_account(
                     if account_name_raw:
                         account_name = account_name_raw.strip()
                         
-                        # Look up account by name using Connection Pool
+                        # Look up account by name (reuse same connection)
                         if account_name not in account_cache:
                             try:
-                                connection = pool_manager.get_connection(session_id)
                                 with UnitOfWork(connection) as uow:
                                     account_repo = AccountRepository(uow)
                                     account = account_repo.find_by_name(account_name)
@@ -141,56 +163,67 @@ def import_csv_with_optional_account(
                 date_value = parse_date(date_value_raw, date_format)
                 amount = parse_amount(amount_raw, decimal_sep)
                 
-                # Insert transaction and accounting entry using Connection Pool
-                connection = pool_manager.get_connection(session_id)
-                with UnitOfWork(connection) as uow:
-                    tx_repo = TransactionRepository(uow)
-                    
-                    transaction_id = tx_repo.insert_ignore(
-                        account_id=row_account_id,
-                        description=description,
-                        amount=amount,
-                        date_value=date_value,
-                        iban=iban or None,
-                        bic=bic or None,
-                        recipient_applicant=recipient or None,
+                # Batch insert rows for better performance
+                batch_rows.append(
+                    (
+                        iban or None,
+                        bic or None,
+                        description,
+                        amount,
+                        date_value,
+                        recipient or None,
+                        row_account_id,
                     )
-                    
-                    if isinstance(transaction_id, int) and transaction_id > 0:
-                        # Accounting entry is automatically created by database trigger
-                        # trg_transaction_create_accounting_entry - NO manual insert needed
-                        inserted += 1
+                )
+                if len(batch_rows) >= batch_size:
+                    flush_batch()
             
             except Exception as exc:
                 error_msg = str(exc).lower()
                 if "duplicate" not in error_msg and "unique" not in error_msg:
                     warnings.append(f"Row {total}: {str(exc)}")
     
+        # Flush remaining rows
+        flush_batch()
+
     except (ValueError, RuntimeError) as file_error:
         # CSV reading errors (encoding, no header, etc.)
         raise HTTPException(
             status_code=400,
             detail=f"CSV file error: {str(file_error)}"
         ) from file_error
+    finally:
+        # Gebe Connection zurück an Pool (wichtig!)
+        if connection:
+            try:
+                connection.close()  # Zurück an Pool
+            except Exception:
+                pass
     
-    # Apply auto-categorization
+    # Apply auto-categorization (uses separate connection)
     categorization_result = {"categorized": 0, "total_checked": 0}
     if inserted > 0:
+        cat_connection = None
+        cursor = None
         try:
             from api.routers.transactions import auto_categorize_entries
-            connection = pool_manager.get_connection(session_id)
-            cursor = None
-            try:
-                cursor = connection.cursor(buffered=True)
-                categorization_result = auto_categorize_entries(cursor, connection)
-            finally:
-                if cursor:
-                    try:
-                        cursor.close()
-                    except Exception:
-                        pass
+            cat_connection = pool_manager.get_connection(session_id)
+            cursor = cat_connection.cursor(buffered=True)
+            categorization_result = auto_categorize_entries(cursor, cat_connection)
         except Exception as cat_error:
             warnings.append(f"Auto-categorization failed: {str(cat_error)}")
+        finally:
+            # Gebe Cursor und Connection zurück an Pool (wichtig!)
+            if cursor:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+            if cat_connection:
+                try:
+                    cat_connection.close()  # Zurück an Pool
+                except Exception:
+                    pass
     
     result = {
         "success": True,
@@ -209,49 +242,5 @@ def import_csv_with_optional_account(
     return result
 
 
-def _get_field_value(row: dict[str, Any], mapping: Any) -> str:
-    """Extract field value from row using mapping configuration."""
-    if mapping is None:
-        return ""
-    
-    if isinstance(mapping, str):
-        return (row.get(mapping, "") or "").strip()
-    
-    if isinstance(mapping, dict):
-        if "join" in mapping:
-            # Join multiple columns
-            separator = mapping.get("separator", " ")
-            parts = [
-                (row.get(item, "") or "").strip()
-                for item in mapping.get("join", [])
-                if (row.get(item, "") or "").strip()
-            ]
-            return separator.join(parts)
-        
-        if "regex" in mapping:
-            # Regex extraction
-            import re
-            pattern = mapping.get("regex")
-            target = mapping.get("source")
-            value = row.get(target, "") or ""
-            matches = re.findall(pattern, value)
-            if not matches:
-                return ""
-            
-            def _flatten(m):
-                if isinstance(m, tuple):
-                    return "".join(m)
-                return m
-            
-            extracted = [_flatten(m) for m in matches if _flatten(m)]
-            return " | ".join(extracted)
-        
-        if "names" in mapping:
-            # Try alternative column names
-            names = mapping.get("names", [])
-            for name in names:
-                if name in row and (row.get(name) or "").strip():
-                    return (row.get(name, "") or "").strip()
-            return ""
-    
-    return ""
+# Legacy alias for backwards compatibility
+_get_field_value = extract_field_value

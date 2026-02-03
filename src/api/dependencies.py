@@ -260,6 +260,9 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Too many concurrent requests. Please try again in a moment."
         )
+    except HTTPException:
+        # Preserve explicit HTTP errors from route handlers
+        raise
     except Exception as e:
         print(f"Database error in get_db_cursor_with_auth: {e}")
         traceback.print_exc()
@@ -341,6 +344,9 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection error during transaction"
         )
+    except HTTPException:
+        # Preserve explicit HTTP errors from route handlers
+        raise
     except Exception as e:
         print(f"Unexpected error during transaction: {e}")
         traceback.print_exc()
