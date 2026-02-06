@@ -10,9 +10,9 @@ from auth.session_store import SessionNotFoundError, SessionExpiredError
 
 
 # Globale Referenzen (werden beim App-Start gesetzt)
-_session_store = None
-_pool_manager = None
-_config = None
+_session_store = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
+_pool_manager = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
+_config = None # finding: The configuration is loaded into 'config', use single source of truth to avoid confusion.
 
 
 def set_auth_globals(session_store, pool_manager, config):

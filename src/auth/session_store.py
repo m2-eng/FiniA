@@ -136,7 +136,7 @@ class SessionStore:
             
             del self.sessions[session_id]
     
-    def cleanup_expired_sessions(self) -> int:
+    def cleanup_expired_sessions(self) -> int: # review note: The call wass review but not the content of this function.
         """
         Entfernt abgelaufene Sessions.
         

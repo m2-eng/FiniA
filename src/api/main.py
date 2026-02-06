@@ -23,7 +23,7 @@ from pathlib import Path
 app = FastAPI(
     title="FiniA API",
     description="REST API for FiniA Financial Management System",
-    version="1.0.0",
+    version="0.1.0", # finding: version should be read from a single source of truth; reference to VERSION file
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
@@ -31,10 +31,10 @@ app = FastAPI(
 # CORS middleware for frontend access
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"], # finding: Configure appropriately for production
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"], # finding: Adjust methods as needed
+    allow_headers=["*"], # finding: Adjust headers as needed
 )
 
 # Include routers
@@ -57,7 +57,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "FiniA API",
-        "version": "1.0.0"
+        "version": "0.1.0" # finding: version should be read from a single source of truth; reference to VERSION file
     }
 
 # Mount static files for web frontend (registered AFTER API routes + health)
@@ -66,7 +66,7 @@ if web_path.exists():
     app.mount("/", StaticFiles(directory=str(web_path), html=True), name="web")
 
 
-@app.on_event("startup")
+@app.on_event("startup") # finding: 'on_event' is deprecated, use 'lifespan' event handler instead.
 async def startup_event():
     """Initialize database connection and auth modules on startup"""
     # Load config for auth
@@ -82,14 +82,14 @@ async def startup_event():
     print("⚠ All sessions will be invalidated on restart (by design)")
     
     # Initialize auth modules
-    auth_config = config.get('auth', {})
+    auth_config = config.get('auth', {}) # findig: maybe move loading 'auth_config' to the section of 'config' loading. Maybe it prevents confusion.
     session_store = SessionStore(
         encryption_key=encryption_key,
         timeout_seconds=auth_config.get('session_timeout_seconds', 3600)
     )
     
     # Get database config (single source of truth)
-    db_config = get_database_config()
+    db_config = get_database_config() # finding: The configuration is loaded into 'config', use single source of truth to avoid confusion.
     db_host = db_config.get('host', 'localhost')
     db_port = db_config.get('port', 3306)
     
@@ -105,16 +105,19 @@ async def startup_event():
     )
     
     # Set auth managers in dependencies and auth router
+    # finding: two functions using the same name 'set_auth_managers' is confusing, maybe rename one of them to clarify their purpose.
+    #          This function seems to be a duplicate and can be removed in favor of the one in the auth router.
     set_auth_managers(session_store, pool_manager, rate_limiter)
+
     
     # Update config with loaded secrets for auth router
     auth_config_with_secrets = {**config}
     auth_config_with_secrets['auth']['jwt_secret'] = jwt_secret
     auth.set_auth_managers(session_store, pool_manager, rate_limiter, auth_config_with_secrets)
-    
     # Set auth globals in middleware (für get_current_session dependency)
     set_auth_globals(session_store, pool_manager, auth_config_with_secrets)
     
+    # finding: Log design (.e.g indentation) and wording can be improved; maybe also add additional information to the log (e.g. docker module log shall show the 'INFO' messages)
     print("✓ Auth modules initialized")
     print("✓ Database config read from cfg/config.yaml")
     print("✓ All connections use Memory-Only session-based authentication")
@@ -132,8 +135,8 @@ async def session_cleanup_task(session_store: SessionStore):
             print(f"✓ Cleaned up {cleaned} expired session(s)")
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
+@app.on_event("shutdown") # finding: 'on_event' is deprecated, use 'lifespan' event handler instead.
+async def shutdown_event(): # finding: Not sure whether everything is closed, what should be closed and what not. Review the content again.
     """Close database connection and cleanup auth resources on shutdown"""
     # Cleanup connection pools
     from api.dependencies import _pool_manager
@@ -145,7 +148,7 @@ async def shutdown_event():
     # Close legacy database
     from api.dependencies import get_database
     try:
-        db = get_database()
+        db = get_database()  #finding: The configuration is loaded into 'config', use single source of truth to avoid confusion.
         db.close()
         print("✓ Database connection closed")
     except:
