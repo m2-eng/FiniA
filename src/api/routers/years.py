@@ -2,7 +2,7 @@
 Years API router - provides available years for dropdown
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status # finding: 'status' and 'HTTPException' are imported but not used in this file.
 from api.dependencies import get_db_cursor_with_auth
 from api.error_handling import handle_db_errors
 

@@ -15,12 +15,12 @@ class DatabaseConnectionError(Exception):
     pass
 
 
-class RetryableError(Exception):
+class RetryableError(Exception): # finding: This exception is defined but not used in the code.
     """Wird geworfen für Fehler, bei denen Retry sinnvoll ist"""
     pass
 
 
-def handle_db_errors(operation_name: str = "database operation"):
+def handle_db_errors(operation_name: str = "database operation"): # finding: Check for exceptions, which can be handled here instead of in individual endpoints.
     """
     Decorator für einheitliche Fehlerbehandlung in API-Endpunkten.
     
@@ -101,7 +101,7 @@ def handle_db_errors(operation_name: str = "database operation"):
     return decorator
 
 
-def get_cursor_with_retry(get_db_func, max_retries: int = 3):
+def get_cursor_with_retry(get_db_func, max_retries: int = 3): # finding: This function is defined but not used in the code.
     """
     Erstellt Cursor mit automatischem Reconnect bei Fehlern.
     

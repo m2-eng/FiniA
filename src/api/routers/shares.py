@@ -467,7 +467,7 @@ async def get_accounting_entry(
         JOIN tbl_transaction t ON ae.transaction = t.id
         WHERE ae.id = %s
     """
-    cursor.execute(query, (entry_id,))
+    cursor.execute(query, (entry_id,)) # finding: Use repository method instead. If no method exists, create one.
     row = cursor.fetchone()
     
     if not row:

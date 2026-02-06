@@ -11,7 +11,7 @@ from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_co
 from api.error_handling import handle_db_errors
 from services.category_automation import (
     evaluate_rule,
-    load_rules,
+    load_rules, # finding: 'load_rules' function is not used in this file.
     parse_condition_logic
 )
 from uuid import uuid4
@@ -51,7 +51,7 @@ class RuleData(BaseModel):
     enabled: bool = True
 
 
-class RuleResponse(BaseModel):
+class RuleResponse(BaseModel): # finding: 'RuleResponse' is not used.
     """Response model for rule"""
     id: str
     name: str
@@ -112,7 +112,7 @@ async def get_rules(
             category_id = rule.get('category')
             cursor.execute(
                 "SELECT name FROM tbl_category WHERE id = %s",
-                (category_id,)
+                (category_id,) # comma is needed to make it a tuple
             )
             cat_row = cursor.fetchone()
             category_name = cat_row[0] if cat_row else None
@@ -317,7 +317,9 @@ async def update_rule(
             """
 
             cursor.execute(insert_query, (json.dumps(rule),))
-            connection.commit()
+            connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
+
+            # finding: Here should be also 'safe_rollback' in case of errors during commit.
 
             return {
                 "id": new_rule_id,
@@ -328,7 +330,7 @@ async def update_rule(
         raise HTTPException(status_code=404, detail="Regel nicht gefunden")
     
     setting_id = row[0]
-    
+
     # Build updated rule
     now = datetime.now().isoformat()
     
@@ -364,7 +366,9 @@ async def update_rule(
     """
     jsonValue = json.dumps(rule)
     cursor.execute(update_query, (jsonValue, setting_id))
-    connection.commit()
+    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
+
+    # finding: Here should be also 'safe_rollback' in case of errors during commit.
     
     return {
         "id": rule_id,
@@ -389,7 +393,9 @@ async def delete_rule(
     """
     
     cursor.execute(delete_query, (rule_id,))
-    connection.commit()
+    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
+
+    # finding: Here should be also 'safe_rollback' in case of errors during commit.
     
     if cursor.rowcount == 0:
         raise HTTPException(status_code=404, detail="Regel nicht gefunden")

@@ -62,6 +62,7 @@ async def get_account_income(
     from datetime import date
     today = date.today()
 
+    # finding: The string can be simplified by extracting the substring, e.g. column names. The substring can be reused in other queries.
     query = """
         SELECT
           cat AS Kategorie,
@@ -1812,8 +1813,10 @@ async def update_account(
                 account_data.importFormat
             ))
     
-    connection.commit()
+    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
     
+    # finding: Here should be also 'safe_rollback' in case of errors during commit.
+
     # Return updated account
     return await get_account_detail(account_id, cursor)
 
@@ -1836,7 +1839,7 @@ async def delete_account(
     delete_query = "DELETE FROM tbl_account WHERE id = %s"
     cursor.execute(delete_query, (account_id,))
     
-    connection.commit()
+    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
     
     return {"message": "Konto erfolgreich gelöscht"}
 

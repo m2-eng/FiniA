@@ -84,7 +84,7 @@ class ColorPaletteResponse(BaseModel):
     class Config:
         populate_by_name = True
 
-class CategoryResponse(BaseModel):
+class CategoryResponse(BaseModel): # finding: category response model unused
     """Category response model"""
     id: int
     name: str
@@ -95,7 +95,7 @@ class CategoryResponse(BaseModel):
         from_attributes = True
 
 
-class CategoryCreateRequest(BaseModel):
+class CategoryCreateRequest(BaseModel): # finding: Create one base model for category (create/upodate)
     """Request model for creating a new category"""
     name: str
     parent_id: Optional[int] = None
@@ -104,7 +104,7 @@ class CategoryCreateRequest(BaseModel):
         from_attributes = True
 
 
-class CategoryUpdateRequest(BaseModel):
+class CategoryUpdateRequest(BaseModel): # finding: Create one base model for category (create/upodate)
     """Request model for updating a category"""
     name: Optional[str] = None
     parent_id: Optional[int] = None
@@ -150,7 +150,7 @@ class PlanningListResponse(BaseModel):
         from_attributes = True
 
 
-class PlanningCreateRequest(BaseModel):
+class PlanningCreateRequest(BaseModel): # finding: Create one base model for planning (create/upodate)
     """Request model for creating a new planning"""
     description: Optional[str] = None
     amount: Decimal
@@ -164,7 +164,7 @@ class PlanningCreateRequest(BaseModel):
         from_attributes = True
 
 
-class PlanningUpdateRequest(BaseModel):
+class PlanningUpdateRequest(BaseModel): # finding: Create one base model for planning (create/upodate)
     """Request model for updating a planning"""
     description: Optional[str] = None
     amount: Decimal

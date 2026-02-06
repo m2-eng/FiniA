@@ -62,6 +62,7 @@ async def get_account_balances(
     year_end_threshold = year * 100 + 12
 
     # Use correlated subselects to avoid cartesian products when combining real and planned sums
+    # finding: Use repository method instead of SQL command here. If no method exists, create one.
     query = """
         SELECT
           a.name AS Konto,
@@ -342,7 +343,7 @@ async def get_account_balances_monthly(
     params.extend([year, year])
     params = tuple(params)
 
-    rows, description = _execute_fetchall_with_retry(cursor, query, params, retries=1)
+    rows, description = _execute_fetchall_with_retry(cursor, query, params, retries=1) # finding: Is it the correct function. Single source and desgin!
     columns = [col[0] for col in description]
     data = [dict(zip(columns, row)) for row in rows]
 
@@ -367,7 +368,7 @@ async def get_investments(
     # Monatsenden des Zieljahres
     month_dates = [f"{year}-{month:02d}-01" for month in range(1, 13)]
 
-    def month_column(label: str, month_date: str) -> str:
+    def month_column(label: str, month_date: str) -> str: # finding: Example for simplifying the SQL generation with a helper function.
       return f"""
         (
           CASE
