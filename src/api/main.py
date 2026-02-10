@@ -23,7 +23,7 @@ from pathlib import Path
 app = FastAPI(
     title="FiniA API",
     description="REST API for FiniA Financial Management System",
-    version="0.1.0", # finding: version should be read from a single source of truth; reference to VERSION file
+    version=(Path(__file__).parent.parent.parent / "VERSION").read_text().strip(),
     docs_url="/api/docs",
     redoc_url="/api/redoc"
 )
@@ -57,7 +57,7 @@ def health_check():
     return {
         "status": "healthy",
         "service": "FiniA API",
-        "version": "0.1.0" # finding: version should be read from a single source of truth; reference to VERSION file
+        "version": (Path(__file__).parent.parent.parent / "VERSION").read_text().strip()
     }
 
 # Mount static files for web frontend (registered AFTER API routes + health)
@@ -78,6 +78,7 @@ async def startup_event():
     encryption_key = Fernet.generate_key().decode()
     jwt_secret = secrets.token_urlsafe(32)
     
+    print("--- FiniA ", (Path(__file__).parent.parent.parent / "VERSION").read_text().strip(), " ---")
     print("✓ Auth keys generated in memory (never stored on disk)")
     print("⚠ All sessions will be invalidated on restart (by design)")
     

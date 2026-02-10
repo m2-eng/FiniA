@@ -368,11 +368,12 @@ async def import_transactions(
                     try:
                         mapping, detected_version = importer._get_mapping(job.format, csv_file)
                         print(f"ℹ️  API Import - Format '{job.format}' - Erkannte Version: {detected_version} für {csv_file.name}") # finding: remove signs/emojis from log messages.
+                    except Exception as exc:
                         skipped_info.append(f"Mapping-Fehler für {job.account_name}/{csv_file.name}: {exc}")
                         continue
                     
                     # _import_file() holt intern bereits eine Connection aus dem Pool
-                    inserted, total = importer._import_file(csv_file, mapping, job) # finding: Unused code, remove it.
+                    inserted, total = importer._import_file(csv_file, mapping, job)
                     overall_inserted += inserted
                     overall_total += total
                     imported_files.append({
