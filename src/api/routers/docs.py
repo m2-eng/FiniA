@@ -13,7 +13,7 @@ router = APIRouter()
 DOCS_BASE_PATH = Path(__file__).parent.parent.parent.parent / "docs"
 
 
-@router.get("/docs/{file_path:path}") # finding: Harden the path to prevent attacks.
+@router.get("/docs/{file_path:path}")
 async def get_documentation(file_path: str):
     """
     Serve markdown documentation files
@@ -22,7 +22,7 @@ async def get_documentation(file_path: str):
     """
     try:
         # Prevent directory traversal attacks
-        if ".." in file_path:
+        if ".." in file_path or not file_path.endswith(".md"):
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Construct full file path
