@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+from contextlib import asynccontextmanager, suppress
 
 from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings, auth, docs
 from api.dependencies import get_database_config, set_auth_managers
@@ -19,13 +20,22 @@ import asyncio
 import secrets
 from pathlib import Path
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await startup_event(app)
+    try:
+        yield
+    finally:
+        await shutdown_event(app)
+
 # Initialize FastAPI app
 app = FastAPI(
     title="FiniA API",
     description="REST API for FiniA Financial Management System",
     version=(Path(__file__).parent.parent.parent / "VERSION").read_text().strip(),
     docs_url="/api/docs",
-    redoc_url="/api/redoc"
+    redoc_url="/api/redoc",
+    lifespan=lifespan,
 )
 
 # CORS middleware for frontend access
@@ -66,8 +76,7 @@ if web_path.exists():
     app.mount("/", StaticFiles(directory=str(web_path), html=True), name="web")
 
 
-@app.on_event("startup") # finding: 'on_event' is deprecated, use 'lifespan' event handler instead.
-async def startup_event():
+async def startup_event(app: FastAPI):
     """Initialize database connection and auth modules on startup"""
     # Load config for auth
     config_path = Path(__file__).parent.parent.parent / "cfg" / "config.yaml"
@@ -124,7 +133,9 @@ async def startup_event():
     print("✓ All connections use Memory-Only session-based authentication")
     
     # Start background session cleanup task
-    asyncio.create_task(session_cleanup_task(session_store))
+    app.state.session_cleanup_task = asyncio.create_task(
+        session_cleanup_task(session_store)
+    )
 
 
 async def session_cleanup_task(session_store: SessionStore):
@@ -136,9 +147,15 @@ async def session_cleanup_task(session_store: SessionStore):
             print(f"✓ Cleaned up {cleaned} expired session(s)")
 
 
-@app.on_event("shutdown") # finding: 'on_event' is deprecated, use 'lifespan' event handler instead.
-async def shutdown_event(): # finding: Not sure whether everything is closed, what should be closed and what not. Review the content again.
+async def shutdown_event(app: FastAPI): # finding: Not sure whether everything is closed, what should be closed and what not. Review the content again.
     """Close database connection and cleanup auth resources on shutdown"""
+    # Stop background cleanup task
+    cleanup_task = getattr(app.state, "session_cleanup_task", None)
+    if cleanup_task:
+        cleanup_task.cancel()
+        with suppress(asyncio.CancelledError):
+            await cleanup_task
+
     # Cleanup connection pools
     from api.dependencies import _pool_manager
     if _pool_manager:
