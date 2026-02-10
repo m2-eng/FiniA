@@ -2,35 +2,35 @@
 FastAPI dependencies for database access and authentication
 """
 
-from typing import Generator, Optional
+from typing import Generator, Optional # finding: Not needed imports shall be removed.
 from contextvars import ContextVar
 from fastapi import Depends, HTTPException, status
 from mysql.connector.errors import OperationalError, InterfaceError, DatabaseError, PoolError
 from Database import Database
 from utils import load_config
 import traceback
-from api.error_handling import get_cursor_with_retry
+from api.error_handling import get_cursor_with_retry # finding: Not needed imports shall be removed.
 from api.auth_middleware import get_current_session
 
 
 # Global database instance (initialized on startup)
-_db_instance: Database | None = None
+_db_instance: Database | None = None # finding: Is this the correct database instance? Does the authentication uses the same database instance?
 _request_connection: ContextVar[object] = ContextVar("request_connection", default=None)
 
 # Global credentials storage (set before API startup)
-_db_credentials: dict = {}
+_db_credentials: dict = {} # finding: Is this a dupolicate of the configuration loaded elsewhere?
 
 # Auth-related globals (set when auth is enabled)
-_pool_manager = None
-_session_store = None
+_pool_manager = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
+_session_store = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
 
 
-def get_database_config() -> dict:
+def get_database_config() -> dict: # finding: The configuration is loaded into 'config', use single source of truth to avoid confusion. The function can be removed.
     """Load database configuration from config file."""
     return load_config('cfg/config.yaml')
 
 
-def get_database() -> Database:
+def get_database() -> Database: # finding: Is this the correct database instance?
     """
     Get database instance (singleton pattern).
     
@@ -45,16 +45,16 @@ def get_database() -> Database:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database not initialized"
         )
-    return _db_instance
+    return _db_instance # finding: Is this the correct database instance?
 
 
-def set_database_instance(db: Database):
+def set_database_instance(db: Database): # finding: Is this the correct database instance? [#77]
     """Set the global database instance."""
     global _db_instance
     _db_instance = db
 
 
-def set_database_credentials(user: str, password: str, host: str = None, name: str = None, port: int = None):
+def set_database_credentials(user: str, password: str, host: str = None, name: str = None, port: int = None): # finding: Is this the correct database instance? Is this a duplicate? [#77]
     """Set database credentials for API startup."""
     global _db_credentials
     _db_credentials = {
@@ -66,7 +66,7 @@ def set_database_credentials(user: str, password: str, host: str = None, name: s
     }
 
 
-def set_auth_managers(session_store, pool_manager, rate_limiter):
+def set_auth_managers(session_store, pool_manager, rate_limiter): # Two functions using the same name 'set_auth_managers' is confusing
     """Set auth managers for session-based authentication."""
     global _pool_manager, _session_store
     _session_store = session_store
@@ -74,12 +74,12 @@ def set_auth_managers(session_store, pool_manager, rate_limiter):
     # rate_limiter wird derzeit nicht in dependencies verwendet
 
 
-def get_database_credentials() -> dict:
+def get_database_credentials() -> dict: # finding: Is this a duplicate?
     """Get stored database credentials."""
     return _db_credentials
 
 
-def get_db_cursor():
+def get_db_cursor(): # finding: This is an old function. Only the function 'get_db_cursor_with_auth' shall be used, the old one can be removed.
     """
     Liefert einen Cursor. Nutzt eine request-lokale Verbindung, falls vorhanden,
     sonst wird kurzlebig eine eigene Verbindung aufgebaut und wieder geschlossen.
@@ -137,7 +137,7 @@ def get_db_cursor():
                 pass
 
 
-def get_db_connection():
+def get_db_connection(): # finding: This is an old function. Only the function 'get_db_connection_with_auth' shall be used, the old one can be removed.
     """
     Liefert eine request-lokale Verbindung für Transaktionen (commit/rollback).
     Cursor-Abhängigkeiten greifen auf dieselbe Verbindung via ContextVar zu.
@@ -221,7 +221,7 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
     
     try:
         # Connection aus Session-Pool holen
-        conn = _pool_manager.get_connection(session_id)
+        conn = _pool_manager.get_connection(session_id) # finding: The link to the definition of the function 'get_connection' cannot be resolved.
         
         if not conn:
             raise HTTPException(
@@ -232,7 +232,7 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
         cursor = conn.cursor(buffered=True)
         
         # Session-Timeouts erhöhen
-        try:
+        try: # finding: add a parameter to 'config.yaml' to define the timeout values
             cursor.execute("SET SESSION net_read_timeout=120")
             cursor.execute("SET SESSION net_write_timeout=120")
             try:
@@ -311,7 +311,7 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
     conn = None
     
     try:
-        conn = _pool_manager.get_connection(session_id)
+        conn = _pool_manager.get_connection(session_id) # finding: The link to the definition of the function 'get_connection' cannot be resolved.
         
         if not conn:
             raise HTTPException(

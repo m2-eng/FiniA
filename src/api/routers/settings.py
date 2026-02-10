@@ -677,7 +677,7 @@ async def delete_planning_cycle(
     repo = PlanningCycleRepository(cursor)
     existing = repo.get_by_id(cycle_id)
     if not existing:
-        raise HTTPException(
+        raise HTTPException( # finding: Move exceptions and/or messages to a central place for consistency and easier maintenance.
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Planning cycle with ID {cycle_id} not found"
         )

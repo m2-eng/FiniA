@@ -13,7 +13,7 @@ router = APIRouter()
 DOCS_BASE_PATH = Path(__file__).parent.parent.parent.parent / "docs"
 
 
-@router.get("/docs/{file_path:path}")
+@router.get("/docs/{file_path:path}") # finding: Harden the path to prevent attacks.
 async def get_documentation(file_path: str):
     """
     Serve markdown documentation files

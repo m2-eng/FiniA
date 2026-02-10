@@ -21,8 +21,8 @@ from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from decimal import Decimal
 from Database import Database
 from services.account_data_importer import AccountDataImporter
-from infrastructure.unit_of_work import UnitOfWork
-from repositories.account_import_repository import AccountImportRepository
+from infrastructure.unit_of_work import UnitOfWork # finding: UnitOfWork is imported but not used in this file. Consider removing if not needed.
+from repositories.account_import_repository import AccountImportRepository # finding: AccountImportRepository is imported but not used in this file. Consider removing if not needed.
 from services.category_automation import load_rules, apply_rules_to_transaction
 import tempfile
 import os
@@ -68,7 +68,7 @@ def auto_categorize_entries(cursor, connection) -> dict:
         ORDER BY t.dateValue DESC
     """
     
-    cursor.execute(query)
+    cursor.execute(query) # finding: Use repository method instead of SQL command here. If no method exists, create one.
     entries = cursor.fetchall()
     
     if not entries:
@@ -113,7 +113,7 @@ def auto_categorize_entries(cursor, connection) -> dict:
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
-@router.get("/import-formats")
+@router.get("/import-formats") # finding: missing error handling
 async def get_import_formats(
     cursor=Depends(get_db_cursor),
     connection=Depends(get_db_connection)
@@ -367,13 +367,12 @@ async def import_transactions(
                 for csv_file in files:
                     try:
                         mapping, detected_version = importer._get_mapping(job.format, csv_file)
-                        print(f"ℹ️  API Import - Format '{job.format}' - Erkannte Version: {detected_version} für {csv_file.name}")
-                    except Exception as exc:
+                        print(f"ℹ️  API Import - Format '{job.format}' - Erkannte Version: {detected_version} für {csv_file.name}") # finding: remove signs/emojis from log messages.
                         skipped_info.append(f"Mapping-Fehler für {job.account_name}/{csv_file.name}: {exc}")
                         continue
                     
                     # _import_file() holt intern bereits eine Connection aus dem Pool
-                    inserted, total = importer._import_file(csv_file, mapping, job)
+                    inserted, total = importer._import_file(csv_file, mapping, job) # finding: Unused code, remove it.
                     overall_inserted += inserted
                     overall_total += total
                     imported_files.append({
@@ -388,7 +387,7 @@ async def import_transactions(
             if overall_inserted > 0:
                 cat_connection = None
                 try:
-                    cat_connection = pool_manager.get_connection(session_id)
+                    cat_connection = pool_manager.get_connection(session_id) # finding: Another variant to get the connection.
                     categorization_result = auto_categorize_entries(cursor, cat_connection)
                 except Exception as cat_error:
                     skipped_info.append(f"Automatische Kategorisierung fehlgeschlagen: {cat_error}")
@@ -442,7 +441,7 @@ async def import_transactions(
 @router.post("/auto-categorize")
 @handle_db_errors("auto categorize transactions")
 async def auto_categorize_transactions(
-    request: AutoCategorizeRequest,
+    request: AutoCategorizeRequest, # finding: Remove unused code
     cursor = Depends(get_db_cursor),
     connection = Depends(get_db_connection)
 ):
@@ -495,7 +494,7 @@ async def import_csv_file(
     
     try:
         # Create importer instance for format validation
-        importer = AccountDataImporter(pool_manager, session_id)
+        importer = AccountDataImporter(pool_manager, session_id) # finding: Check design. Is it correct to handover the pool_manager
         
         # Create temporary file
         with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.csv') as temp_file:
@@ -506,7 +505,7 @@ async def import_csv_file(
         # Get format mapping
         try:
             mapping, detected_version = importer._get_mapping(format, Path(temp_file_path))
-            print(f"ℹ️  API Import - Format '{format}' - Erkannte Version: {detected_version}")
+            print(f"ℹ️  API Import - Format '{format}' - Erkannte Version: {detected_version}") # finding: remove signs/emojis from log messages.
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

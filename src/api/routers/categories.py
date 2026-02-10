@@ -34,7 +34,7 @@ async def get_categories(
 
 @router.get("/hierarchy")
 @handle_db_errors("fetch category hierarchy")
-async def get_categories_hierarchy(
+async def get_categories_hierarchy( # finding: Add 'paginated' to the function name.
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(100, ge=1, le=1000, description="Records per page"),
     cursor=Depends(get_db_cursor)

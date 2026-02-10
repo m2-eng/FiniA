@@ -11,7 +11,7 @@ from api.models import (
     PlanningCreateRequest,
     PlanningUpdateRequest,
     PlanningCycleResponse,
-    PlanningEntryResponse,
+    PlanningEntryResponse, # finding: PlanningEntryResponse is not used in this file.
     PlanningEntriesResponse
 )
 from api.error_handling import handle_db_errors, safe_commit
