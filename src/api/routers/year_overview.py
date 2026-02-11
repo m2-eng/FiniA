@@ -4,7 +4,7 @@ Year overview API router - exposes account balances at the start of each month f
 
 from fastapi import APIRouter, Depends, Query
 from mysql.connector import OperationalError
-from api.dependencies import get_db_cursor_with_auth as get_db_cursor
+from api.dependencies import get_db_cursor_with_auth
 from typing import Tuple, List
 from api.error_handling import handle_db_errors
 
@@ -50,7 +50,7 @@ def _execute_fetchall_with_retry(cursor, query: str, params: Tuple, retries: int
 @handle_db_errors("fetch account balances")
 async def get_account_balances(
   year: int = Query(..., ge=1900, le=3000, description="Year for which balances are requested"),
-  cursor = Depends(get_db_cursor)
+  cursor = Depends(get_db_cursor_with_auth)
 ):
     """Return monthly starting balances per account for the selected year.
     Includes future planning entries (tbl_planningEntry) only for dates after today.
@@ -213,7 +213,7 @@ async def get_account_balances(
 @handle_db_errors("fetch monthly account balances")
 async def get_account_balances_monthly(
   year: int = Query(..., ge=1900, le=3000, description="Year for which monthly balances are requested"),
-  cursor = Depends(get_db_cursor)
+  cursor = Depends(get_db_cursor_with_auth)
 ):
     """Return monthly delta balances per account for the selected year (Grafana 'Bilanz').
     Real accounting entries are counted only up to today; planning entries only after today.
@@ -354,7 +354,7 @@ async def get_account_balances_monthly(
 @handle_db_errors("fetch investments overview")
 async def get_investments(
   year: int = Query(..., ge=1900, le=3000, description="Year for which investments overview is requested"),
-  cursor = Depends(get_db_cursor)
+  cursor = Depends(get_db_cursor_with_auth)
 ):
     """Return investment platform account balances per month for the selected year (Investment-Plattform - Typ 5).
     
@@ -459,7 +459,7 @@ async def get_investments(
 @handle_db_errors("fetch loans overview")
 async def get_loans(
   year: int = Query(..., ge=1900, le=3000, description="Year for which loans overview is requested"),
-  cursor = Depends(get_db_cursor)
+  cursor = Depends(get_db_cursor_with_auth)
 ):
     """Return loan account balances per month for the selected year (Darlehen - Typ 3).
     
@@ -562,7 +562,7 @@ async def get_loans(
 
 @router.get("/securities")
 @handle_db_errors("fetch securities overview")
-async def get_securities_overview(year: int = Query(...), cursor=Depends(get_db_cursor)):
+async def get_securities_overview(year: int = Query(...), cursor=Depends(get_db_cursor_with_auth)):
     """Get securities portfolio values for each month-end of the given year.
     Only includes shares that have at least one month with volume > 0 (were actually held)."""
     query = """
@@ -610,7 +610,7 @@ async def get_securities_overview(year: int = Query(...), cursor=Depends(get_db_
 @handle_db_errors("fetch assets month-end overview")
 async def get_assets_month_end(
   year: int = Query(..., ge=1900, le=3000, description="Year for which assets month-end overview is requested"),
-  cursor = Depends(get_db_cursor)
+  cursor = Depends(get_db_cursor_with_auth)
 ):
     """Aggregated assets at month-end, split into categories: Kontostand (Girokonto), Darlehen, Wertpapiere.
     
@@ -877,3 +877,4 @@ async def get_assets_month_end(
     data = [dict(zip(columns, row)) for row in rows]
 
     return {"year": year, "rows": data}
+

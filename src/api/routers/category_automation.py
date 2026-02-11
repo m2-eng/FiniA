@@ -7,11 +7,10 @@ from typing import Optional, List
 from pydantic import BaseModel
 import json
 import re
-from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection
+from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
 from api.error_handling import handle_db_errors
 from services.category_automation import (
     evaluate_rule,
-    load_rules, # finding: 'load_rules' function is not used in this file.
     parse_condition_logic
 )
 from uuid import uuid4
@@ -51,22 +50,6 @@ class RuleData(BaseModel):
     enabled: bool = True
 
 
-class RuleResponse(BaseModel): # finding: 'RuleResponse' is not used.
-    """Response model for rule"""
-    id: str
-    name: str
-    description: Optional[str]
-    conditions: List[dict]
-    conditionLogic: Optional[str]
-    category: int
-    category_name: Optional[str]
-    accounts: List[int]
-    priority: int
-    enabled: bool
-    dateCreated: str
-    dateModified: str
-
-
 class TestRuleRequest(BaseModel):
     """Payload for testing a rule"""
     rule: RuleData
@@ -78,7 +61,7 @@ class TestRuleRequest(BaseModel):
 async def get_rules(
     account: Optional[int] = Query(None, description="Filter by account ID"),
     enabled_only: bool = Query(True, description="Only return enabled rules"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get all automation rules from settings table.
@@ -149,7 +132,7 @@ async def get_rules(
 @handle_db_errors("fetch rule by ID")
 async def get_rule_by_id(
     rule_id: str = Path(..., description="Rule UUID"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """Get a specific rule by ID."""
     query = """
@@ -200,8 +183,8 @@ async def get_rule_by_id(
 @handle_db_errors("create category automation rule")
 async def create_rule(
     rule_data: RuleData,
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """Create a new category automation rule."""
     
@@ -260,8 +243,8 @@ async def create_rule(
 async def update_rule(
     rule_id: str = Path(..., description="Rule UUID"),
     rule_data: RuleData = None,
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """Update an existing rule."""
 
@@ -381,8 +364,8 @@ async def update_rule(
 @handle_db_errors("delete category automation rule")
 async def delete_rule(
     rule_id: str = Path(..., description="Rule UUID"),
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """Delete a rule."""
     
@@ -410,7 +393,7 @@ async def delete_rule(
 @handle_db_errors("test category automation rule")
 async def test_rule(
     payload: TestRuleRequest,
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """Test a rule against sample transaction data."""
     
@@ -472,3 +455,4 @@ async def test_rule(
         "logicEvaluation": logic_result,
         "transaction": transaction
     }
+

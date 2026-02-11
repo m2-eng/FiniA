@@ -111,41 +111,6 @@ def set_auth_managers(
     print("✓ Auth router managers set")
 
 
-def init_auth(app_config: dict, db_host: str, db_port: int): # finding: This function seems to be a duplicate of set_auth_managers() and can be removed.
-    """
-    DEPRECATED: Verwenden Sie stattdessen set_auth_managers().
-    
-    Initialisiert Auth-Module beim App-Start.
-    
-    Args:
-        app_config: Config-Dict mit auth-Sektion
-        db_host: MySQL Host
-        db_port: MySQL Port
-    """
-    global session_store, pool_manager, rate_limiter, config
-    
-    auth_config = app_config.get('auth', {})
-    config = app_config
-    
-    session_store = SessionStore(
-        encryption_key=auth_config.get('encryption_key'),
-        timeout_seconds=auth_config.get('session_timeout_seconds', 3600)
-    )
-    
-    pool_manager = ConnectionPoolManager(
-        host=db_host,
-        port=db_port,
-        pool_size=5
-    )
-    
-    rate_limiter = LoginRateLimiter(
-        max_attempts=auth_config.get('max_login_attempts', 5),
-        window_minutes=auth_config.get('rate_limit_window_minutes', 15)
-    )
-    
-    print("✓ Authentication modules initialized")
-
-
 class LoginRequest(BaseModel):
     """Login-Request Model."""
     username: str
