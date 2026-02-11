@@ -3,12 +3,13 @@ import yaml
 from pathlib import Path
 from typing import Any
 
-def load_config(config_path: str = 'config.yaml') -> dict[str, Any]:
+def load_config(config_path: str = 'config.yaml', subconfig: str = None) -> dict[str, Any]:
    """
    Load database configuration from YAML file.
    
    Args:
       config_path: Path to config.yaml file.
+      subconfig: Optional sub-configuration key to extract specific configuration.
       
    Returns:
       Database configuration as a dictionary.
@@ -22,10 +23,14 @@ def load_config(config_path: str = 'config.yaml') -> dict[str, Any]:
             config = yaml.safe_load(f)
 
             # Extract defaults from config if available
-            if config and 'database' in config:
-               return config['database']
+            if subconfig:
+                if subconfig in config:
+                    return config[subconfig]
+                else:
+                    raise KeyError(f"Sub-configuration '{subconfig}' not found in configuration")
             else:
-               raise KeyError("Database configuration not found in config.yaml")
+                return config
+
 
    except Exception as e:
       raise RuntimeError(f"Failed to load config.yaml: {e}")
