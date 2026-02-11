@@ -8,12 +8,12 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 
-class SessionNotFoundError(Exception):
+class SessionNotFoundError(Exception): # finding: Store exception message within the class to avoid hardcoding strings in multiple places.
     """Session-ID existiert nicht."""
     pass
 
 
-class SessionExpiredError(Exception):
+class SessionExpiredError(Exception):  # finding: Store exception message within the class to avoid hardcoding strings in multiple places.
     """Session ist abgelaufen."""
     pass
 
@@ -67,7 +67,7 @@ class SessionStore:
         
         return session_id
     
-    def get_credentials(self, session_id: str) -> Dict[str, str]:
+    def get_credentials(self, session_id: str) -> Dict[str, str]: # finding: This method is not used in the codebase and can be removed.
         """
         Holt Credentials aus Session.
         

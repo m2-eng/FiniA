@@ -98,7 +98,7 @@ async def get_current_session(authorization: Optional[str] = Header(None, alias=
         )
 
 
-async def get_db_connection(session_id: str = Header(..., alias="X-Session-ID")):
+async def get_db_connection(session_id: str = Header(..., alias="X-Session-ID")): # finding: method is deprecated, consider removing it to avoid confusion. Use get_db_cursor_with_auth instead. 
     """
     Dependency: Gibt DB-Connection für aktuelle Session zurück.
     

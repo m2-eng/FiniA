@@ -111,7 +111,7 @@ def set_auth_managers(
     print("✓ Auth router managers set")
 
 
-def init_auth(app_config: dict, db_host: str, db_port: int):
+def init_auth(app_config: dict, db_host: str, db_port: int): # finding: This function seems to be a duplicate of set_auth_managers() and can be removed.
     """
     DEPRECATED: Verwenden Sie stattdessen set_auth_managers().
     

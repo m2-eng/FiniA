@@ -125,7 +125,7 @@ async def startup_event(app: FastAPI):
     auth_config_with_secrets['auth']['jwt_secret'] = jwt_secret
     auth.set_auth_managers(session_store, pool_manager, rate_limiter, auth_config_with_secrets)
     # Set auth globals in middleware (für get_current_session dependency)
-    set_auth_globals(session_store, pool_manager, auth_config_with_secrets)
+    set_auth_globals(session_store, pool_manager, auth_config_with_secrets) # finding: The 'session_store' should be the same instance across the application, consider using a single source of truth to avoid confusion.
     
     # finding: Log design (.e.g indentation) and wording can be improved; maybe also add additional information to the log (e.g. docker module log shall show the 'INFO' messages)
     print("✓ Auth modules initialized")
