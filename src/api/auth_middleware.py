@@ -2,28 +2,19 @@
 Authentication middleware und dependencies.
 """
 
-from fastapi import Header, HTTPException, status
+# JWT session dependency using app auth context.
+
+from fastapi import Header, HTTPException, Request, status
 import jwt
 from typing import Optional
 
 from auth.session_store import SessionNotFoundError, SessionExpiredError
+from api.auth_context import get_auth_context
 
-
-# Globale Referenzen (werden beim App-Start gesetzt)
-_session_store = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
-_pool_manager = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
-_config = None # finding: The configuration is loaded into 'config', use single source of truth to avoid confusion.
-
-
-def set_auth_globals(session_store, pool_manager, config):
-    """Setzt globale Auth-Referenzen."""
-    global _session_store, _pool_manager, _config
-    _session_store = session_store
-    _pool_manager = pool_manager
-    _config = config
-
-
-async def get_current_session(authorization: Optional[str] = Header(None, alias="Authorization")) -> str:
+async def get_current_session(
+    request: Request,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
+) -> str:
     """
     Dependency: Extrahiert Session-ID aus JWT-Token.
     
@@ -41,17 +32,13 @@ async def get_current_session(authorization: Optional[str] = Header(None, alias=
             headers={"WWW-Authenticate": "Bearer"}
         )
     
-    if not _config or not _session_store:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication service nicht verfügbar"
-        )
+    auth_context = get_auth_context(request)
     
     try:
         # "Bearer <token>" → <token>
         token = authorization.replace("Bearer ", "").strip()
         
-        auth_config = _config.get('auth', {})
+        auth_config = auth_context.config.get('auth', {})
         payload = jwt.decode(
             token,
             auth_config.get('jwt_secret'),
@@ -68,7 +55,7 @@ async def get_current_session(authorization: Optional[str] = Header(None, alias=
             )
         
         # Session-Aktivität aktualisieren
-        _session_store.update_activity(session_id)
+        auth_context.session_store.update_activity(session_id)
         
         return session_id
         
@@ -96,13 +83,3 @@ async def get_current_session(authorization: Optional[str] = Header(None, alias=
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session abgelaufen. Bitte neu einloggen."
         )
-
-
-def get_session_store():
-    """Gibt Session Store zurück."""
-    return _session_store
-
-
-def get_pool_manager():
-    """Gibt Pool Manager zurück."""
-    return _pool_manager

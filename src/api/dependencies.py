@@ -8,6 +8,7 @@ from mysql.connector.errors import OperationalError, InterfaceError, DatabaseErr
 from Database import Database
 from utils import load_config
 import traceback
+from api.auth_context import AuthContext, get_auth_context
 from api.auth_middleware import get_current_session
 
 
@@ -17,10 +18,6 @@ _request_connection: ContextVar[object] = ContextVar("request_connection", defau
 
 # Global credentials storage (set before API startup)
 _db_credentials: dict = {} # finding: Is this a dupolicate of the configuration loaded elsewhere?
-
-# Auth-related globals (set when auth is enabled)
-_pool_manager = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
-_session_store = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
 
 
 def get_database_config(subconfig: str = None) -> dict:
@@ -64,14 +61,6 @@ def set_database_credentials(user: str, password: str, host: str = None, name: s
     }
 
 
-def set_auth_managers(session_store, pool_manager, rate_limiter): # Two functions using the same name 'set_auth_managers' is confusing
-    """Set auth managers for session-based authentication."""
-    global _pool_manager, _session_store
-    _session_store = session_store
-    _pool_manager = pool_manager
-    # rate_limiter wird derzeit nicht in dependencies verwendet
-
-
 def get_database_credentials() -> dict: # finding: Is this a duplicate?
     """Get stored database credentials."""
     return _db_credentials
@@ -81,7 +70,10 @@ def get_database_credentials() -> dict: # finding: Is this a duplicate?
 # Session-based Auth Dependencies
 # ============================================================================
 
-def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
+def get_db_cursor_with_auth(
+    session_id: str = Depends(get_current_session),
+    auth_context: AuthContext = Depends(get_auth_context),
+):
     """
     Liefert Cursor basierend auf Session-Auth (Connection Pool).
     
@@ -93,7 +85,7 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
     Yields:
         MySQL Cursor
     """
-    if not _pool_manager:
+    if not auth_context.pool_manager:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Session-based authentication not configured"
@@ -105,7 +97,7 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
     
     try:
         # Connection aus Session-Pool holen
-        conn = _pool_manager.get_connection(session_id) # finding: The link to the definition of the function 'get_connection' cannot be resolved.
+        conn = auth_context.pool_manager.get_connection(session_id)
         
         if not conn:
             raise HTTPException(
@@ -177,7 +169,10 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
                 pass
 
 
-def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
+def get_db_connection_with_auth(
+    session_id: str = Depends(get_current_session),
+    auth_context: AuthContext = Depends(get_auth_context),
+):
     """
     Liefert Connection basierend auf Session-Auth für Transaktionen.
     
@@ -187,7 +182,7 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
     Yields:
         MySQL Connection
     """
-    if not _pool_manager:
+    if not auth_context.pool_manager:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Session-based authentication not configured"
@@ -197,7 +192,7 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
     db_config = get_database_config('database')
     
     try:
-        conn = _pool_manager.get_connection(session_id) # finding: The link to the definition of the function 'get_connection' cannot be resolved.
+        conn = auth_context.pool_manager.get_connection(session_id)
         
         if not conn:
             raise HTTPException(
@@ -249,7 +244,7 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
                 pass
 
 
-def get_pool_manager():
+def get_pool_manager(auth_context: AuthContext = Depends(get_auth_context)):
     """
     Liefert den ConnectionPoolManager für Importe.
     
@@ -259,9 +254,9 @@ def get_pool_manager():
     Raises:
         HTTPException: Wenn Pool Manager nicht initialisiert
     """
-    if not _pool_manager:
+    if not auth_context.pool_manager:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Session-based authentication not configured"
         )
-    return _pool_manager
+    return auth_context.pool_manager

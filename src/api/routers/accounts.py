@@ -4,7 +4,7 @@ Account details API router - provides income/expense breakdown per account
 
 from fastapi import APIRouter, Depends, Query, HTTPException, Path, UploadFile, File
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth, get_pool_manager
-from api.error_handling import handle_db_errors
+from api.error_handling import handle_db_errors, safe_commit
 from api.auth_middleware import get_current_session
 from api.models import AccountData
 from services.import_service import ImportService
@@ -1735,7 +1735,6 @@ async def get_account_detail(
 async def update_account(
     account_id: int = Path(..., gt=0),
     account_data: AccountData = None,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """
@@ -1744,21 +1743,23 @@ async def update_account(
     if not account_data:
         raise HTTPException(status_code=400, detail="Keine Daten übergeben")
     
-    # Update main account table
-    update_query = """
-        UPDATE tbl_account
-        SET name = %s,
-            iban_accountNumber = %s,
-            bic_market = %s,
-            type = %s,
-            startAmount = %s,
-            dateStart = %s,
-            dateEnd = %s,
-            clearingAccount = %s
-        WHERE id = %s
-    """
-    
-    cursor.execute(update_query, (
+    cursor = connection.cursor(buffered=True)
+    try:
+        # Update main account table
+        update_query = """
+            UPDATE tbl_account
+            SET name = %s,
+                iban_accountNumber = %s,
+                bic_market = %s,
+                type = %s,
+                startAmount = %s,
+                dateStart = %s,
+                dateEnd = %s,
+                clearingAccount = %s
+            WHERE id = %s
+        """
+            
+        cursor.execute(update_query, (
         account_data.name,
         account_data.iban_accountNumber,
         account_data.bic_market,
@@ -1768,65 +1769,76 @@ async def update_account(
         account_data.dateEnd if account_data.dateEnd else None,
         account_data.clearingAccount,
         account_id
-    ))
-    
-    # Update or create import path
-    if account_data.importPath and account_data.importFormat:
-        check_query = "SELECT id FROM tbl_accountImportPath WHERE account = %s"
-        cursor.execute(check_query, (account_id,))
-        existing = cursor.fetchone()
-        
-        if existing:
-            path_update_query = """
-                UPDATE tbl_accountImportPath
-                SET path = %s, importFormat = %s
-                WHERE account = %s
-            """
-            cursor.execute(path_update_query, (
-                account_data.importPath,
-                account_data.importFormat,
-                account_id
-            ))
-        else:
-            path_insert_query = """
-                INSERT INTO tbl_accountImportPath (dateImport, path, account, importFormat)
-                VALUES (NOW(), %s, %s, %s)
-            """
-            cursor.execute(path_insert_query, (
-                account_data.importPath,
-                account_id,
-                account_data.importFormat
-            ))
-    
-    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
-    
-    # finding: Here should be also 'safe_rollback' in case of errors during commit.
+        ))
+            
+        # Update or create import path
+        if account_data.importPath and account_data.importFormat:
+            check_query = "SELECT id FROM tbl_accountImportPath WHERE account = %s"
+            cursor.execute(check_query, (account_id,))
+            existing = cursor.fetchone()
+                    
+            if existing:
+                path_update_query = """
+                    UPDATE tbl_accountImportPath
+                    SET path = %s, importFormat = %s
+                    WHERE account = %s
+                """
+                cursor.execute(path_update_query, (
+                    account_data.importPath,
+                    account_data.importFormat,
+                    account_id
+                ))
+            else:
+                path_insert_query = """
+                    INSERT INTO tbl_accountImportPath (dateImport, path, account, importFormat)
+                    VALUES (NOW(), %s, %s, %s)
+                """
+                cursor.execute(path_insert_query, (
+                    account_data.importPath,
+                    account_id,
+                    account_data.importFormat
+                ))
+            
+        safe_commit(connection)
+            
+        # finding: Here should be also 'safe_rollback' in case of errors during commit.
 
-    # Return updated account
-    return await get_account_detail(account_id, cursor)
+        # Return updated account
+        return await get_account_detail(account_id, cursor)
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/{account_id}")
 @handle_db_errors("delete account")
 async def delete_account(
     account_id: int = Path(..., gt=0),
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """
     Delete an account and related import paths.
     """
-    # Delete import paths first
-    delete_paths_query = "DELETE FROM tbl_accountImportPath WHERE account = %s"
-    cursor.execute(delete_paths_query, (account_id,))
-    
-    # Delete account
-    delete_query = "DELETE FROM tbl_account WHERE id = %s"
-    cursor.execute(delete_query, (account_id,))
-    
-    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
-    
-    return {"message": "Konto erfolgreich gelöscht"}
+    cursor = connection.cursor(buffered=True)
+    try:
+        # Delete import paths first
+        delete_paths_query = "DELETE FROM tbl_accountImportPath WHERE account = %s"
+        cursor.execute(delete_paths_query, (account_id,))
+            
+        # Delete account
+        delete_query = "DELETE FROM tbl_account WHERE id = %s"
+        cursor.execute(delete_query, (account_id,))
+            
+        safe_commit(connection)
+            
+        return {"message": "Konto erfolgreich gelöscht"}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 

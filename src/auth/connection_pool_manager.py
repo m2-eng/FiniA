@@ -3,7 +3,7 @@ MySQL Connection Pool Management pro Session.
 """
 
 import mysql.connector.pooling
-from typing import Dict, Optional
+from typing import Dict
 from mysql.connector import Error
 
 
