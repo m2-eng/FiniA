@@ -1,5 +1,42 @@
 # 📋 Review Status (main branch)
 
+## [#71 - Authentication & Sessions](https://github.com/m2-eng/FiniA/issues/71)
+
+### Backend (Python)
+- [src/api/auth_middleware.py](../src/api/auth_middleware.py)
+- [src/auth/connection_pool_manager.py](../src/auth/connection_pool_manager.py)
+- [src/auth/rate_limiter.py](../src/auth/rate_limiter.py)
+- [src/auth/session_store.py](../src/auth/session_store.py)
+- [src/auth/utils.py](../src/auth/utils.py)
+
+### Frontend (JavaScript)
+- none
+
+### HTML Templates
+- none
+
+### Others
+- none
+
+### New issues
+
+T = TypeVar("T")
+
+def get_session_scoped_service(service_cls: Type[T]) -> Callable[..., T]:
+    def _provider(
+        session_id: str = Depends(get_current_session),
+        pool_manager = Depends(get_pool_manager),
+    ) -> T:
+        return service_cls(pool_manager, session_id)
+
+    return _provider
+
+
+### Updated issues
+- [#77 - Improve the handling of the pool manager and the connections](https://github.com/m2-eng/FiniA/issues/77)
+- [#89 - Write comments in English](https://github.com/m2-eng/FiniA/issues/89)
+
+
 ## [#70 - API (Backend‑Edge)](https://github.com/m2-eng/FiniA/issues/70)
 
 ### Backend (Python)
