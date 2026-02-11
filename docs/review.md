@@ -19,18 +19,7 @@
 - none
 
 ### New issues
-
-T = TypeVar("T")
-
-def get_session_scoped_service(service_cls: Type[T]) -> Callable[..., T]:
-    def _provider(
-        session_id: str = Depends(get_current_session),
-        pool_manager = Depends(get_pool_manager),
-    ) -> T:
-        return service_cls(pool_manager, session_id)
-
-    return _provider
-
+- none
 
 ### Updated issues
 - [#77 - Improve the handling of the pool manager and the connections](https://github.com/m2-eng/FiniA/issues/77)

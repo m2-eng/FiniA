@@ -67,43 +67,6 @@ class SessionStore:
         
         return session_id
     
-    def get_credentials(self, session_id: str) -> Dict[str, str]: # finding: This method is not used in the codebase and can be removed.
-        """
-        Holt Credentials aus Session.
-        
-        Args:
-            session_id: Session-ID
-            
-        Returns:
-            Dict mit username, password, database
-            
-        Raises:
-            SessionNotFoundError: Session existiert nicht
-            SessionExpiredError: Session ist abgelaufen
-        """
-        if session_id not in self.sessions:
-            raise SessionNotFoundError(f"Session nicht gefunden: {session_id}")
-        
-        session = self.sessions[session_id]
-        
-        # Timeout-Check
-        timeout = timedelta(seconds=session["timeout_seconds"])
-        if datetime.now() - session["last_activity"] > timeout:
-            self.delete_session(session_id)
-            raise SessionExpiredError("Session abgelaufen")
-        
-        # Last activity aktualisieren
-        session["last_activity"] = datetime.now()
-        
-        # Passwort entschlüsseln
-        password = self.cipher.decrypt(session["encrypted_password"]).decode()
-        
-        return {
-            "username": session["username"],
-            "password": password,
-            "database": session["database"]
-        }
-    
     def update_activity(self, session_id: str) -> None:
         """
         Aktualisiert last_activity Timestamp.

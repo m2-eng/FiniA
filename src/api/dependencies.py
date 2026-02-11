@@ -2,14 +2,12 @@
 FastAPI dependencies for database access and authentication
 """
 
-from typing import Generator, Optional # finding: Not needed imports shall be removed.
 from contextvars import ContextVar
 from fastapi import Depends, HTTPException, status
 from mysql.connector.errors import OperationalError, InterfaceError, DatabaseError, PoolError
 from Database import Database
 from utils import load_config
 import traceback
-from api.error_handling import get_cursor_with_retry # finding: Not needed imports shall be removed.
 from api.auth_middleware import get_current_session
 
 
@@ -79,122 +77,6 @@ def get_database_credentials() -> dict: # finding: Is this a duplicate?
     return _db_credentials
 
 
-def get_db_cursor(): # finding: This is an old function. Only the function 'get_db_cursor_with_auth' shall be used, the old one can be removed.
-    """
-    Liefert einen Cursor. Nutzt eine request-lokale Verbindung, falls vorhanden,
-    sonst wird kurzlebig eine eigene Verbindung aufgebaut und wieder geschlossen.
-    """
-    db = get_database()
-    cursor = None
-    created_conn = None
-
-    try:
-        # Verwende vorhandene Request-Verbindung, falls gesetzt
-        conn = _request_connection.get()
-        if conn is None:
-            # Erzeuge kurzlebige Verbindung für Lesezugriffe
-            conn = db.create_connection()
-            if not conn:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Database connection unavailable"
-                )
-            created_conn = conn
-
-        cursor = conn.cursor(buffered=True)
-
-        # Session-Timeouts erhöhen (max_execution_time wird möglicherweise nicht unterstützt)
-        try:
-            cursor.execute("SET SESSION net_read_timeout=120")
-            cursor.execute("SET SESSION net_write_timeout=120")
-            try:
-                cursor.execute("SET SESSION max_execution_time=120000")
-            except:
-                pass
-        except Exception as e:
-            print(f"Warning: Could not set session timeouts: {e}")
-
-        yield cursor
-
-    except Exception as e:
-        print(f"Database error in get_db_cursor: {e}")
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection error. Please try again."
-        )
-    finally:
-        if cursor:
-            try:
-                cursor.close()
-            except Exception as e:
-                print(f"Warning: Error closing cursor: {e}")
-        # Schliesse nur die kurzlebig erzeugte Verbindung
-        if created_conn:
-            try:
-                created_conn.close()
-            except Exception:
-                pass
-
-
-def get_db_connection(): # finding: This is an old function. Only the function 'get_db_connection_with_auth' shall be used, the old one can be removed.
-    """
-    Liefert eine request-lokale Verbindung für Transaktionen (commit/rollback).
-    Cursor-Abhängigkeiten greifen auf dieselbe Verbindung via ContextVar zu.
-    """
-    db = get_database()
-    conn = None
-
-    try:
-        conn = db.create_connection()
-        if not conn:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Database connection unavailable"
-            )
-
-        # Setze Verbindung in Request-Kontext, damit get_db_cursor diese nutzen kann
-        _request_connection.set(conn)
-
-        # Optional: Session-Timeouts auf Verbindungs-Ebene setzen
-        try:
-            cur = conn.cursor()
-            cur.execute("SET SESSION net_read_timeout=120")
-            cur.execute("SET SESSION net_write_timeout=120")
-            try:
-                cur.execute("SET SESSION max_execution_time=120000")
-            except:
-                pass
-            cur.close()
-        except Exception as e:
-            print(f"Warning: Could not set session timeouts on connection: {e}")
-
-        yield conn
-
-    except (OperationalError, InterfaceError, DatabaseError) as e:
-        print(f"Database error during transaction: {e}")
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database connection error during transaction"
-        )
-    except Exception as e:
-        print(f"Unexpected error during transaction: {e}")
-        traceback.print_exc()
-        raise
-    finally:
-        # Verbindung aus Context entfernen und schließen
-        try:
-            _request_connection.set(None)
-        except Exception:
-            pass
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
-
-
 # ============================================================================
 # Session-based Auth Dependencies
 # ============================================================================
@@ -212,9 +94,10 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
         MySQL Cursor
     """
     if not _pool_manager:
-        # Fallback: Auth nicht aktiviert, nutze alte Methode
-        yield from get_db_cursor()
-        return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Session-based authentication not configured"
+        )
     
     conn = None
     cursor = None
@@ -304,10 +187,11 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
         MySQL Connection
     """
     if not _pool_manager:
-        # Fallback: Auth nicht aktiviert
-        yield from get_db_connection()
-        return
-    
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Session-based authentication not configured"
+        )
+
     conn = None
     
     try:

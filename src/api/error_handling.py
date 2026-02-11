@@ -15,11 +15,6 @@ class DatabaseConnectionError(Exception):
     pass
 
 
-class RetryableError(Exception): # finding: This exception is defined but not used in the code.
-    """Wird geworfen für Fehler, bei denen Retry sinnvoll ist"""
-    pass
-
-
 def handle_db_errors(operation_name: str = "database operation"): # finding: Check for exceptions, which can be handled here instead of in individual endpoints.
     """
     Decorator für einheitliche Fehlerbehandlung in API-Endpunkten.
@@ -30,7 +25,7 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
     Verwendung:
         @router.get("/endpoint")
         @handle_db_errors("fetch data")
-        def my_endpoint(cursor = Depends(get_db_cursor)):
+        def my_endpoint(cursor = Depends(get_db_cursor_with_auth)):
             # Code hier...
     """
     def decorator(func: Callable) -> Callable:
@@ -99,93 +94,6 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
         return sync_wrapper
     
     return decorator
-
-
-def get_cursor_with_retry(get_db_func, max_retries: int = 3): # finding: This function is defined but not used in the code.
-    """
-    Erstellt Cursor mit automatischem Reconnect bei Fehlern.
-    
-    Args:
-        get_db_func: Funktion zum Abrufen der Database-Instanz
-        max_retries: Maximale Anzahl von Wiederholungsversuchen
-        
-    Returns:
-        Database cursor
-        
-    Raises:
-        DatabaseConnectionError: Wenn Verbindung nach allen Retries fehlschlägt
-    """
-    for attempt in range(max_retries):
-        try:
-            db = get_db_func()
-            
-            # Versuche reconnect
-            try:
-                db.connection.reconnect(attempts=2, delay=0)
-            except (AttributeError, ReferenceError):
-                # Connection-Objekt existiert nicht oder ist ungültig
-                db.connect()
-            except Exception:
-                # Reconnect fehlgeschlagen, versuche neu zu verbinden
-                if not db.connect():
-                    if attempt == max_retries - 1:
-                        raise DatabaseConnectionError("Failed to establish database connection")
-                    continue
-            
-            # Hole Cursor
-            try:
-                cursor = db.get_cursor()
-                return cursor
-            except Exception:
-                # Cursor-Erstellung fehlgeschlagen, versuche Reconnect
-                if not db.connect():
-                    if attempt == max_retries - 1:
-                        raise DatabaseConnectionError("Failed to get database cursor")
-                    continue
-                cursor = db.get_cursor()
-                return cursor
-                
-        except DatabaseConnectionError:
-            raise
-        except Exception as exc:
-            if attempt == max_retries - 1:
-                raise DatabaseConnectionError(f"Failed to get cursor after {max_retries} attempts: {exc}")
-            print(f"Retry {attempt + 1}/{max_retries} for cursor creation...")
-    
-    raise DatabaseConnectionError(f"Failed to get cursor after {max_retries} attempts")
-
-
-def execute_query_with_retry(cursor, query: str, params: tuple = None, max_retries: int = 2):
-    """
-    Führt SQL-Query mit automatischem Retry bei Connection-Fehlern aus.
-    
-    Args:
-        cursor: Database cursor
-        query: SQL-Query
-        params: Query-Parameter
-        max_retries: Maximale Anzahl von Wiederholungsversuchen
-        
-    Returns:
-        Tuple (cursor, rows): Cursor und Ergebnis-Rows
-        
-    Raises:
-        DatabaseError: Bei persistenten DB-Fehlern
-    """
-    for attempt in range(max_retries):
-        try:
-            if params:
-                cursor.execute(query, params)
-            else:
-                cursor.execute(query)
-            rows = cursor.fetchall()
-            return cursor, rows
-        except (OperationalError, InterfaceError, ReferenceError) as exc:
-            if attempt == max_retries - 1:
-                raise DatabaseError(f"Query failed after {max_retries} attempts: {exc}")
-            print(f"Query retry {attempt + 1}/{max_retries} due to: {exc}")
-            # Bei letztem Versuch Exception durchreichen
-    
-    raise DatabaseError(f"Query failed after {max_retries} attempts")
 
 
 def safe_commit(connection, operation_name: str = "operation"):

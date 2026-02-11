@@ -5,7 +5,7 @@ Account details API router - provides income/expense breakdown per account
 from fastapi import APIRouter, Depends, Query, HTTPException, Path, UploadFile, File
 from typing import Optional
 from pydantic import BaseModel
-from api.dependencies import get_db_cursor_with_auth as get_db_cursor, get_db_connection_with_auth as get_db_connection, get_pool_manager
+from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth, get_pool_manager
 from api.error_handling import handle_db_errors
 from api.auth_middleware import get_current_session
 from services.import_service import ImportService
@@ -53,7 +53,7 @@ async def import_accounts_from_yaml(
 async def get_account_income(
     year: int = Query(..., ge=1900, le=3000, description="Year for income data"),
     account: str = Query(..., description="Account name"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get income (Haben) breakdown by category for a specific account and year.
@@ -144,7 +144,7 @@ async def get_account_income(
 async def get_account_summary(
     year: int = Query(..., ge=1900, le=3000, description="Year for summary data"),
     account: str = Query(..., description="Account name"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get monthly summary rows for a specific account and year:
@@ -336,7 +336,7 @@ async def get_account_summary(
 async def get_account_expenses(
     year: int = Query(..., ge=1900, le=3000, description="Year for expense data"),
     account: str = Query(..., description="Account name"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get expenses (Soll) breakdown by category for a specific account and year.
@@ -425,7 +425,7 @@ async def get_account_expenses(
 @handle_db_errors("fetch all giro income")
 async def get_all_giro_income(
     year: int = Query(..., ge=1900, le=3000, description="Year for income data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated income (Haben) breakdown by category for all Girokonto accounts and year.
@@ -516,7 +516,7 @@ async def get_all_giro_income(
 @handle_db_errors("fetch all giro expenses")
 async def get_all_giro_expenses(
     year: int = Query(..., ge=1900, le=3000, description="Year for expense data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated expenses (Soll) breakdown by category for all Girokonto accounts and year.
@@ -607,7 +607,7 @@ async def get_all_giro_expenses(
 @handle_db_errors("fetch all giro summary")
 async def get_all_giro_summary(
     year: int = Query(..., ge=1900, le=3000, description="Year for summary data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get monthly summary rows for all Girokonto accounts and year:
@@ -803,7 +803,7 @@ async def get_all_giro_summary(
 @handle_db_errors("fetch all loans income")
 async def get_all_loans_income(
     year: int = Query(..., ge=1900, le=3000, description="Year for income data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated income (Haben) breakdown by category for all Darlehen accounts and year.
@@ -894,7 +894,7 @@ async def get_all_loans_income(
 @handle_db_errors("fetch all loans expenses")
 async def get_all_loans_expenses(
     year: int = Query(..., ge=1900, le=3000, description="Year for expense data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated expenses (Soll) breakdown by category for all Darlehen accounts and year.
@@ -985,7 +985,7 @@ async def get_all_loans_expenses(
 @handle_db_errors("fetch all loans summary")
 async def get_all_loans_summary(
     year: int = Query(..., ge=1900, le=3000, description="Year for summary data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated summary (Haben, Soll, Gesamt) for all Darlehen accounts and year.
@@ -1178,7 +1178,7 @@ async def get_all_loans_summary(
 @handle_db_errors("fetch all accounts income")
 async def get_all_accounts_income(
     year: int = Query(..., ge=1900, le=3000, description="Year for income data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated income (Haben) breakdown by category for all Girokonto and Darlehen accounts and year.
@@ -1269,7 +1269,7 @@ async def get_all_accounts_income(
 @handle_db_errors("fetch all accounts expenses")
 async def get_all_accounts_expenses(
     year: int = Query(..., ge=1900, le=3000, description="Year for expense data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated expenses (Soll) breakdown by category for all Girokonto and Darlehen accounts and year.
@@ -1360,7 +1360,7 @@ async def get_all_accounts_expenses(
 @handle_db_errors("fetch all accounts summary")
 async def get_all_accounts_summary(
     year: int = Query(..., ge=1900, le=3000, description="Year for summary data"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get aggregated summary (Haben, Soll, Gesamt) for all Girokonto and Darlehen accounts and year.
@@ -1551,7 +1551,7 @@ async def get_all_accounts_summary(
 
 @router.get("/girokonto/list")
 @handle_db_errors("fetch account list")
-async def get_account_list(cursor = Depends(get_db_cursor)):
+async def get_account_list(cursor = Depends(get_db_cursor_with_auth)):
    """
    Get list of all Girokonto accounts (matching Grafana query).
    """
@@ -1593,7 +1593,7 @@ async def get_accounts_list(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=1000),
     search: str = Query("", description="Search by name or IBAN"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get paginated list of all accounts with their details for management.
@@ -1659,7 +1659,7 @@ async def get_accounts_list(
 
 @router.get("/types/list")
 @handle_db_errors("fetch account types")
-async def get_account_types(cursor = Depends(get_db_cursor)):
+async def get_account_types(cursor = Depends(get_db_cursor_with_auth)):
     """
     Get list of all account types.
     """
@@ -1673,7 +1673,7 @@ async def get_account_types(cursor = Depends(get_db_cursor)):
 
 @router.get("/formats/list")
 @handle_db_errors("fetch import formats")
-async def get_import_formats(cursor = Depends(get_db_cursor)):
+async def get_import_formats(cursor = Depends(get_db_cursor_with_auth)):
     """
     Get list of all import formats.
     """
@@ -1689,7 +1689,7 @@ async def get_import_formats(cursor = Depends(get_db_cursor)):
 @handle_db_errors("fetch account details")
 async def get_account_detail(
     account_id: int = Path(..., gt=0),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get full details of a specific account including import settings.
@@ -1750,8 +1750,8 @@ async def get_account_detail(
 async def update_account(
     account_id: int = Path(..., gt=0),
     account_data: AccountData = None,
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """
     Update account details and import settings.
@@ -1825,8 +1825,8 @@ async def update_account(
 @handle_db_errors("delete account")
 async def delete_account(
     account_id: int = Path(..., gt=0),
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """
     Delete an account and related import paths.
@@ -1842,5 +1842,6 @@ async def delete_account(
     connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
     
     return {"message": "Konto erfolgreich gelöscht"}
+
 
 

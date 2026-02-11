@@ -98,28 +98,6 @@ async def get_current_session(authorization: Optional[str] = Header(None, alias=
         )
 
 
-async def get_db_connection(session_id: str = Header(..., alias="X-Session-ID")): # finding: method is deprecated, consider removing it to avoid confusion. Use get_db_cursor_with_auth instead. 
-    """
-    Dependency: Gibt DB-Connection für aktuelle Session zurück.
-    
-    DEPRECATED: Nutze get_db_cursor_with_auth stattdessen.
-    """
-    if not _pool_manager:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database service nicht verfügbar"
-        )
-    
-    try:
-        connection = _pool_manager.get_connection(session_id)
-        return connection
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Fehler beim Holen der DB-Connection: {str(e)}"
-        )
-
-
 def get_session_store():
     """Gibt Session Store zurück."""
     return _session_store

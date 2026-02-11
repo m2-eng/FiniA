@@ -9,8 +9,8 @@ from repositories.transaction_repository import TransactionRepository
 from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
 from api.dependencies import (
-    get_db_cursor_with_auth as get_db_cursor, 
-    get_db_connection_with_auth as get_db_connection,
+    get_db_cursor_with_auth, 
+    get_db_connection_with_auth,
     get_pool_manager
 )
 from api.auth_middleware import get_current_session
@@ -21,8 +21,6 @@ from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from decimal import Decimal
 from Database import Database
 from services.account_data_importer import AccountDataImporter
-from infrastructure.unit_of_work import UnitOfWork # finding: UnitOfWork is imported but not used in this file. Consider removing if not needed.
-from repositories.account_import_repository import AccountImportRepository # finding: AccountImportRepository is imported but not used in this file. Consider removing if not needed.
 from services.category_automation import load_rules, apply_rules_to_transaction
 import tempfile
 import os
@@ -115,8 +113,8 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 @router.get("/import-formats") # finding: missing error handling
 async def get_import_formats(
-    cursor=Depends(get_db_cursor),
-    connection=Depends(get_db_connection)
+    cursor=Depends(get_db_cursor_with_auth),
+    connection=Depends(get_db_connection_with_auth)
 ):
     """
     Get list of available import formats from database settings table.
@@ -162,7 +160,7 @@ async def get_transactions(
     page_size: int = Query(20, ge=1, le=1000, description="Items per page (max 1000)"),
     search: Optional[str] = Query(None, description="Search in description, recipient, IBAN"),
     filter: Optional[str] = Query(None, description="Filter: 'unchecked', 'no_entries', 'uncategorized', or 'categorized_unchecked'"),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get transactions with pagination and optional search.
@@ -201,7 +199,7 @@ async def get_transactions(
 @handle_db_errors("fetch transaction")
 async def get_transaction(
     transaction_id: int,
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Get a single transaction by ID with all accounting entries.
@@ -225,8 +223,8 @@ async def get_transaction(
 async def update_transaction_entries(
     transaction_id: int,
     entries_update: TransactionEntriesUpdate,
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """
     Update all accounting entries for a transaction.
@@ -307,8 +305,8 @@ async def update_transaction_entries(
 @handle_db_errors("bulk mark transactions checked")
 async def bulk_mark_transactions_checked(
     request: BulkCheckRequest,
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """Mark all accounting entries of the given transactions as checked/unchecked."""
     entry_repo = AccountingEntryRepository(cursor)
@@ -323,7 +321,7 @@ async def import_transactions(
     request: ImportRequest,
     session_id: str = Depends(get_current_session),
     pool_manager = Depends(get_pool_manager),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Import transactions from configured import paths.
@@ -443,8 +441,8 @@ async def import_transactions(
 @handle_db_errors("auto categorize transactions")
 async def auto_categorize_transactions(
     request: AutoCategorizeRequest, # finding: Remove unused code
-    cursor = Depends(get_db_cursor),
-    connection = Depends(get_db_connection)
+    cursor = Depends(get_db_cursor_with_auth),
+    connection = Depends(get_db_connection_with_auth)
 ):
     """
     Apply automation rules to uncategorized accounting entries.
@@ -478,7 +476,7 @@ async def import_csv_file(
     account_id: Optional[int] = Form(None),
     session_id: str = Depends(get_current_session),
     pool_manager = Depends(get_pool_manager),
-    cursor = Depends(get_db_cursor)
+    cursor = Depends(get_db_cursor_with_auth)
 ):
     """
     Import transactions from a specific CSV file.
@@ -550,4 +548,5 @@ async def import_csv_file(
                 os.unlink(temp_file_path)
             except:
                 pass
+
 
