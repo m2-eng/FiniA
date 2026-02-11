@@ -9,6 +9,7 @@ import json
 import re
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
 from api.error_handling import handle_db_errors
+from api.models import RuleData, TestRuleRequest
 from services.category_automation import (
     evaluate_rule,
     parse_condition_logic
@@ -17,43 +18,6 @@ from uuid import uuid4
 from datetime import datetime
 
 router = APIRouter(prefix="/category-automation", tags=["category-automation"])
-
-
-class RuleTestData(BaseModel):
-    """Model for transaction data when testing a rule"""
-    description: str
-    recipientApplicant: Optional[str] = None
-    amount: Optional[str] = None
-    iban: Optional[str] = None
-
-class Condition(BaseModel):
-    """Single condition in a rule"""
-    id: int
-    type: str  # contains, equals, startsWith, endsWith, regex, amountRange
-    columnName: str  # description, recipientApplicant, amount, iban
-    value: Optional[str] = None
-    caseSensitive: bool = False
-    minAmount: Optional[float] = None
-    maxAmount: Optional[float] = None
-
-
-class RuleData(BaseModel):
-    """Complete rule structure"""
-    id: Optional[str] = None  # UUID, auto-generated if not provided
-    name: str
-    description: Optional[str] = None
-    conditions: List[Condition]
-    conditionLogic: Optional[str] = None  # e.g., "(1 OR 2) AND 3"
-    category: int
-    accounts: List[int] = []  # Empty = all accounts
-    priority: int = 5
-    enabled: bool = True
-
-
-class TestRuleRequest(BaseModel):
-    """Payload for testing a rule"""
-    rule: RuleData
-    transaction: RuleTestData
 
 
 @router.get("/rules")

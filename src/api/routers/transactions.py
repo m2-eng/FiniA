@@ -4,7 +4,6 @@ Transaction API router
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from typing import Optional
-from pydantic import BaseModel
 from repositories.transaction_repository import TransactionRepository
 from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
@@ -14,28 +13,15 @@ from api.dependencies import (
     get_pool_manager
 )
 from api.auth_middleware import get_current_session
-from api.models import TransactionResponse, TransactionListResponse, TransactionEntriesUpdate
-from typing import List
-from pydantic import BaseModel
+from api.models import TransactionResponse, TransactionListResponse, TransactionEntriesUpdate, BulkCheckRequest
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
-from decimal import Decimal
-from Database import Database
+from api.models import ImportRequest, AutoCategorizeRequest
 from services.account_data_importer import AccountDataImporter
 from services.category_automation import load_rules, apply_rules_to_transaction
 import tempfile
 import os
 from pathlib import Path
 import json
-
-
-class ImportRequest(BaseModel):
-    """Request model for import operation"""
-    account_id: Optional[int] = None  # None means import all accounts
-
-
-class AutoCategorizeRequest(BaseModel):
-    """Request model for auto-categorization"""
-    account_id: Optional[int] = None  # None means all accounts
 
 
 def auto_categorize_entries(cursor, connection) -> dict:
@@ -145,12 +131,6 @@ async def get_import_formats(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to load import formats: {str(e)}"
         )
-
-
-class BulkCheckRequest(BaseModel):
-    """Request body for bulk marking transactions checked/unchecked."""
-    transaction_ids: List[int]
-    checked: bool = True
 
 
 @router.get("/", response_model=TransactionListResponse)

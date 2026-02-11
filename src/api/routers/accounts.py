@@ -3,11 +3,10 @@ Account details API router - provides income/expense breakdown per account
 """
 
 from fastapi import APIRouter, Depends, Query, HTTPException, Path, UploadFile, File
-from typing import Optional
-from pydantic import BaseModel
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth, get_pool_manager
 from api.error_handling import handle_db_errors
 from api.auth_middleware import get_current_session
+from api.models import AccountData
 from services.import_service import ImportService
 from services.import_steps.accounts import AccountsStep
 import yaml
@@ -1573,20 +1572,6 @@ async def get_account_list(cursor = Depends(get_db_cursor_with_auth)):
 
 
 # ==================== Account Management Endpoints ====================
-
-class AccountData(BaseModel):
-    name: str
-    iban_accountNumber: str
-    bic_market: str
-    type: Optional[int] = None
-    startAmount: float
-    dateStart: str
-    dateEnd: Optional[str] = None
-    clearingAccount: Optional[int] = None
-    importFormat: Optional[int] = None
-    importPath: Optional[str] = None
-
-
 @router.get("/list")
 @handle_db_errors("fetch accounts for management")
 async def get_accounts_list(
