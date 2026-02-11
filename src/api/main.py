@@ -9,8 +9,8 @@ from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 
 from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings, auth, docs
-from api.dependencies import get_database_config, set_auth_managers
-from api.auth_middleware import set_auth_globals
+from api.dependencies import get_database_config
+from api.auth_context import set_auth_context
 from auth.session_store import SessionStore
 from auth.connection_pool_manager import ConnectionPoolManager
 from auth.rate_limiter import LoginRateLimiter
@@ -112,18 +112,10 @@ async def startup_event(app: FastAPI):
         window_minutes=auth_config.get('rate_limit_window_minutes', 15)
     )
     
-    # Set auth managers in dependencies and auth router
-    # finding: two functions using the same name 'set_auth_managers' is confusing, maybe rename one of them to clarify their purpose.
-    #          This function seems to be a duplicate and can be removed in favor of the one in the auth router.
-    set_auth_managers(session_store, pool_manager, rate_limiter)
-
-    
-    # Update config with loaded secrets for auth router
+    # Update config with loaded secrets for auth context
     auth_config_with_secrets = {**config}
     auth_config_with_secrets['auth']['jwt_secret'] = jwt_secret
-    auth.set_auth_managers(session_store, pool_manager, rate_limiter, auth_config_with_secrets)
-    # Set auth globals in middleware (für get_current_session dependency)
-    set_auth_globals(session_store, pool_manager, auth_config_with_secrets) # finding: The 'session_store' should be the same instance across the application, consider using a single source of truth to avoid confusion.
+    set_auth_context(app, session_store, pool_manager, rate_limiter, auth_config_with_secrets)
     
     # finding: Log design (.e.g indentation) and wording can be improved; maybe also add additional information to the log (e.g. docker module log shall show the 'INFO' messages)
     print("✓ Auth modules initialized")
@@ -155,10 +147,10 @@ async def shutdown_event(app: FastAPI): # finding: Not sure whether everything i
             await cleanup_task
 
     # Cleanup connection pools
-    from api.dependencies import _pool_manager
-    if _pool_manager:
-        for session_id in list(_pool_manager._pools.keys()):
-            _pool_manager.close_pool(session_id)
+    auth_context = getattr(app.state, "auth_context", None)
+    if auth_context and auth_context.pool_manager:
+        for session_id in list(auth_context.pool_manager._pools.keys()):
+            auth_context.pool_manager.close_pool(session_id)
         print("✓ All connection pools closed")
     
     # Close legacy database

@@ -100,7 +100,10 @@ async def get_category(category_id: int, cursor=Depends(get_db_cursor_with_auth)
 
 @router.post("/")
 @handle_db_errors("create category")
-async def create_category(request: CategoryCreateRequest, cursor=Depends(get_db_cursor_with_auth), connection=Depends(get_db_connection_with_auth)):
+async def create_category(
+    request: CategoryCreateRequest,
+    connection=Depends(get_db_connection_with_auth)
+):
     """
     Create a new category.
     
@@ -110,34 +113,41 @@ async def create_category(request: CategoryCreateRequest, cursor=Depends(get_db_
     Returns:
         The created category with its ID
     """
-    repo = CategoryRepository(cursor)
-    
-    # Check if parent exists (if parent_id provided)
-    if request.parent_id:
-        parent = repo.get_category_by_id(request.parent_id)
-        if not parent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Parent category with ID {request.parent_id} not found"
-            )
-    
-    # Get next ID
-    next_id = repo.get_max_category_id() + 1
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        repo.insert_category(next_id, request.name, request.parent_id)
-        safe_commit(connection, "create category")
-        return {
-            "id": next_id,
-            "name": request.name,
-            "parent_id": request.parent_id
-        }
-    except HTTPException:
-        safe_rollback(connection, "create category")
-        raise
-    except Exception as e:
-        safe_rollback(connection, "create category")
-        raise
+        repo = CategoryRepository(cursor)
+        
+        # Check if parent exists (if parent_id provided)
+        if request.parent_id:
+            parent = repo.get_category_by_id(request.parent_id)
+            if not parent:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Parent category with ID {request.parent_id} not found"
+                )
+        
+        # Get next ID
+        next_id = repo.get_max_category_id() + 1
+        
+        try:
+            repo.insert_category(next_id, request.name, request.parent_id)
+            safe_commit(connection, "create category")
+            return {
+                "id": next_id,
+                "name": request.name,
+                "parent_id": request.parent_id
+            }
+        except HTTPException:
+            safe_rollback(connection, "create category")
+            raise
+        except Exception:
+            safe_rollback(connection, "create category")
+            raise
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/{category_id}")
@@ -145,7 +155,6 @@ async def create_category(request: CategoryCreateRequest, cursor=Depends(get_db_
 async def update_category(
     category_id: int,
     request: CategoryUpdateRequest,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """
@@ -158,45 +167,55 @@ async def update_category(
     Returns:
         The updated category
     """
-    repo = CategoryRepository(cursor)
-    
-    # Check if category exists
-    category = repo.get_category_by_id(category_id)
-    if not category:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-    
-    # Use existing values if not provided
-    new_name = request.name if request.name is not None else category['name']
-    new_parent_id = request.parent_id if request.parent_id is not None else category['parent_id']
-    
-    # Check if parent exists (if parent_id is being set to something)
-    if new_parent_id and new_parent_id != category['parent_id']:
-        parent = repo.get_category_by_id(new_parent_id)
-        if not parent:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Parent category with ID {new_parent_id} not found"
-            )
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        repo.update_category(category_id, new_name, new_parent_id)
-        safe_commit(connection, "update category")
-        return {
-            "id": category_id,
-            "name": new_name,
-            "parent_id": new_parent_id
-        }
-    except HTTPException:
-        safe_rollback(connection, "update category")
-        raise
-    except Exception as e:
-        safe_rollback(connection, "update category")
-        raise
+        repo = CategoryRepository(cursor)
+        
+        # Check if category exists
+        category = repo.get_category_by_id(category_id)
+        if not category:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+        
+        # Use existing values if not provided
+        new_name = request.name if request.name is not None else category['name']
+        new_parent_id = request.parent_id if request.parent_id is not None else category['parent_id']
+        
+        # Check if parent exists (if parent_id is being set to something)
+        if new_parent_id and new_parent_id != category['parent_id']:
+            parent = repo.get_category_by_id(new_parent_id)
+            if not parent:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Parent category with ID {new_parent_id} not found"
+                )
+        
+        try:
+            repo.update_category(category_id, new_name, new_parent_id)
+            safe_commit(connection, "update category")
+            return {
+                "id": category_id,
+                "name": new_name,
+                "parent_id": new_parent_id
+            }
+        except HTTPException:
+            safe_rollback(connection, "update category")
+            raise
+        except Exception:
+            safe_rollback(connection, "update category")
+            raise
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/{category_id}")
 @handle_db_errors("delete category")
-async def delete_category(category_id: int, cursor=Depends(get_db_cursor_with_auth), connection=Depends(get_db_connection_with_auth)):
+async def delete_category(
+    category_id: int,
+    connection=Depends(get_db_connection_with_auth)
+):
     """
     Delete a category and reassign its children to its parent.
     
@@ -206,21 +225,28 @@ async def delete_category(category_id: int, cursor=Depends(get_db_cursor_with_au
     Returns:
         Confirmation message
     """
-    repo = CategoryRepository(cursor)
-    
-    # Check if category exists
-    category = repo.get_category_by_id(category_id)
-    if not category:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        repo.delete_category(category_id)
-        safe_commit(connection, "delete category")
-        return {"message": f"Category {category_id} deleted successfully"}
-    except HTTPException:
-        safe_rollback(connection, "delete category")
-        raise
-    except Exception as e:
-        safe_rollback(connection, "delete category")
-        raise
+        repo = CategoryRepository(cursor)
+        
+        # Check if category exists
+        category = repo.get_category_by_id(category_id)
+        if not category:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+        
+        try:
+            repo.delete_category(category_id)
+            safe_commit(connection, "delete category")
+            return {"message": f"Category {category_id} deleted successfully"}
+        except HTTPException:
+            safe_rollback(connection, "delete category")
+            raise
+        except Exception:
+            safe_rollback(connection, "delete category")
+            raise
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 

@@ -2,8 +2,6 @@ import csv
 import re
 import logging
 from dataclasses import dataclass
-from datetime import datetime
-from decimal import Decimal
 from pathlib import Path
 from typing import Any
 import warnings
@@ -13,7 +11,6 @@ from services.csv_utils import read_csv_rows, parse_amount, parse_date, detect_c
 from services.field_extractor import extract_field_value
 from infrastructure.unit_of_work import UnitOfWork
 from repositories.account_import_repository import AccountImportRepository
-from repositories.transaction_repository import TransactionRepository
 from repositories.settings_repository import SettingsRepository
 
 # Suppress MySQL duplicate entry warnings

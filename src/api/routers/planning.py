@@ -58,48 +58,61 @@ async def get_plannings(
 @handle_db_errors("fetch planning entries")
 async def get_planning_entries(
     planning_id: int,
-    cursor = Depends(get_db_cursor_with_auth)
+    connection = Depends(get_db_connection_with_auth)
 ):
     """
     Get all planning entries for a planning.
     """
-    repo = PlanningRepository(cursor)
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = PlanningRepository(cursor)
 
-    planning = repo.get_planning_by_id(planning_id)
-    if not planning:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning with ID {planning_id} not found"
-        )
+        planning = repo.get_planning_by_id(planning_id)
+        if not planning:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Planning with ID {planning_id} not found"
+            )
 
-    entries = repo.get_planning_entries(planning_id)
-    return {
-        "planning_id": planning_id,
-        "entries": entries,
-        "total": len(entries)
-    }
+        entries = repo.get_planning_entries(planning_id)
+        return {
+            "planning_id": planning_id,
+            "entries": entries,
+            "total": len(entries)
+        }
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.post("/{planning_id}/entries/generate", response_model=PlanningEntriesResponse)
 @handle_db_errors("generate planning entries")
 async def generate_planning_entries(
     planning_id: int,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """
     Generate planning entries up to the planning end date or the end of next year.
     """
-    repo = PlanningRepository(cursor)
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = PlanningRepository(cursor)
 
-    entries = repo.regenerate_planning_entries(planning_id)
-    if entries is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning with ID {planning_id} not found"
-        )
+        entries = repo.regenerate_planning_entries(planning_id)
+        if entries is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Planning with ID {planning_id} not found"
+            )
 
-    safe_commit(connection)
+        safe_commit(connection)
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
     return {
         "planning_id": planning_id,
@@ -113,28 +126,34 @@ async def generate_planning_entries(
 async def delete_planning_entry(
     planning_id: int,
     entry_id: int,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """Delete a single planning entry for a planning."""
-    repo = PlanningRepository(cursor)
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = PlanningRepository(cursor)
 
-    # Ensure the planning exists
-    planning = repo.get_planning_by_id(planning_id)
-    if not planning:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning with ID {planning_id} not found"
-        )
+        # Ensure the planning exists
+        planning = repo.get_planning_by_id(planning_id)
+        if not planning:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Planning with ID {planning_id} not found"
+            )
 
-    deleted = repo.delete_planning_entry(planning_id, entry_id)
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning entry with ID {entry_id} not found for planning {planning_id}"
-        )
+        deleted = repo.delete_planning_entry(planning_id, entry_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Planning entry with ID {entry_id} not found for planning {planning_id}"
+            )
 
-    safe_commit(connection)
+        safe_commit(connection)
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.get("/{planning_id}", response_model=PlanningResponse)
@@ -168,7 +187,6 @@ async def get_planning(
 @handle_db_errors("create planning")
 async def create_planning(
     planning: PlanningCreateRequest,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """
@@ -180,30 +198,37 @@ async def create_planning(
     Returns:
         Created planning entry
     """
-    repo = PlanningRepository(cursor)
-    
-    planning_id = repo.create_planning(
-        description=planning.description,
-        amount=planning.amount,
-        date_start=planning.dateStart,
-        date_end=planning.dateEnd,
-        account_id=planning.account_id,
-        category_id=planning.category_id,
-        cycle_id=planning.cycle_id
-    )
-    
-    safe_commit(connection)
-    
-    # Fetch the created planning
-    created_planning = repo.get_planning_by_id(planning_id)
-    
-    if not created_planning:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve created planning"
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = PlanningRepository(cursor)
+        
+        planning_id = repo.create_planning(
+            description=planning.description,
+            amount=planning.amount,
+            date_start=planning.dateStart,
+            date_end=planning.dateEnd,
+            account_id=planning.account_id,
+            category_id=planning.category_id,
+            cycle_id=planning.cycle_id
         )
-    
-    return created_planning
+        
+        safe_commit(connection)
+        
+        # Fetch the created planning
+        created_planning = repo.get_planning_by_id(planning_id)
+        
+        if not created_planning:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve created planning"
+            )
+        
+        return created_planning
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/{planning_id}", response_model=PlanningResponse)
@@ -211,7 +236,6 @@ async def create_planning(
 async def update_planning(
     planning_id: int,
     planning: PlanningUpdateRequest,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """
@@ -224,46 +248,52 @@ async def update_planning(
     Returns:
         Updated planning entry
     """
-    repo = PlanningRepository(cursor)
-    
-    # Check if planning exists
-    existing = repo.get_planning_by_id(planning_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning with ID {planning_id} not found"
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = PlanningRepository(cursor)
+        
+        # Check if planning exists
+        existing = repo.get_planning_by_id(planning_id)
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Planning with ID {planning_id} not found"
+            )
+        
+        # Update the planning
+        success = repo.update_planning(
+            planning_id=planning_id,
+            description=planning.description,
+            amount=planning.amount,
+            date_start=planning.dateStart,
+            date_end=planning.dateEnd,
+            account_id=planning.account_id,
+            category_id=planning.category_id,
+            cycle_id=planning.cycle_id
         )
-    
-    # Update the planning
-    success = repo.update_planning(
-        planning_id=planning_id,
-        description=planning.description,
-        amount=planning.amount,
-        date_start=planning.dateStart,
-        date_end=planning.dateEnd,
-        account_id=planning.account_id,
-        category_id=planning.category_id,
-        cycle_id=planning.cycle_id
-    )
-    
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update planning"
-        )
-    
-    safe_commit(connection)
-    
-    # Fetch the updated planning
-    updated_planning = repo.get_planning_by_id(planning_id)
-    return updated_planning
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update planning"
+            )
+        
+        safe_commit(connection)
+        
+        # Fetch the updated planning
+        updated_planning = repo.get_planning_by_id(planning_id)
+        return updated_planning
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/{planning_id}", status_code=status.HTTP_204_NO_CONTENT)
 @handle_db_errors("delete planning")
 async def delete_planning(
     planning_id: int,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """
@@ -272,24 +302,31 @@ async def delete_planning(
     Args:
         planning_id: Planning ID to delete
     """
-    repo = PlanningRepository(cursor)
-    
-    # Check if planning exists
-    existing = repo.get_planning_by_id(planning_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning with ID {planning_id} not found"
-        )
-    
-    # Delete the planning
-    success = repo.delete_planning(planning_id)
-    
-    if not success:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to delete planning"
-        )
-    
-    safe_commit(connection)
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = PlanningRepository(cursor)
+        
+        # Check if planning exists
+        existing = repo.get_planning_by_id(planning_id)
+        if not existing:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Planning with ID {planning_id} not found"
+            )
+        
+        # Delete the planning
+        success = repo.delete_planning(planning_id)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete planning"
+            )
+        
+        safe_commit(connection)
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 

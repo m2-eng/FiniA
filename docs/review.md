@@ -117,11 +117,6 @@
 
 ## ✅ Review Strategy (6–8 Issues, thematic/functional)
 
-### Issue 2 – Authentication & Sessions
-**Focus:** Auth middleware, sessions, security‑relevant logic
-- [src/api/auth_middleware.py](../src/api/auth_middleware.py)
-- [src/auth/](../src/auth/)**
-
 ### Issue 3 – Domain & Repositories
 **Focus:** Domain models, repositories, persistence abstraction
 - [src/domain/](../src/domain/)

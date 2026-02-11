@@ -43,7 +43,6 @@ async def get_shares_tx_categories(cursor=Depends(get_db_cursor_with_auth)):
 @handle_db_errors("add shares transaction category setting")
 async def add_shares_tx_category(
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Add a category assignment for share transactions"""
@@ -55,51 +54,63 @@ async def add_shares_tx_category(
     
     if category_type not in ["buy", "sell", "dividend"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="type must be buy, sell, or dividend")
-    
-    repo = SettingsRepository(cursor)
+
+    cursor = connection.cursor(buffered=True)
     try:
-        value = json.dumps({"category_id": int(category_id), "type": category_type})
-        repo.add_setting(SETTINGS_KEY_SHARES_TX, value)
-        safe_commit(connection)
-        return {"status": "success", "category_id": category_id, "type": category_type}
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        repo = SettingsRepository(cursor)
+        try:
+            value = json.dumps({"category_id": int(category_id), "type": category_type})
+            repo.add_setting(SETTINGS_KEY_SHARES_TX, value)
+            safe_commit(connection)
+            return {"status": "success", "category_id": category_id, "type": category_type}
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.get("/import-formats")
 @handle_db_errors("fetch import formats")
 async def get_import_formats(
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Get all import formats from database settings table."""
-    repo = SettingsRepository(cursor)
-    entries = repo.get_setting_entries(SETTINGS_KEY_IMPORT_FORMAT)
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = SettingsRepository(cursor)
+        entries = repo.get_setting_entries(SETTINGS_KEY_IMPORT_FORMAT)
 
-    formats = []
-    for entry in entries:
+        formats = []
+        for entry in entries:
+            try:
+                data = json.loads(entry.get("value") or "{}")
+                name = data.get("name")
+                config = data.get("config")
+                if name and isinstance(config, dict):
+                    formats.append({
+                        "id": entry.get("id"),
+                        "name": name,
+                        "config": config
+                    })
+            except Exception:
+                continue
+
+        return {"formats": formats}
+    finally:
         try:
-            data = json.loads(entry.get("value") or "{}")
-            name = data.get("name")
-            config = data.get("config")
-            if name and isinstance(config, dict):
-                formats.append({
-                    "id": entry.get("id"),
-                    "name": name,
-                    "config": config
-                })
+            cursor.close()
         except Exception:
-            continue
-
-    return {"formats": formats}
+            pass
 
 
 @router.post("/import-formats")
 @handle_db_errors("add import format")
 async def add_import_format(
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Add a new import format entry."""
@@ -112,29 +123,36 @@ async def add_import_format(
             detail="name and config (object) are required"
         )
 
-    repo = SettingsRepository(cursor)
-    entries = repo.get_setting_entries(SETTINGS_KEY_IMPORT_FORMAT)
-    for entry in entries:
-        try:
-            data = json.loads(entry.get("value") or "{}")
-            if data.get("name") == name:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Format '{name}' already exists"
-                )
-        except HTTPException:
-            raise
-        except Exception:
-            continue
-
-    value = json.dumps({"name": name, "config": config})
+    cursor = connection.cursor(buffered=True)
     try:
-        setting_id = repo.add_setting(SETTINGS_KEY_IMPORT_FORMAT, value)
-        safe_commit(connection)
-        return {"id": setting_id, "name": name, "config": config}
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        repo = SettingsRepository(cursor)
+        entries = repo.get_setting_entries(SETTINGS_KEY_IMPORT_FORMAT)
+        for entry in entries:
+            try:
+                data = json.loads(entry.get("value") or "{}")
+                if data.get("name") == name:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Format '{name}' already exists"
+                    )
+            except HTTPException:
+                raise
+            except Exception:
+                continue
+
+        value = json.dumps({"name": name, "config": config})
+        try:
+            setting_id = repo.add_setting(SETTINGS_KEY_IMPORT_FORMAT, value)
+            safe_commit(connection)
+            return {"id": setting_id, "name": name, "config": config}
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/import-formats/{setting_id}")
@@ -142,7 +160,6 @@ async def add_import_format(
 async def update_import_format(
     setting_id: int,
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Update an existing import format entry by ID."""
@@ -155,163 +172,180 @@ async def update_import_format(
             detail="name and config (object) are required"
         )
 
-    repo = SettingsRepository(cursor)
-    entries = repo.get_setting_entries(SETTINGS_KEY_IMPORT_FORMAT)
-    for entry in entries:
-        if entry.get("id") == setting_id:
-            continue
-        try:
-            data = json.loads(entry.get("value") or "{}")
-            if data.get("name") == name:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Format '{name}' already exists"
-                )
-        except HTTPException:
-            raise
-        except Exception:
-            continue
-
-    value = json.dumps({"name": name, "config": config})
+    cursor = connection.cursor(buffered=True)
     try:
-        updated = repo.update_setting_value(setting_id, value)
-        if updated == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Format not found"
-            )
-        safe_commit(connection)
-        return {"id": setting_id, "name": name, "config": config}
-    except HTTPException:
-        safe_rollback(connection)
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        repo = SettingsRepository(cursor)
+        entries = repo.get_setting_entries(SETTINGS_KEY_IMPORT_FORMAT)
+        for entry in entries:
+            if entry.get("id") == setting_id:
+                continue
+            try:
+                data = json.loads(entry.get("value") or "{}")
+                if data.get("name") == name:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Format '{name}' already exists"
+                    )
+            except HTTPException:
+                raise
+            except Exception:
+                continue
+
+        value = json.dumps({"name": name, "config": config})
+        try:
+            updated = repo.update_setting_value(setting_id, value)
+            if updated == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Format not found"
+                )
+            safe_commit(connection)
+            return {"id": setting_id, "name": name, "config": config}
+        except HTTPException:
+            safe_rollback(connection)
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/import-formats/{setting_id}")
 @handle_db_errors("delete import format")
 async def delete_import_format(
     setting_id: int,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Delete an import format entry by ID."""
-    repo = SettingsRepository(cursor)
+    cursor = connection.cursor(buffered=True)
     try:
-        deleted = repo.delete_setting_by_id(setting_id)
-        safe_commit(connection)
-        if deleted == 0:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Format not found")
-        return {"status": "success"}
-    except HTTPException:
-        safe_rollback(connection)
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        repo = SettingsRepository(cursor)
+        try:
+            deleted = repo.delete_setting_by_id(setting_id)
+            safe_commit(connection)
+            if deleted == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Format not found")
+            return {"status": "success"}
+        except HTTPException:
+            safe_rollback(connection)
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.post("/import-formats/upload-yaml")
 @handle_db_errors("upload import formats YAML")
 async def upload_import_formats_yaml(
     file: UploadFile = File(...),
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """Upload and parse import formats from YAML file using Python's yaml parser.
     
     This ensures correct parsing of nested structures including list-of-objects patterns.
     """
+    cursor = connection.cursor(buffered=True)
     try:
-        # Read file content
-        content = await file.read()
-        yaml_text = content.decode('utf-8')
-        
-        # Parse YAML using Python's yaml library
-        parsed = yaml.safe_load(yaml_text)
-        
-        if not parsed or not isinstance(parsed, dict):
+        try:
+            # Read file content
+            content = await file.read()
+            yaml_text = content.decode('utf-8')
+            
+            # Parse YAML using Python's yaml library
+            parsed = yaml.safe_load(yaml_text)
+            
+            if not parsed or not isinstance(parsed, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="YAML file must contain a dictionary"
+                )
+            
+            # Extract formats from root key 'formats'
+            formats_dict = parsed.get("formats", {})
+            if not isinstance(formats_dict, dict):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="YAML root must have 'formats' key containing format definitions"
+                )
+            
+            # Import each format into database
+            repo = SettingsRepository(cursor)
+            imported_count = 0
+            errors = []
+            
+            for format_name, format_config in formats_dict.items():
+                try:
+                    if not isinstance(format_config, dict):
+                        errors.append(f"Format '{format_name}': config is not an object")
+                        continue
+                    
+                    # Store in database
+                    value = json.dumps({"name": format_name, "config": format_config})
+                    
+                    # Check if exists
+                    existing_entries = repo.get_setting_entries("import_format")
+                    existing_id = None
+                    for entry in existing_entries:
+                        data = json.loads(entry.get("value") or "{}")
+                        if data.get("name") == format_name:
+                            existing_id = entry.get("id")
+                            break
+                    
+                    if existing_id:
+                        # Update existing
+                        repo.update_setting_value(existing_id, value)
+                    else:
+                        # Add new
+                        repo.add_setting("import_format", value)
+                    
+                    imported_count += 1
+                except Exception as e:
+                    errors.append(f"Format '{format_name}': {str(e)}")
+            
+            safe_commit(connection)
+            
+            return {
+                "status": "success",
+                "imported_count": imported_count,
+                "total_formats": len(formats_dict),
+                "errors": errors if errors else None
+            }
+        except yaml.YAMLError as e:
+            safe_rollback(connection)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="YAML file must contain a dictionary"
+                detail=f"YAML parsing error: {str(e)}"
             )
-        
-        # Extract formats from root key 'formats'
-        formats_dict = parsed.get("formats", {})
-        if not isinstance(formats_dict, dict):
+        except HTTPException:
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="YAML root must have 'formats' key containing format definitions"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Upload failed: {str(e)}"
             )
-        
-        # Import each format into database
-        repo = SettingsRepository(cursor)
-        imported_count = 0
-        errors = []
-        
-        for format_name, format_config in formats_dict.items():
-            try:
-                if not isinstance(format_config, dict):
-                    errors.append(f"Format '{format_name}': config is not an object")
-                    continue
-                
-                # Store in database
-                value = json.dumps({"name": format_name, "config": format_config})
-                
-                # Check if exists
-                existing_entries = repo.get_setting_entries("import_format")
-                existing_id = None
-                for entry in existing_entries:
-                    data = json.loads(entry.get("value") or "{}")
-                    if data.get("name") == format_name:
-                        existing_id = entry.get("id")
-                        break
-                
-                if existing_id:
-                    # Update existing
-                    repo.update_setting_value(existing_id, value)
-                else:
-                    # Add new
-                    repo.add_setting("import_format", value)
-                
-                imported_count += 1
-            except Exception as e:
-                errors.append(f"Format '{format_name}': {str(e)}")
-        
-        safe_commit(connection)
-        
-        return {
-            "status": "success",
-            "imported_count": imported_count,
-            "total_formats": len(formats_dict),
-            "errors": errors if errors else None
-        }
-    
-    except yaml.YAMLError as e:
-        safe_rollback(connection)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"YAML parsing error: {str(e)}"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Upload failed: {str(e)}"
-        )
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/shares-tx-categories")
 @handle_db_errors("delete shares transaction category setting")
 async def delete_shares_tx_category(
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Delete a category assignment for share transactions"""
@@ -320,23 +354,30 @@ async def delete_shares_tx_category(
     
     if not category_id or not category_type:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="category_id and type required")
-    
-    repo = SettingsRepository(cursor)
+
+    cursor = connection.cursor(buffered=True)
     try:
-        value = json.dumps({"category_id": int(category_id), "type": category_type})
-        deleted = repo.delete_setting(SETTINGS_KEY_SHARES_TX, value)
-        safe_commit(connection)
-        
-        if deleted == 0:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Setting not found")
-        
-        return {"status": "success"}
-    except HTTPException:
-        safe_rollback(connection)
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        repo = SettingsRepository(cursor)
+        try:
+            value = json.dumps({"category_id": int(category_id), "type": category_type})
+            deleted = repo.delete_setting(SETTINGS_KEY_SHARES_TX, value)
+            safe_commit(connection)
+            
+            if deleted == 0:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Setting not found")
+            
+            return {"status": "success"}
+        except HTTPException:
+            safe_rollback(connection)
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 # ========================================
@@ -356,7 +397,6 @@ async def get_account_types(cursor=Depends(get_db_cursor_with_auth)):
 @handle_db_errors("add account type")
 async def add_account_type(
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Add a new account type."""
@@ -369,31 +409,38 @@ async def add_account_type(
         )
     
     type_name = type_name.strip()
-    
-    repo = AccountTypeRepository(cursor)
-    
-    # Check for duplicates
-    existing = repo.get_by_type(type_name)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Account type '{type_name}' already exists"
-        )
-    
+
+    cursor = connection.cursor(buffered=True)
     try:
-        new_id = repo.insert(type_name)
-        safe_commit(connection)
-        return {
-            "status": "success",
-            "id": new_id,
-            "type": type_name
-        }
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        repo = AccountTypeRepository(cursor)
+        
+        # Check for duplicates
+        existing = repo.get_by_type(type_name)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Account type '{type_name}' already exists"
+            )
+        
+        try:
+            new_id = repo.insert(type_name)
+            safe_commit(connection)
+            return {
+                "status": "success",
+                "id": new_id,
+                "type": type_name
+            }
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
+            )
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/account-types/{account_type_id}")
@@ -401,7 +448,6 @@ async def add_account_type(
 async def update_account_type(
     account_type_id: int,
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Update an existing account type."""
@@ -414,95 +460,108 @@ async def update_account_type(
         )
     
     type_name = type_name.strip()
-    
-    repo = AccountTypeRepository(cursor)
-    
-    # Check if account type exists
-    existing = repo.get_by_id(account_type_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Account type with ID {account_type_id} not found"
-        )
-    
-    # Check for name conflicts (excluding current record)
-    duplicate = repo.get_by_type(type_name)
-    if duplicate and duplicate["id"] != account_type_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Account type '{type_name}' already exists"
-        )
-    
+
+    cursor = connection.cursor(buffered=True)
     try:
-        rows_affected = repo.update(account_type_id, type_name)
-        safe_commit(connection)
+        repo = AccountTypeRepository(cursor)
         
-        if rows_affected == 0:
+        # Check if account type exists
+        existing = repo.get_by_id(account_type_id)
+        if not existing:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Account type with ID {account_type_id} not found"
             )
         
-        return {
-            "status": "success",
-            "id": account_type_id,
-            "type": type_name
-        }
-    except HTTPException:
-        safe_rollback(connection)
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        # Check for name conflicts (excluding current record)
+        duplicate = repo.get_by_type(type_name)
+        if duplicate and duplicate["id"] != account_type_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Account type '{type_name}' already exists"
+            )
+        
+        try:
+            rows_affected = repo.update(account_type_id, type_name)
+            safe_commit(connection)
+            
+            if rows_affected == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Account type with ID {account_type_id} not found"
+                )
+            
+            return {
+                "status": "success",
+                "id": account_type_id,
+                "type": type_name
+            }
+        except HTTPException:
+            safe_rollback(connection)
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
+            )
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/account-types/{account_type_id}")
 @handle_db_errors("delete account type")
 async def delete_account_type(
     account_type_id: int,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Delete an account type by ID."""
-    repo = AccountTypeRepository(cursor)
-    
-    # Check if account type exists
-    existing = repo.get_by_id(account_type_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Account type with ID {account_type_id} not found"
-        )
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        rows_affected = repo.delete(account_type_id)
-        safe_commit(connection)
+        repo = AccountTypeRepository(cursor)
         
-        if rows_affected == 0:
+        # Check if account type exists
+        existing = repo.get_by_id(account_type_id)
+        if not existing:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Account type with ID {account_type_id} not found"
             )
         
-        return {"status": "success"}
-    except HTTPException:
-        safe_rollback(connection)
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        # Foreign key constraint violation
-        if "foreign key constraint" in str(e).lower() or "cannot delete" in str(e).lower():
+        try:
+            rows_affected = repo.delete(account_type_id)
+            safe_commit(connection)
+            
+            if rows_affected == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Account type with ID {account_type_id} not found"
+                )
+            
+            return {"status": "success"}
+        except HTTPException:
+            safe_rollback(connection)
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            # Foreign key constraint violation
+            if "foreign key constraint" in str(e).lower() or "cannot delete" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Cannot delete account type: still in use by existing accounts"
+                )
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Cannot delete account type: still in use by existing accounts"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
             )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 # ========================================
@@ -522,7 +581,6 @@ async def get_planning_cycles(cursor=Depends(get_db_cursor_with_auth)):
 @handle_db_errors("add planning cycle")
 async def add_planning_cycle(
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Add a new planning cycle."""
@@ -558,30 +616,37 @@ async def add_planning_cycle(
 
     cycle_name = cycle_name.strip()
 
-    repo = PlanningCycleRepository(cursor)
-    existing = repo.get_by_cycle(cycle_name)
-    if existing:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Planning cycle '{cycle_name}' already exists"
-        )
-
+    cursor = connection.cursor(buffered=True)
     try:
-        new_id = repo.insert(cycle_name, period_value, period_unit)
-        safe_commit(connection)
-        return {
-            "status": "success",
-            "id": new_id,
-            "cycle": cycle_name,
-            "periodValue": period_value,
-            "periodUnit": period_unit
-        }
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        repo = PlanningCycleRepository(cursor)
+        existing = repo.get_by_cycle(cycle_name)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Planning cycle '{cycle_name}' already exists"
+            )
+
+        try:
+            new_id = repo.insert(cycle_name, period_value, period_unit)
+            safe_commit(connection)
+            return {
+                "status": "success",
+                "id": new_id,
+                "cycle": cycle_name,
+                "periodValue": period_value,
+                "periodUnit": period_unit
+            }
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
+            )
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/planning-cycles/{cycle_id}")
@@ -589,7 +654,6 @@ async def add_planning_cycle(
 async def update_planning_cycle(
     cycle_id: int,
     body: dict,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Update an existing planning cycle."""
@@ -625,85 +689,98 @@ async def update_planning_cycle(
 
     cycle_name = cycle_name.strip()
 
-    repo = PlanningCycleRepository(cursor)
-    existing = repo.get_by_id(cycle_id)
-    if not existing:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning cycle with ID {cycle_id} not found"
-        )
-
-    duplicate = repo.get_by_cycle(cycle_name)
-    if duplicate and duplicate["id"] != cycle_id:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Planning cycle '{cycle_name}' already exists"
-        )
-
+    cursor = connection.cursor(buffered=True)
     try:
-        rows_affected = repo.update(cycle_id, cycle_name, period_value, period_unit)
-        safe_commit(connection)
-        if rows_affected == 0:
+        repo = PlanningCycleRepository(cursor)
+        existing = repo.get_by_id(cycle_id)
+        if not existing:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Planning cycle with ID {cycle_id} not found"
             )
-        return {
-            "status": "success",
-            "id": cycle_id,
-            "cycle": cycle_name,
-            "periodValue": period_value,
-            "periodUnit": period_unit
-        }
-    except HTTPException:
-        safe_rollback(connection)
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+
+        duplicate = repo.get_by_cycle(cycle_name)
+        if duplicate and duplicate["id"] != cycle_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Planning cycle '{cycle_name}' already exists"
+            )
+
+        try:
+            rows_affected = repo.update(cycle_id, cycle_name, period_value, period_unit)
+            safe_commit(connection)
+            if rows_affected == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Planning cycle with ID {cycle_id} not found"
+                )
+            return {
+                "status": "success",
+                "id": cycle_id,
+                "cycle": cycle_name,
+                "periodValue": period_value,
+                "periodUnit": period_unit
+            }
+        except HTTPException:
+            safe_rollback(connection)
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
+            )
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/planning-cycles/{cycle_id}")
 @handle_db_errors("delete planning cycle")
 async def delete_planning_cycle(
     cycle_id: int,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Delete a planning cycle by ID."""
-    repo = PlanningCycleRepository(cursor)
-    existing = repo.get_by_id(cycle_id)
-    if not existing:
-        raise HTTPException( # finding: Move exceptions and/or messages to a central place for consistency and easier maintenance.
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Planning cycle with ID {cycle_id} not found"
-        )
-
+    cursor = connection.cursor(buffered=True)
     try:
-        rows_affected = repo.delete(cycle_id)
-        safe_commit(connection)
-        if rows_affected == 0:
-            raise HTTPException(
+        repo = PlanningCycleRepository(cursor)
+        existing = repo.get_by_id(cycle_id)
+        if not existing:
+            raise HTTPException( # finding: Move exceptions and/or messages to a central place for consistency and easier maintenance.
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Planning cycle with ID {cycle_id} not found"
             )
-        return {"status": "success"}
-    except HTTPException:
-        safe_rollback(connection)
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        if "foreign key constraint" in str(e).lower() or "cannot delete" in str(e).lower():
+
+        try:
+            rows_affected = repo.delete(cycle_id)
+            safe_commit(connection)
+            if rows_affected == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Planning cycle with ID {cycle_id} not found"
+                )
+            return {"status": "success"}
+        except HTTPException:
+            safe_rollback(connection)
+            raise
+        except Exception as e:
+            safe_rollback(connection)
+            if "foreign key constraint" in str(e).lower() or "cannot delete" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Cannot delete planning cycle: still in use by existing planning entries"
+                )
             raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Cannot delete planning cycle: still in use by existing planning entries"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=str(e)
             )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 

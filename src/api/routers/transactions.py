@@ -85,7 +85,7 @@ def auto_categorize_entries(cursor, connection) -> dict:
             cursor.execute(update_query, (category_id, entry_id))
             categorized_entry_count += 1
     
-    connection.commit()
+    safe_commit(connection)
     
     return {
         "categorized": categorized_entry_count,

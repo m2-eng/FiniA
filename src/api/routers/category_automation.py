@@ -3,12 +3,10 @@ Category Automation API router - for automated transaction categorization rules
 """
 
 from fastapi import APIRouter, Depends, Query, HTTPException, Path
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import Optional
 import json
-import re
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
-from api.error_handling import handle_db_errors
+from api.error_handling import handle_db_errors, safe_commit
 from api.models import RuleData, TestRuleRequest
 from services.category_automation import (
     evaluate_rule,
@@ -147,59 +145,64 @@ async def get_rule_by_id(
 @handle_db_errors("create category automation rule")
 async def create_rule(
     rule_data: RuleData,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """Create a new category automation rule."""
-    
-    # Validate
-    if not rule_data.name:
-        raise HTTPException(status_code=400, detail="Regelname erforderlich")
-    
-    if not rule_data.conditions:
-        raise HTTPException(status_code=400, detail="Mindestens eine Bedingung erforderlich")
-    
-    if not rule_data.category:
-        raise HTTPException(status_code=400, detail="Kategorie erforderlich")
-    
-    # Validate condition IDs are unique
-    condition_ids = [c.id for c in rule_data.conditions]
-    if len(condition_ids) != len(set(condition_ids)):
-        raise HTTPException(status_code=400, detail="Bedingung-IDs müssen eindeutig sein")
-    
-    # Generate UUID if not provided
-    rule_id = rule_data.id or str(uuid4())
-    
-    # Build rule dict
-    now = datetime.now().isoformat()
-    rule = {
-        "id": rule_id,
-        "name": rule_data.name,
-        "description": rule_data.description,
-        "conditions": [c.dict() for c in rule_data.conditions],
-        "conditionLogic": rule_data.conditionLogic,
-        "category": rule_data.category,
-        "accounts": rule_data.accounts,
-        "priority": rule_data.priority,
-        "enabled": rule_data.enabled,
-        "dateCreated": now,
-        "dateModified": now
-    }
-    
-    # Insert into settings
-    insert_query = """
-        INSERT INTO tbl_setting (user_id, `key`, `value`)
-        VALUES (NULL, 'category_automation_rule', %s)
-    """
-    
-    cursor.execute(insert_query, (json.dumps(rule),))
-    connection.commit()
-    
-    return {
-        "id": rule_id,
-        "message": "Regel erfolgreich erstellt",
-        "rule": rule
-    }
+    cursor = connection.cursor(buffered=True)
+    try:
+        # Validate
+        if not rule_data.name:
+            raise HTTPException(status_code=400, detail="Regelname erforderlich")
+        
+        if not rule_data.conditions:
+            raise HTTPException(status_code=400, detail="Mindestens eine Bedingung erforderlich")
+        
+        if not rule_data.category:
+            raise HTTPException(status_code=400, detail="Kategorie erforderlich")
+        
+        # Validate condition IDs are unique
+        condition_ids = [c.id for c in rule_data.conditions]
+        if len(condition_ids) != len(set(condition_ids)):
+            raise HTTPException(status_code=400, detail="Bedingung-IDs müssen eindeutig sein")
+        
+        # Generate UUID if not provided
+        rule_id = rule_data.id or str(uuid4())
+        
+        # Build rule dict
+        now = datetime.now().isoformat()
+        rule = {
+            "id": rule_id,
+            "name": rule_data.name,
+            "description": rule_data.description,
+            "conditions": [c.dict() for c in rule_data.conditions],
+            "conditionLogic": rule_data.conditionLogic,
+            "category": rule_data.category,
+            "accounts": rule_data.accounts,
+            "priority": rule_data.priority,
+            "enabled": rule_data.enabled,
+            "dateCreated": now,
+            "dateModified": now
+        }
+        
+        # Insert into settings
+        insert_query = """
+            INSERT INTO tbl_setting (user_id, `key`, `value`)
+            VALUES (NULL, 'category_automation_rule', %s)
+        """
+        
+        cursor.execute(insert_query, (json.dumps(rule),))
+        safe_commit(connection)
+            
+        return {
+            "id": rule_id,
+            "message": "Regel erfolgreich erstellt",
+            "rule": rule
+            }
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/rules/{rule_id}")
@@ -207,150 +210,161 @@ async def create_rule(
 async def update_rule(
     rule_id: str = Path(..., description="Rule UUID"),
     rule_data: RuleData = None,
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """Update an existing rule."""
+    cursor = connection.cursor(buffered=True)
+    try:
 
-    if rule_data is None:
-        raise HTTPException(status_code=400, detail="Regeldaten erforderlich")
-    
-    # Find existing rule
-    find_query = """
-        SELECT id
-        FROM tbl_setting
-        WHERE `key` = 'category_automation_rule'
-          AND JSON_EXTRACT(value, '$.id') = %s
-    """
-    
-    cursor.execute(find_query, (rule_id,))
-    row = cursor.fetchone()
-    
-    if not row:
-        # Frontend sends PUT for new rules with id prefix "new-..."
-        if rule_id.startswith("new-"):
-            # Validate minimal fields (same as create)
-            if not rule_data.name:
-                raise HTTPException(status_code=400, detail="Regelname erforderlich")
-            if not rule_data.conditions:
-                raise HTTPException(status_code=400, detail="Mindestens eine Bedingung erforderlich")
-            if not rule_data.category:
-                raise HTTPException(status_code=400, detail="Kategorie erforderlich")
+        if rule_data is None:
+            raise HTTPException(status_code=400, detail="Regeldaten erforderlich")
+        
+        # Find existing rule
+        find_query = """
+            SELECT id
+            FROM tbl_setting
+            WHERE `key` = 'category_automation_rule'
+            AND JSON_EXTRACT(value, '$.id') = %s
+        """
+        
+        cursor.execute(find_query, (rule_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            # Frontend sends PUT for new rules with id prefix "new-..."
+            if rule_id.startswith("new-"):
+                # Validate minimal fields (same as create)
+                if not rule_data.name:
+                    raise HTTPException(status_code=400, detail="Regelname erforderlich")
+                if not rule_data.conditions:
+                    raise HTTPException(status_code=400, detail="Mindestens eine Bedingung erforderlich")
+                if not rule_data.category:
+                    raise HTTPException(status_code=400, detail="Kategorie erforderlich")
 
-            condition_ids = [c.id for c in rule_data.conditions]
-            if len(condition_ids) != len(set(condition_ids)):
-                raise HTTPException(status_code=400, detail="Bedingung-IDs müssen eindeutig sein")
+                condition_ids = [c.id for c in rule_data.conditions]
+                if len(condition_ids) != len(set(condition_ids)):
+                    raise HTTPException(status_code=400, detail="Bedingung-IDs müssen eindeutig sein")
 
-            # Generate UUID if not provided or invalid new-id
-            new_rule_id = rule_data.id or str(uuid4())
-            now = datetime.now().isoformat()
-            rule = {
-                "id": new_rule_id,
-                "name": rule_data.name,
-                "description": rule_data.description,
-                "conditions": [c.dict() for c in rule_data.conditions],
-                "conditionLogic": rule_data.conditionLogic,
-                "category": rule_data.category,
-                "accounts": rule_data.accounts,
-                "priority": rule_data.priority,
-                "enabled": rule_data.enabled,
-                "dateCreated": now,
-                "dateModified": now
-            }
+                # Generate UUID if not provided or invalid new-id
+                new_rule_id = rule_data.id or str(uuid4())
+                now = datetime.now().isoformat()
+                rule = {
+                    "id": new_rule_id,
+                    "name": rule_data.name,
+                    "description": rule_data.description,
+                    "conditions": [c.dict() for c in rule_data.conditions],
+                    "conditionLogic": rule_data.conditionLogic,
+                    "category": rule_data.category,
+                    "accounts": rule_data.accounts,
+                    "priority": rule_data.priority,
+                    "enabled": rule_data.enabled,
+                    "dateCreated": now,
+                    "dateModified": now
+                }
 
-            insert_query = """
-                INSERT INTO tbl_setting (user_id, `key`, `value`)
-                VALUES (NULL, 'category_automation_rule', %s)
-            """
+                insert_query = """
+                    INSERT INTO tbl_setting (user_id, `key`, `value`)
+                    VALUES (NULL, 'category_automation_rule', %s)
+                """
 
-            cursor.execute(insert_query, (json.dumps(rule),))
-            connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
+                cursor.execute(insert_query, (json.dumps(rule),))
+                safe_commit(connection)
 
-            # finding: Here should be also 'safe_rollback' in case of errors during commit.
+                # finding: Here should be also 'safe_rollback' in case of errors during commit.
 
-            return {
-                "id": new_rule_id,
-                "message": "Regel erfolgreich erstellt",
-                "rule": rule
-            }
+                return {
+                    "id": new_rule_id,
+                    "message": "Regel erfolgreich erstellt",
+                    "rule": rule
+                }
 
-        raise HTTPException(status_code=404, detail="Regel nicht gefunden")
-    
-    setting_id = row[0]
+            raise HTTPException(status_code=404, detail="Regel nicht gefunden")
+        
+        setting_id = row[0]
 
-    # Build updated rule
-    now = datetime.now().isoformat()
-    
-    # Keep existing dateCreated if present
-    get_created = """
-        SELECT JSON_EXTRACT(value, '$.dateCreated')
-        FROM tbl_setting
-        WHERE id = %s
-    """
-    cursor.execute(get_created, (setting_id,))
-    created_row = cursor.fetchone()
-    date_created = created_row[0].strip('"') if created_row and created_row[0] else now
-    
-    rule = {
-        "id": rule_id,
-        "name": rule_data.name,
-        "description": rule_data.description,
-        "conditions": [c.dict() for c in rule_data.conditions],
-        "conditionLogic": rule_data.conditionLogic,
-        "category": rule_data.category,
-        "accounts": rule_data.accounts,
-        "priority": rule_data.priority,
-        "enabled": rule_data.enabled,
-        "dateCreated": date_created,
-        "dateModified": now
-    }
-    
-    # Update
-    update_query = """
-        UPDATE tbl_setting
-        SET `value` = %s
-        WHERE id = %s
-    """
-    jsonValue = json.dumps(rule)
-    cursor.execute(update_query, (jsonValue, setting_id))
-    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
+        # Build updated rule
+        now = datetime.now().isoformat()
+        
+        # Keep existing dateCreated if present
+        get_created = """
+            SELECT JSON_EXTRACT(value, '$.dateCreated')
+            FROM tbl_setting
+            WHERE id = %s
+        """
+        cursor.execute(get_created, (setting_id,))
+        created_row = cursor.fetchone()
+        date_created = created_row[0].strip('"') if created_row and created_row[0] else now
+        
+        rule = {
+            "id": rule_id,
+            "name": rule_data.name,
+            "description": rule_data.description,
+            "conditions": [c.dict() for c in rule_data.conditions],
+            "conditionLogic": rule_data.conditionLogic,
+            "category": rule_data.category,
+            "accounts": rule_data.accounts,
+            "priority": rule_data.priority,
+            "enabled": rule_data.enabled,
+            "dateCreated": date_created,
+            "dateModified": now
+        }
+        
+        # Update
+        update_query = """
+            UPDATE tbl_setting
+            SET `value` = %s
+            WHERE id = %s
+        """
+        jsonValue = json.dumps(rule)
+        cursor.execute(update_query, (jsonValue, setting_id))
+        safe_commit(connection)
 
-    # finding: Here should be also 'safe_rollback' in case of errors during commit.
-    
-    return {
-        "id": rule_id,
-        "message": "Regel erfolgreich aktualisiert",
-        "rule": rule
-    }
+        # finding: Here should be also 'safe_rollback' in case of errors during commit.
+            
+        return {
+            "id": rule_id,
+            "message": "Regel erfolgreich aktualisiert",
+            "rule": rule
+        }
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/rules/{rule_id}")
 @handle_db_errors("delete category automation rule")
 async def delete_rule(
     rule_id: str = Path(..., description="Rule UUID"),
-    cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
     """Delete a rule."""
-    
-    delete_query = """
-        DELETE FROM tbl_setting
-        WHERE `key` = 'category_automation_rule'
-          AND JSON_EXTRACT(value, '$.id') = %s
-    """
-    
-    cursor.execute(delete_query, (rule_id,))
-    connection.commit() # finding: There is a 'safe_commit' function instead of connection.commit().
+    cursor = connection.cursor(buffered=True)
+    try:
+        delete_query = """
+            DELETE FROM tbl_setting
+            WHERE `key` = 'category_automation_rule'
+              AND JSON_EXTRACT(value, '$.id') = %s
+        """
+        
+        cursor.execute(delete_query, (rule_id,))
+        safe_commit(connection) 
 
-    # finding: Here should be also 'safe_rollback' in case of errors during commit.
-    
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Regel nicht gefunden")
-    
-    return {
-        "message": "Regel erfolgreich gelöscht",
-        "id": rule_id
-    }
+        # finding: Here should be also 'safe_rollback' in case of errors during commit.
+        
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Regel nicht gefunden")
+        
+        return {
+            "message": "Regel erfolgreich gelöscht",
+            "id": rule_id
+        }
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.post("/test-rule")

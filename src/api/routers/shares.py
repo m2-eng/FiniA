@@ -43,7 +43,6 @@ async def create_share(
     isin: str = Form(...),
     name: str = Form(None),
     wkn: str = Form(None),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Create a new share
@@ -55,17 +54,24 @@ async def create_share(
     if not isin or isin.strip() == '':
         return {"status": "error", "message": "ISIN is required"}
     
-    repo = ShareRepository(cursor)
-    
-    # Check if already exists by ISIN
-    existing = repo.get_share_by_isin_wkn(isin, None)
-    if existing:
-        return {"status": "error", "message": "Share with this ISIN already exists"}
-    
-    share_id = repo.insert_share(name, isin, wkn)
-    safe_commit(connection)
-    
-    return {"status": "success", "share_id": share_id}
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = ShareRepository(cursor)
+        
+        # Check if already exists by ISIN
+        existing = repo.get_share_by_isin_wkn(isin, None)
+        if existing:
+            return {"status": "error", "message": "Share with this ISIN already exists"}
+        
+        share_id = repo.insert_share(name, isin, wkn)
+        safe_commit(connection)
+        
+        return {"status": "success", "share_id": share_id}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/shares/{share_id}")
@@ -75,7 +81,6 @@ async def update_share(
     isin: str = Form(...),
     name: str = Form(None),
     wkn: str = Form(None),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Update an existing share
@@ -88,24 +93,37 @@ async def update_share(
     if not isin or isin.strip() == '':
         return {"status": "error", "message": "ISIN is required"}
     
-    repo = ShareRepository(cursor)
-    repo.update_share(share_id, name, isin, wkn)
-    safe_commit(connection)
-    return {"status": "success"}
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = ShareRepository(cursor)
+        repo.update_share(share_id, name, isin, wkn)
+        safe_commit(connection)
+        return {"status": "success"}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/shares/{share_id}")
 @handle_db_errors("Failed to delete share")
 async def delete_share(
     share_id: int,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Delete a share"""
-    repo = ShareRepository(cursor)
-    repo.delete_share(share_id)
-    safe_commit(connection)
-    return {"status": "success"}
+    cursor = connection.cursor(buffered=True)
+    try:
+        repo = ShareRepository(cursor)
+        repo.delete_share(share_id)
+        safe_commit(connection)
+        return {"status": "success"}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.get("/shares/history")
@@ -146,7 +164,6 @@ async def create_share_transaction(
     dateTransaction: str = Form(...),
     tradingVolume: float = Form(...),
     accountingEntryId: int = Form(None),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Create a new share transaction
@@ -156,25 +173,32 @@ async def create_share_transaction(
         tradingVolume: Number of shares traded (negative for sales)
         accountingEntryId: Optional accounting entry ID to link to this transaction
     """
-    share_repo = ShareRepository(cursor)
-    transaction_repo = ShareTransactionRepository(cursor)
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        # Find share by ISIN
-        share = share_repo.get_share_by_isin_wkn(isin, None)
-        if not share:
-            return {"status": "error", "message": f"Share with ISIN {isin} not found"}
+        share_repo = ShareRepository(cursor)
+        transaction_repo = ShareTransactionRepository(cursor)
         
-        share_id = share['id']
-        
-        # Insert transaction with optional accounting entry
-        transaction_repo.insert_transaction(share_id, tradingVolume, dateTransaction, accountingEntryId)
-        safe_commit(connection)
-        
-        return {"status": "success", "message": "Transaction created successfully"}
-    except Exception as e:
-        safe_rollback(connection)
-        return {"status": "error", "message": str(e)}
+        try:
+            # Find share by ISIN
+            share = share_repo.get_share_by_isin_wkn(isin, None)
+            if not share:
+                return {"status": "error", "message": f"Share with ISIN {isin} not found"}
+            
+            share_id = share['id']
+            
+            # Insert transaction with optional accounting entry
+            transaction_repo.insert_transaction(share_id, tradingVolume, dateTransaction, accountingEntryId)
+            safe_commit(connection)
+            
+            return {"status": "success", "message": "Transaction created successfully"}
+        except Exception as e:
+            safe_rollback(connection)
+            return {"status": "error", "message": str(e)}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/shares/transactions/{transaction_id}")
@@ -185,32 +209,44 @@ async def update_share_transaction(
     dateTransaction: str = Form(...),
     tradingVolume: float = Form(...),
     accountingEntryId: int = Form(None),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
-    share_repo = ShareRepository(cursor)
-    transaction_repo = ShareTransactionRepository(cursor)
+    cursor = connection.cursor(buffered=True)
+    try:
+        share_repo = ShareRepository(cursor)
+        transaction_repo = ShareTransactionRepository(cursor)
 
-    share = share_repo.get_share_by_isin_wkn(isin, None)
-    if not share:
-        return {"status": "error", "message": f"Share with ISIN {isin} not found"}
+        share = share_repo.get_share_by_isin_wkn(isin, None)
+        if not share:
+            return {"status": "error", "message": f"Share with ISIN {isin} not found"}
 
-    transaction_repo.update_transaction(transaction_id, share['id'], tradingVolume, dateTransaction, accountingEntryId)
-    safe_commit(connection)
-    return {"status": "success"}
+        transaction_repo.update_transaction(transaction_id, share['id'], tradingVolume, dateTransaction, accountingEntryId)
+        safe_commit(connection)
+        return {"status": "success"}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/shares/transactions/{transaction_id}")
 @handle_db_errors("Failed to delete transaction")
 async def delete_share_transaction(
     transaction_id: int,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
-    transaction_repo = ShareTransactionRepository(cursor)
-    transaction_repo.delete_transaction(transaction_id)
-    safe_commit(connection)
-    return {"status": "success"}
+    cursor = connection.cursor(buffered=True)
+    try:
+        transaction_repo = ShareTransactionRepository(cursor)
+        transaction_repo.delete_transaction(transaction_id)
+        safe_commit(connection)
+        return {"status": "success"}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.post("/shares/history")
@@ -219,7 +255,6 @@ async def create_share_history(
     isin: str = Form(...),
     date: str = Form(...),
     amount: float = Form(...),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Create a new share history entry
@@ -228,29 +263,36 @@ async def create_share_history(
         date: Date (ISO format: YYYY-MM-DD)
         amount: Price or value amount
     """
-    share_repo = ShareRepository(cursor)
-    history_repo = ShareHistoryRepository(cursor)
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        # Find share by ISIN
-        share = share_repo.get_share_by_isin_wkn(isin, None)
-        if not share:
-            return {"status": "error", "message": f"Share with ISIN {isin} not found"}
+        share_repo = ShareRepository(cursor)
+        history_repo = ShareHistoryRepository(cursor)
         
-        share_id = share['id']
-        # Prevent duplicates by share/date
-        existing_id = history_repo.history_exists_for_share_date(share_id, date)
-        if existing_id:
-            return {"status": "error", "message": "History entry for this share and date already exists"}
+        try:
+            # Find share by ISIN
+            share = share_repo.get_share_by_isin_wkn(isin, None)
+            if not share:
+                return {"status": "error", "message": f"Share with ISIN {isin} not found"}
+            
+            share_id = share['id']
+            # Prevent duplicates by share/date
+            existing_id = history_repo.history_exists_for_share_date(share_id, date)
+            if existing_id:
+                return {"status": "error", "message": "History entry for this share and date already exists"}
 
-        # Insert history
-        history_repo.insert_history(share_id, amount, date)
-        safe_commit(connection)
-        
-        return {"status": "success", "message": "History entry created successfully"}
-    except Exception as e:
-        safe_rollback(connection)
-        return {"status": "error", "message": str(e)}
+            # Insert history
+            history_repo.insert_history(share_id, amount, date)
+            safe_commit(connection)
+            
+            return {"status": "success", "message": "History entry created successfully"}
+        except Exception as e:
+            safe_rollback(connection)
+            return {"status": "error", "message": str(e)}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.put("/shares/history/{history_id}/checked")
@@ -258,98 +300,116 @@ async def create_share_history(
 async def set_share_history_checked(
     history_id: int,
     checked: bool = Form(True),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
-    history_repo = ShareHistoryRepository(cursor)
-    history_repo.set_checked(history_id, checked)
-    safe_commit(connection)
-    return {"status": "success"}
+    cursor = connection.cursor(buffered=True)
+    try:
+        history_repo = ShareHistoryRepository(cursor)
+        history_repo.set_checked(history_id, checked)
+        safe_commit(connection)
+        return {"status": "success"}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.post("/shares/history/auto-fill")
 @handle_db_errors("Failed to auto-fill share history")
-async def auto_fill_share_history(cursor=Depends(get_db_cursor_with_auth), connection=Depends(get_db_connection_with_auth)):
+async def auto_fill_share_history(connection=Depends(get_db_connection_with_auth)):
     """Create missing month-end history entries with amount=0 for shares in holdings at month end (up to last completed month)."""
-    share_repo = ShareRepository(cursor)
-    history_repo = ShareHistoryRepository(cursor)
-    tx_repo = ShareTransactionRepository(cursor)
+    cursor = connection.cursor(buffered=True)
+    try:
+        share_repo = ShareRepository(cursor)
+        history_repo = ShareHistoryRepository(cursor)
+        tx_repo = ShareTransactionRepository(cursor)
 
-    today = date.today()
-    last_month_end = (today.replace(day=1) - timedelta(days=1))
+        today = date.today()
+        last_month_end = (today.replace(day=1) - timedelta(days=1))
 
-    shares = share_repo.get_all_shares()
-    created = 0
-    skipped = 0
+        shares = share_repo.get_all_shares()
+        created = 0
+        skipped = 0
 
-    for share in shares:
-        share_id = share['id']
-        txs = tx_repo.get_all_for_share_sorted(share_id)
-        if not txs:
-            continue
+        for share in shares:
+            share_id = share['id']
+            txs = tx_repo.get_all_for_share_sorted(share_id)
+            if not txs:
+                continue
 
-        first_tx_date = txs[0]['dateTransaction'].date() if hasattr(txs[0]['dateTransaction'], 'date') else txs[0]['dateTransaction']
-        # start from first transaction month
-        month_cursor = first_tx_date.replace(day=1)
-        if month_cursor > last_month_end:
-            continue
+            first_tx_date = txs[0]['dateTransaction'].date() if hasattr(txs[0]['dateTransaction'], 'date') else txs[0]['dateTransaction']
+            # start from first transaction month
+            month_cursor = first_tx_date.replace(day=1)
+            if month_cursor > last_month_end:
+                continue
 
-        existing_dates = history_repo.get_existing_dates_for_share(share_id)
+            existing_dates = history_repo.get_existing_dates_for_share(share_id)
 
-        # prepare running balance
-        balance = 0
-        tx_index = 0
-        total_txs = len(txs)
+            # prepare running balance
+            balance = 0
+            tx_index = 0
+            total_txs = len(txs)
 
-        while month_cursor <= last_month_end:
-            # month end date
-            next_month = (month_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
-            month_end = next_month - timedelta(days=1)
+            while month_cursor <= last_month_end:
+                # month end date
+                next_month = (month_cursor.replace(day=28) + timedelta(days=4)).replace(day=1)
+                month_end = next_month - timedelta(days=1)
 
-            # apply transactions up to and including month_end
-            while tx_index < total_txs:
-                tx_date = txs[tx_index]['dateTransaction'].date() if hasattr(txs[tx_index]['dateTransaction'], 'date') else txs[tx_index]['dateTransaction']
-                if tx_date <= month_end:
-                    balance += float(txs[tx_index]['tradingVolume'])
-                    tx_index += 1
-                else:
-                    break
+                # apply transactions up to and including month_end
+                while tx_index < total_txs:
+                    tx_date = txs[tx_index]['dateTransaction'].date() if hasattr(txs[tx_index]['dateTransaction'], 'date') else txs[tx_index]['dateTransaction']
+                    if tx_date <= month_end:
+                        balance += float(txs[tx_index]['tradingVolume'])
+                        tx_index += 1
+                    else:
+                        break
 
-            if balance != 0:
-                month_end_iso = month_end.isoformat()
-                if month_end_iso not in existing_dates:
-                    inserted_id = history_repo.insert_history(share_id, 0, month_end_iso)
-                    if inserted_id:
-                        created += 1
+                if balance != 0:
+                    month_end_iso = month_end.isoformat()
+                    if month_end_iso not in existing_dates:
+                        inserted_id = history_repo.insert_history(share_id, 0, month_end_iso)
+                        if inserted_id:
+                            created += 1
+                        else:
+                            skipped += 1
                     else:
                         skipped += 1
-                else:
-                    skipped += 1
 
-            month_cursor = next_month
+                month_cursor = next_month
 
-    safe_commit(connection)
-    return {"status": "success", "created": created, "skipped": skipped}
+        safe_commit(connection)
+        return {"status": "success", "created": created, "skipped": skipped}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.delete("/shares/history/{history_id}")
 @handle_db_errors("Failed to delete history")
 async def delete_share_history(
     history_id: int,
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
-    history_repo = ShareHistoryRepository(cursor)
-    history_repo.delete_history(history_id)
-    safe_commit(connection)
-    return {"status": "success"}
+    cursor = connection.cursor(buffered=True)
+    try:
+        history_repo = ShareHistoryRepository(cursor)
+        history_repo.delete_history(history_id)
+        safe_commit(connection)
+        return {"status": "success"}
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 @router.post("/shares/import/history")
 @handle_db_errors("Failed to import history")
 async def import_share_history(
     file: UploadFile = File(...),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Import share history from CSV file
@@ -361,96 +421,103 @@ async def import_share_history(
     contents = await file.read()
     text_content = contents.decode('utf-8')
     
-    share_repo = ShareRepository(cursor)
-    history_repo = ShareHistoryRepository(cursor)
-    
-    imported = 0
-    skipped = 0
-    errors = []
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        csv_reader = csv.DictReader(
-            io.StringIO(text_content),
-            fieldnames=['identifier', 'date_str', 'amount_str'],
-            delimiter=';'
-        )
-        # Skip header
-        next(csv_reader, None)
+        share_repo = ShareRepository(cursor)
+        history_repo = ShareHistoryRepository(cursor)
         
-        for row_num, row in enumerate(csv_reader, start=2):
-            try:
-                # Validate required fields
-                identifier = row.get('identifier', '').strip() if row.get('identifier') else None
-                date_str = row.get('date_str', '').strip() if row.get('date_str') else None
-                amount_str = row.get('amount_str', '').strip() if row.get('amount_str') else None
-                
-                if not all([identifier, date_str, amount_str]):
-                    errors.append(f"Row {row_num}: Missing required fields")
-                    skipped += 1
-                    continue
-                
-                # Parse amount using centralized utility
-                amount = float(parse_amount(amount_str, decimal_separator=","))
-                
-                # Parse date using centralized utility
-                date_obj = parse_date(date_str, '%d.%m.%Y')
-                date_only = date_obj.date().isoformat()
-                
-                # Look up share by ISIN or WKN
-                # identifier can be ISIN or WKN
-                # Determine if it's ISIN (>6 chars) or WKN (<=6 chars)
-                is_isin = len(identifier) > 6
-                
-                if is_isin:
-                    share = share_repo.get_share_by_isin_wkn(identifier, None)
-                else:
-                    share = share_repo.get_share_by_isin_wkn(None, identifier)
-                
-                if not share:
-                    # Create share with only ISIN or WKN, name empty (user fills later)
+        imported = 0
+        skipped = 0
+        errors = []
+        
+        try:
+            csv_reader = csv.DictReader(
+                io.StringIO(text_content),
+                fieldnames=['identifier', 'date_str', 'amount_str'],
+                delimiter=';'
+            )
+            # Skip header
+            next(csv_reader, None)
+            
+            for row_num, row in enumerate(csv_reader, start=2):
+                try:
+                    # Validate required fields
+                    identifier = row.get('identifier', '').strip() if row.get('identifier') else None
+                    date_str = row.get('date_str', '').strip() if row.get('date_str') else None
+                    amount_str = row.get('amount_str', '').strip() if row.get('amount_str') else None
+                    
+                    if not all([identifier, date_str, amount_str]):
+                        errors.append(f"Row {row_num}: Missing required fields")
+                        skipped += 1
+                        continue
+                    
+                    # Parse amount using centralized utility
+                    amount = float(parse_amount(amount_str, decimal_separator=","))
+                    
+                    # Parse date using centralized utility
+                    date_obj = parse_date(date_str, '%d.%m.%Y')
+                    date_only = date_obj.date().isoformat()
+                    
+                    # Look up share by ISIN or WKN
+                    # identifier can be ISIN or WKN
+                    # Determine if it's ISIN (>6 chars) or WKN (<=6 chars)
+                    is_isin = len(identifier) > 6
+                    
                     if is_isin:
-                        share_id = share_repo.insert_share(None, identifier, None)
+                        share = share_repo.get_share_by_isin_wkn(identifier, None)
                     else:
-                        share_id = share_repo.insert_share(None, None, identifier)
-                    share = share_repo.get_share_by_id(share_id)
-                else:
-                    share_id = share['id']
-                
-                # Insert history record if not already present
-                inserted_id = history_repo.insert_history(share_id, amount, date_only)
-                if inserted_id:
-                    imported += 1
-                else:
+                        share = share_repo.get_share_by_isin_wkn(None, identifier)
+                    
+                    if not share:
+                        # Create share with only ISIN or WKN, name empty (user fills later)
+                        if is_isin:
+                            share_id = share_repo.insert_share(None, identifier, None)
+                        else:
+                            share_id = share_repo.insert_share(None, None, identifier)
+                        share = share_repo.get_share_by_id(share_id)
+                    else:
+                        share_id = share['id']
+                    
+                    # Insert history record if not already present
+                    inserted_id = history_repo.insert_history(share_id, amount, date_only)
+                    if inserted_id:
+                        imported += 1
+                    else:
+                        skipped += 1
+                    
+                except ValueError as ve:
+                    error_msg = f"Row {row_num}: {str(ve)}"
+                    errors.append(error_msg)
                     skipped += 1
-                
-            except ValueError as ve:
-                error_msg = f"Row {row_num}: {str(ve)}"
-                errors.append(error_msg)
-                skipped += 1
-            except Exception as e:
-                error_msg = f"Row {row_num}: {str(e)}"
-                errors.append(error_msg)
-                skipped += 1
-        
-        # Commit all changes
-        safe_commit(connection)
-        
-        return {
-            "status": "success",
-            "imported": imported,
-            "skipped": skipped,
-            "errors": errors[:10],  # Return first 10 errors
-            "total_errors": len(errors)
-        }
-        
-    except Exception as e:
-        safe_rollback(connection)
-        return {
-            "status": "error",
-            "message": str(e),
-            "imported": imported,
-            "skipped": skipped
-        }
+                except Exception as e:
+                    error_msg = f"Row {row_num}: {str(e)}"
+                    errors.append(error_msg)
+                    skipped += 1
+            
+            # Commit all changes
+            safe_commit(connection)
+            
+            return {
+                "status": "success",
+                "imported": imported,
+                "skipped": skipped,
+                "errors": errors[:10],  # Return first 10 errors
+                "total_errors": len(errors)
+            }
+            
+        except Exception as e:
+            safe_rollback(connection)
+            return {
+                "status": "error",
+                "message": str(e),
+                "imported": imported,
+                "skipped": skipped
+            }
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
 
 
@@ -575,7 +642,6 @@ async def get_accounting_entries(
 @handle_db_errors("Failed to import transactions")
 async def import_share_transactions(
     file: UploadFile = File(...),
-    cursor=Depends(get_db_cursor_with_auth),
     connection=Depends(get_db_connection_with_auth)
 ):
     """Import share transactions from CSV file
@@ -587,94 +653,101 @@ async def import_share_transactions(
     contents = await file.read()
     text_content = contents.decode('utf-8')
     
-    share_repo = ShareRepository(cursor)
-    transaction_repo = ShareTransactionRepository(cursor)
-    
-    imported = 0
-    skipped = 0
-    errors = []
-    
+    cursor = connection.cursor(buffered=True)
     try:
-        csv_reader = csv.DictReader(
-            io.StringIO(text_content),
-            fieldnames=['identifier', 'date_str', 'shares_str'],
-            delimiter=';'
-        )
-        # Skip header
-        next(csv_reader, None)
+        share_repo = ShareRepository(cursor)
+        transaction_repo = ShareTransactionRepository(cursor)
         
-        for row_num, row in enumerate(csv_reader, start=2):
-            try:
-                # Validate required fields
-                identifier = row.get('identifier', '').strip() if row.get('identifier') else None
-                date_str = row.get('date_str', '').strip() if row.get('date_str') else None
-                shares_str = row.get('shares_str', '').strip() if row.get('shares_str') else None
-                
-                # Treat empty shares as 0 (dividend/no trading volume)
-                if not shares_str or shares_str == '':
-                    trading_volume = 0
-                else:
-                    # Parse shares using centralized utility
-                    trading_volume = float(parse_amount(shares_str, decimal_separator=","))
-                
-                if not all([identifier, date_str]):
-                    errors.append(f"Row {row_num}: Missing ISIN/WKN or Datum")
-                    skipped += 1
-                    continue
-                
-                # Parse date using centralized utility
-                date_obj = parse_date(date_str, '%d.%m.%Y')
-                
-                # Look up share by ISIN or WKN
-                # identifier can be ISIN or WKN
-                # Determine if it's ISIN (>6 chars) or WKN (<=6 chars)
-                is_isin = len(identifier) > 6
-                
-                if is_isin:
-                    share = share_repo.get_share_by_isin_wkn(identifier, None)
-                else:
-                    share = share_repo.get_share_by_isin_wkn(None, identifier)
-                
-                if not share:
-                    # Auto-create share with only ISIN or WKN (name empty, user fills later)
-                    if is_isin:
-                        share_id = share_repo.insert_share(None, identifier, None)
+        imported = 0
+        skipped = 0
+        errors = []
+        
+        try:
+            csv_reader = csv.DictReader(
+                io.StringIO(text_content),
+                fieldnames=['identifier', 'date_str', 'shares_str'],
+                delimiter=';'
+            )
+            # Skip header
+            next(csv_reader, None)
+            
+            for row_num, row in enumerate(csv_reader, start=2):
+                try:
+                    # Validate required fields
+                    identifier = row.get('identifier', '').strip() if row.get('identifier') else None
+                    date_str = row.get('date_str', '').strip() if row.get('date_str') else None
+                    shares_str = row.get('shares_str', '').strip() if row.get('shares_str') else None
+                    
+                    # Treat empty shares as 0 (dividend/no trading volume)
+                    if not shares_str or shares_str == '':
+                        trading_volume = 0
                     else:
-                        share_id = share_repo.insert_share(None, None, identifier)
-                    share = share_repo.get_share_by_id(share_id)
-                else:
-                    share_id = share['id']
-                
-                # Insert transaction record
-                transaction_repo.insert_transaction(share_id, trading_volume, date_obj.isoformat())
-                imported += 1
-                
-            except ValueError as ve:
-                error_msg = f"Row {row_num}: {str(ve)}"
-                errors.append(error_msg)
-                skipped += 1
-            except Exception as e:
-                error_msg = f"Row {row_num}: {str(e)}"
-                errors.append(error_msg)
-                skipped += 1
-        
-        # Commit all changes
-        safe_commit(connection)
-        
-        return {
-            "status": "success",
-            "imported": imported,
-            "skipped": skipped,
-            "errors": errors[:10],  # Return first 10 errors
-            "total_errors": len(errors)
-        }
-        
-    except Exception as e:
-        safe_rollback(connection)
-        return {
-            "status": "error",
-            "message": str(e),
-            "imported": imported,
-            "skipped": skipped
-        }
+                        # Parse shares using centralized utility
+                        trading_volume = float(parse_amount(shares_str, decimal_separator=","))
+                    
+                    if not all([identifier, date_str]):
+                        errors.append(f"Row {row_num}: Missing ISIN/WKN or Datum")
+                        skipped += 1
+                        continue
+                    
+                    # Parse date using centralized utility
+                    date_obj = parse_date(date_str, '%d.%m.%Y')
+                    
+                    # Look up share by ISIN or WKN
+                    # identifier can be ISIN or WKN
+                    # Determine if it's ISIN (>6 chars) or WKN (<=6 chars)
+                    is_isin = len(identifier) > 6
+                    
+                    if is_isin:
+                        share = share_repo.get_share_by_isin_wkn(identifier, None)
+                    else:
+                        share = share_repo.get_share_by_isin_wkn(None, identifier)
+                    
+                    if not share:
+                        # Auto-create share with only ISIN or WKN (name empty, user fills later)
+                        if is_isin:
+                            share_id = share_repo.insert_share(None, identifier, None)
+                        else:
+                            share_id = share_repo.insert_share(None, None, identifier)
+                        share = share_repo.get_share_by_id(share_id)
+                    else:
+                        share_id = share['id']
+                    
+                    # Insert transaction record
+                    transaction_repo.insert_transaction(share_id, trading_volume, date_obj.isoformat())
+                    imported += 1
+                    
+                except ValueError as ve:
+                    error_msg = f"Row {row_num}: {str(ve)}"
+                    errors.append(error_msg)
+                    skipped += 1
+                except Exception as e:
+                    error_msg = f"Row {row_num}: {str(e)}"
+                    errors.append(error_msg)
+                    skipped += 1
+            
+            # Commit all changes
+            safe_commit(connection)
+            
+            return {
+                "status": "success",
+                "imported": imported,
+                "skipped": skipped,
+                "errors": errors[:10],  # Return first 10 errors
+                "total_errors": len(errors)
+            }
+            
+        except Exception as e:
+            safe_rollback(connection)
+            return {
+                "status": "error",
+                "message": str(e),
+                "imported": imported,
+                "skipped": skipped
+            }
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
 
