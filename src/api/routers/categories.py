@@ -5,7 +5,7 @@ Categories API Router
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from repositories.category_repository import CategoryRepository
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
-from api.models import CategoryResponse, CategoryCreateRequest, CategoryUpdateRequest
+from api.models import CategoryCreateRequest, CategoryUpdateRequest
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 
 router = APIRouter(prefix="/categories", tags=["categories"])

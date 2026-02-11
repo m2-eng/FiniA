@@ -5,7 +5,20 @@ Pydantic models for API request/response validation
 from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
+
+
+class AccountData(BaseModel):
+    name: str
+    iban_accountNumber: str
+    bic_market: str
+    type: Optional[int] = None
+    startAmount: float
+    dateStart: str
+    dateEnd: Optional[str] = None
+    clearingAccount: Optional[int] = None
+    importFormat: Optional[int] = None
+    importPath: Optional[str] = None
 
 
 class AccountingEntryUpdate(BaseModel):
@@ -19,6 +32,60 @@ class AccountingEntryUpdate(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class RuleTestData(BaseModel):
+    """Model for transaction data when testing a rule"""
+    description: str
+    recipientApplicant: Optional[str] = None
+    amount: Optional[str] = None
+    iban: Optional[str] = None
+
+
+class Condition(BaseModel):
+    """Single condition in a rule"""
+    id: int
+    type: str  # contains, equals, startsWith, endsWith, regex, amountRange
+    columnName: str  # description, recipientApplicant, amount, iban
+    value: Optional[str] = None
+    caseSensitive: bool = False
+    minAmount: Optional[float] = None
+    maxAmount: Optional[float] = None
+
+
+class ImportRequest(BaseModel):
+    """Request model for import operation"""
+    account_id: Optional[int] = None  # None means import all accounts
+
+
+class AutoCategorizeRequest(BaseModel):
+    """Request model for auto-categorization"""
+    account_id: Optional[int] = None  # None means all accounts
+
+
+class BulkCheckRequest(BaseModel):
+    """Request body for bulk marking transactions checked/unchecked."""
+    transaction_ids: List[int]
+    checked: bool = True
+
+
+class RuleData(BaseModel):
+    """Complete rule structure"""
+    id: Optional[str] = None  # UUID, auto-generated if not provided
+    name: str
+    description: Optional[str] = None
+    conditions: List[Condition]
+    conditionLogic: Optional[str] = None  # e.g., "(1 OR 2) AND 3"
+    category: int
+    accounts: List[int] = []  # Empty = all accounts
+    priority: int = 5
+    enabled: bool = True
+
+
+class TestRuleRequest(BaseModel):
+    """Payload for testing a rule"""
+    rule: RuleData
+    transaction: RuleTestData
 
 
 class TransactionEntriesUpdate(BaseModel):
@@ -84,18 +151,8 @@ class ColorPaletteResponse(BaseModel):
     class Config:
         populate_by_name = True
 
-class CategoryResponse(BaseModel): # finding: category response model unused
-    """Category response model"""
-    id: int
-    name: str
-    parent_id: Optional[int] = None
-    fullname: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-
-
-class CategoryCreateRequest(BaseModel): # finding: Create one base model for category (create/upodate)
+class CategoryCreateRequest(BaseModel):
     """Request model for creating a new category"""
     name: str
     parent_id: Optional[int] = None
@@ -104,7 +161,7 @@ class CategoryCreateRequest(BaseModel): # finding: Create one base model for cat
         from_attributes = True
 
 
-class CategoryUpdateRequest(BaseModel): # finding: Create one base model for category (create/upodate)
+class CategoryUpdateRequest(BaseModel):
     """Request model for updating a category"""
     name: Optional[str] = None
     parent_id: Optional[int] = None
@@ -150,7 +207,7 @@ class PlanningListResponse(BaseModel):
         from_attributes = True
 
 
-class PlanningCreateRequest(BaseModel): # finding: Create one base model for planning (create/upodate)
+class PlanningCreateRequest(BaseModel):
     """Request model for creating a new planning"""
     description: Optional[str] = None
     amount: Decimal
@@ -164,7 +221,7 @@ class PlanningCreateRequest(BaseModel): # finding: Create one base model for pla
         from_attributes = True
 
 
-class PlanningUpdateRequest(BaseModel): # finding: Create one base model for planning (create/upodate)
+class PlanningUpdateRequest(BaseModel):
     """Request model for updating a planning"""
     description: Optional[str] = None
     amount: Decimal
