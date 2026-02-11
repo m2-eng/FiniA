@@ -59,7 +59,7 @@ if __name__ == "__main__":
    args = parser.parse_args()
 
    # Load configuration from config.yaml
-   db_config = load_config(args.config)
+   db_config = load_config( config_path=args.config, subconfig='database')
 
    # Launch API server if requested
    if args.api:

@@ -78,10 +78,10 @@ if web_path.exists():
 
 async def startup_event(app: FastAPI):
     """Initialize database connection and auth modules on startup"""
-    # Load config for auth
-    config_path = Path(__file__).parent.parent.parent / "cfg" / "config.yaml"
-    with open(config_path, 'r', encoding='utf-8') as f:
-        config = yaml.safe_load(f)
+    # Load configuration (single source of truth)
+    config = get_database_config()
+    auth_config = get_database_config('auth')
+    db_config = get_database_config('database')
     
     # MEMORY-ONLY: Generate fresh keys on every start (never stored on disk!)
     encryption_key = Fernet.generate_key().decode()
@@ -92,14 +92,12 @@ async def startup_event(app: FastAPI):
     print("⚠ All sessions will be invalidated on restart (by design)")
     
     # Initialize auth modules
-    auth_config = config.get('auth', {}) # findig: maybe move loading 'auth_config' to the section of 'config' loading. Maybe it prevents confusion.
     session_store = SessionStore(
         encryption_key=encryption_key,
         timeout_seconds=auth_config.get('session_timeout_seconds', 3600)
     )
     
     # Get database config (single source of truth)
-    db_config = get_database_config() # finding: The configuration is loaded into 'config', use single source of truth to avoid confusion.
     db_host = db_config.get('host', 'localhost')
     db_port = db_config.get('port', 3306)
     

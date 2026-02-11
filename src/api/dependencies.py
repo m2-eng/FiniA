@@ -23,9 +23,9 @@ _pool_manager = None # finding: The information is also defined in the auth rout
 _session_store = None # finding: The information is also defined in the auth router, maybe it can be moved to a single location to avoid confusion.
 
 
-def get_database_config() -> dict: # finding: The configuration is loaded into 'config', use single source of truth to avoid confusion. The function can be removed.
+def get_database_config(subconfig: str = None) -> dict:
     """Load database configuration from config file."""
-    return load_config('cfg/config.yaml')
+    return load_config(config_path='cfg/config.yaml', subconfig=subconfig)
 
 
 def get_database() -> Database: # finding: Is this the correct database instance?
@@ -101,6 +101,7 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
     
     conn = None
     cursor = None
+    db_config = get_database_config('database')
     
     try:
         # Connection aus Session-Pool holen
@@ -116,10 +117,10 @@ def get_db_cursor_with_auth(session_id: str = Depends(get_current_session)):
         
         # Session-Timeouts erhöhen
         try: # finding: add a parameter to 'config.yaml' to define the timeout values
-            cursor.execute("SET SESSION net_read_timeout=120")
-            cursor.execute("SET SESSION net_write_timeout=120")
+            cursor.execute(f"SET SESSION net_read_timeout={db_config.get('net_read_timeout', 120)}")
+            cursor.execute(f"SET SESSION net_write_timeout={db_config.get('net_write_timeout', 120)}")
             try:
-                cursor.execute("SET SESSION max_execution_time=120000")
+                cursor.execute(f"SET SESSION max_execution_time={db_config.get('max_execution_time', 120000)}")
             except:
                 pass
         except Exception as e:
@@ -193,6 +194,7 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
         )
 
     conn = None
+    db_config = get_database_config('database')
     
     try:
         conn = _pool_manager.get_connection(session_id) # finding: The link to the definition of the function 'get_connection' cannot be resolved.
@@ -209,10 +211,10 @@ def get_db_connection_with_auth(session_id: str = Depends(get_current_session)):
         # Session-Timeouts
         try:
             cur = conn.cursor()
-            cur.execute("SET SESSION net_read_timeout=120")
-            cur.execute("SET SESSION net_write_timeout=120")
+            cur.execute(f"SET SESSION net_read_timeout={db_config.get('net_read_timeout', 120)}")
+            cur.execute(f"SET SESSION net_write_timeout={db_config.get('net_write_timeout', 120)}")
             try:
-                cur.execute("SET SESSION max_execution_time=120000")
+                cur.execute(f"SET SESSION max_execution_time={db_config.get('max_execution_time', 120000)}")
             except:
                 pass
             cur.close()

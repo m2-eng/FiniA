@@ -6,6 +6,11 @@ database:
   sql_file: ./db/finia_draft.sql
   init_data: ./cfg/data.yaml
 
+  net_read_timeout: 120  # MySQL net_read_timeout in seconds (for long-running queries)
+  net_write_timeout: 120 # MySQL net_write_timeout in seconds (for long-running queries)
+
+  max_execution_time: 120000  # Max execution time for queries in seconds (enforced by API)
+
 api:
   # API Server Configuration (Docker & Local Development)
   # These values are read from config.yaml ONLY (no .env needed)
