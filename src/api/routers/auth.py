@@ -38,7 +38,7 @@ def get_session_from_token(
     if not authorization:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Keine Authentifizierung vorhanden",
+            detail="Authentication required.",
             headers={"WWW-Authenticate": "Bearer"}
         )
     
@@ -58,7 +58,7 @@ def get_session_from_token(
         if not session_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Ungültiger Token"
+                detail="Invalid token."
             )
         
         # Update session activity
@@ -69,22 +69,22 @@ def get_session_from_token(
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token abgelaufen"
+            detail="Token expired."
         )
     except jwt.InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Ungültiger Token"
+            detail="Invalid token."
         )
     except SessionNotFoundError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session nicht gefunden"
+            detail="Session not found."
         )
     except SessionExpiredError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session abgelaufen"
+            detail="Session expired."
         )
 
 
@@ -122,7 +122,7 @@ async def login(
         retry_after = auth_context.rate_limiter.get_retry_after(username)
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"Zu viele Login-Versuche. Bitte warten Sie {retry_after} Sekunden.",
+            detail=f"Too many login attempts. Please wait {retry_after} seconds and try again.",
             headers={"Retry-After": str(retry_after)}
         )
     
@@ -161,10 +161,10 @@ async def login(
         auth_context.rate_limiter.record_attempt(username)
         
         remaining = auth_context.rate_limiter.get_remaining_attempts(username)
-        detail = "Ungültige Anmeldedaten"
+        detail = "Invalid credentials."
         
         if remaining > 0:
-            detail += f" ({remaining} Versuche übrig)"
+            detail += f" ({remaining} attempts remaining)"
         
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -224,7 +224,7 @@ async def login(
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Fehler beim Erstellen der Session: {str(e)}"
+            detail=f"Failed to create session: {str(e)}"
         )
 
 
@@ -244,7 +244,7 @@ async def logout(
     # Delete cookie
     response.delete_cookie(key="auth_token")
     
-    return {"message": "Erfolgreich abgemeldet"}
+    return {"message": "Signed out successfully"}
 
 
 @router.get("/session")
@@ -260,7 +260,7 @@ async def get_session_info(
     if not info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session nicht gefunden"
+            detail="Session not found."
         )
     
     return info

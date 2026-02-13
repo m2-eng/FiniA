@@ -21,7 +21,7 @@ services:
       - "8000:8000"
     
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/docs"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/docs').getcode() == 200"]
       interval: 30s
       timeout: 10s
       retries: 3

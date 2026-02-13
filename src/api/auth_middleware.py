@@ -36,7 +36,7 @@ async def get_current_session(
         print("AUTH 401: No authorization header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Keine Authentifizierung vorhanden. Bitte einloggen.",
+            detail="Authentication required. Please sign in.",
             headers={"WWW-Authenticate": "Bearer"}
         )
     
@@ -59,7 +59,7 @@ async def get_current_session(
             print("AUTH 401: No session_id in token payload")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Ungültiger Token"
+                detail="Invalid token."
             )
         
         # Update session activity
@@ -71,23 +71,23 @@ async def get_current_session(
         print("AUTH 401: JWT token expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token abgelaufen. Bitte neu einloggen."
+            detail="Token expired. Please sign in again."
         )
     except jwt.InvalidTokenError:
         print("AUTH 401: Invalid JWT token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Ungültiger Token"
+            detail="Invalid token."
         )
     except SessionNotFoundError:
         print("AUTH 401: Session not found (possibly removed by cleanup)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session nicht gefunden. Bitte neu einloggen."
+            detail="Session not found. Please sign in again."
         )
     except SessionExpiredError:
         print("AUTH 401: Session expired (inactivity timeout)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Session abgelaufen. Bitte neu einloggen."
+            detail="Session expired. Please sign in again."
         )

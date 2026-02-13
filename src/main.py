@@ -15,6 +15,7 @@ Can also launch the GUI application.
 
 import sys
 import argparse
+import logging
 
 from Database import Database
 from DatabaseCreator import DatabaseCreator
@@ -26,6 +27,8 @@ from utils import load_config
 
 if __name__ == "__main__":
    """Main function with argument parsing"""
+   logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+   logger = logging.getLogger(__name__)
    # Argument parser setup
    parser = argparse.ArgumentParser(
       description='FiniA - Finanzverwaltungssystem (uses config.yaml for defaults)',
@@ -76,10 +79,10 @@ if __name__ == "__main__":
       import platform
       from api.dependencies import set_database_credentials
       
-      print(f"Starting FiniA API server on http://{args.host}:{args.port}")
-      print(f"API Documentation: http://{args.host}:{args.port}/api/docs")
-      print(f"Web Interface: http://{args.host}:{args.port}/")
-      print("Note: User authentication via login form - Memory-Only sessions")
+      logger.info("Starting FiniA API server on http://%s:%s", args.host, args.port)
+      logger.info("API documentation: http://%s:%s/api/docs", args.host, args.port)
+      logger.info("Web interface: http://%s:%s/", args.host, args.port)
+      logger.info("User authentication via login form - memory-only sessions")
       
       # Windows: use SelectorEventLoop to avoid Proactor connection_lost errors (WinError 10054)
       if platform.system() == "Windows":
@@ -130,7 +133,7 @@ if __name__ == "__main__":
       if not sql_file.exists():
          raise FileNotFoundError(f"SQL file not found at: {sql_file}")
       else:
-         print(f"Using SQL file: {sql_file}")
+         logger.info("Using SQL file: %s", sql_file)
          
          # Create database
          creator = DatabaseCreator(db)
@@ -138,10 +141,10 @@ if __name__ == "__main__":
          try:
             success = creator.create_from_file(str(sql_file))
          except Exception as e:
-            print(f"Error: {e}")
+            logger.error("Error: %s", e)
             success = False
    else:
-      print("No '--setup' argument provided, skipping database creation.")
+      logger.info("No '--setup' argument provided, skipping database creation.")
 
    # import of the initialization data
    if args.init_database:
@@ -150,7 +153,7 @@ if __name__ == "__main__":
       if not data_file.exists():
          raise FileNotFoundError(f"Data file not found at: {data_file}")
       else:
-         print(f"Using data file: {data_file}")
+         logger.info("Using data file: %s", data_file)
          
          # Create importer
          importer = DataImporter(db)
@@ -158,9 +161,9 @@ if __name__ == "__main__":
          try:
             importer.import_data(str(data_file))
          except Exception as e:
-            print(f"Error: {e}")
+            logger.error("Error: %s", e)
             success = False
    else:
-      print("No '--init-database' argument provided, skipping data import.")
+      logger.info("No '--init-database' argument provided, skipping data import.")
 
    sys.exit(0 if success else 1)

@@ -15,9 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application code and version metadata
 # cfg/ is NOT copied - it's mounted as a volume at runtime (see docker-compose.yml)
 # This prevents overwriting config and allows live updates
+COPY VERSION ./VERSION
 COPY src/ ./src/
 
 # Create non-root user for security
