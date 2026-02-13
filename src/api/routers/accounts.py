@@ -30,30 +30,30 @@ async def import_accounts_from_yaml(
   pool_manager = Depends(get_pool_manager),
   session_id: str = Depends(get_current_session)
 ):
-  """Import accounts from YAML file using account_data syntax."""
-  if not file:
-    raise HTTPException(status_code=400, detail="Keine Datei übergeben")
+    """Import accounts from YAML file using account_data syntax."""
+    if not file:
+        raise HTTPException(status_code=400, detail="No file provided.")
 
-  try:
-    content = await file.read()
-    data = yaml.safe_load(content)
-  except Exception as e:
-    raise HTTPException(status_code=400, detail=f"Ungültige YAML-Datei: {e}")
+    try:
+        content = await file.read()
+        data = yaml.safe_load(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML file: {e}")
 
-  if not isinstance(data, dict) or "account_data" not in data:
-    raise HTTPException(status_code=400, detail="YAML-Datei enthält keinen 'account_data'-Abschnitt")
+    if not isinstance(data, dict) or "account_data" not in data:
+        raise HTTPException(status_code=400, detail="YAML file does not contain an 'account_data' section.")
 
-  if not isinstance(data.get("account_data"), list):
-    raise HTTPException(status_code=400, detail="'account_data' muss eine Liste sein")
+    if not isinstance(data.get("account_data"), list):
+        raise HTTPException(status_code=400, detail="'account_data' must be a list.")
 
-  steps = [AccountsStep()]
-  service = ImportService(pool_manager, session_id, steps)
-  success = service.run(data)
+    steps = [AccountsStep()]
+    service = ImportService(pool_manager, session_id, steps)
+    success = service.run(data)
 
-  count = len(data.get("account_data", []))
-  if success:
-    return {"status": "success", "imported": count, "message": f"{count} Konten importiert."}
-  return {"status": "warning", "imported": count, "message": "Import abgeschlossen mit Warnungen."}
+    count = len(data.get("account_data", []))
+    if success:
+        return {"status": "success", "imported": count, "message": f"{count} accounts imported."}
+    return {"status": "warning", "imported": count, "message": "Import completed with warnings."}
 
 
 @router.get("/income")
@@ -323,7 +323,7 @@ async def get_account_detail(
     account_row = repo.get_account_by_id(account_id)
     
     if not account_row:
-        raise HTTPException(status_code=404, detail="Konto nicht gefunden")
+        raise HTTPException(status_code=404, detail="Account not found.")
     
     # Get import settings
     repo = AccountRepository(cursor)
@@ -355,7 +355,7 @@ async def update_account(
     Update account details and import settings.
     """
     if not account_data:
-        raise HTTPException(status_code=400, detail="Keine Daten übergeben")
+        raise HTTPException(status_code=400, detail="No data provided.")
     
     repo = AccountRepository(connection.cursor(buffered=True))
     cursor = connection.cursor(buffered=True)
@@ -423,7 +423,7 @@ async def delete_account(
             
         safe_commit(connection)
             
-        return {"message": "Konto erfolgreich gelöscht"}
+        return {"message": "Account deleted successfully."}
     except Exception:
         safe_rollback(connection, "delete account")
         raise

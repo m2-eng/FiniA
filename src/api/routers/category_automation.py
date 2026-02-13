@@ -113,7 +113,7 @@ async def get_rule_by_id(
             break
 
     if not matching:
-        raise HTTPException(status_code=404, detail="Regel nicht gefunden")
+        raise HTTPException(status_code=404, detail="Rule not found.")
 
     try:
         category_id = matching.get('category')
@@ -136,7 +136,7 @@ async def get_rule_by_id(
         }
 
     except (json.JSONDecodeError, KeyError) as e:
-        raise HTTPException(status_code=500, detail=f"Fehler beim Parsen der Regel: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse rule: {str(e)}")
 
 
 @router.post("/rules")
@@ -150,18 +150,18 @@ async def create_rule(
     try:
         # Validate
         if not rule_data.name:
-            raise HTTPException(status_code=400, detail="Regelname erforderlich")
+            raise HTTPException(status_code=400, detail="Rule name is required.")
         
         if not rule_data.conditions:
-            raise HTTPException(status_code=400, detail="Mindestens eine Bedingung erforderlich")
+            raise HTTPException(status_code=400, detail="At least one condition is required.")
         
         if not rule_data.category:
-            raise HTTPException(status_code=400, detail="Kategorie erforderlich")
+            raise HTTPException(status_code=400, detail="Category is required.")
         
         # Validate condition IDs are unique
         condition_ids = [c.id for c in rule_data.conditions]
         if len(condition_ids) != len(set(condition_ids)):
-            raise HTTPException(status_code=400, detail="Bedingung-IDs müssen eindeutig sein")
+            raise HTTPException(status_code=400, detail="Condition IDs must be unique.")
         
         # Generate UUID if not provided
         rule_id = rule_data.id or str(uuid4())
@@ -188,7 +188,7 @@ async def create_rule(
             
         return {
             "id": rule_id,
-            "message": "Regel erfolgreich erstellt",
+            "message": "Rule created successfully.",
             "rule": rule
             }
     except Exception:
@@ -213,7 +213,7 @@ async def update_rule(
     try:
 
         if rule_data is None:
-            raise HTTPException(status_code=400, detail="Regeldaten erforderlich")
+            raise HTTPException(status_code=400, detail="Rule data is required.")
         
         settings_repo = SettingsRepository(cursor)
         entries = settings_repo.get_setting_entries("category_automation_rule")
@@ -234,15 +234,15 @@ async def update_rule(
             if rule_id.startswith("new-"):
                 # Validate minimal fields (same as create)
                 if not rule_data.name:
-                    raise HTTPException(status_code=400, detail="Regelname erforderlich")
+                    raise HTTPException(status_code=400, detail="Rule name is required.")
                 if not rule_data.conditions:
-                    raise HTTPException(status_code=400, detail="Mindestens eine Bedingung erforderlich")
+                    raise HTTPException(status_code=400, detail="At least one condition is required.")
                 if not rule_data.category:
-                    raise HTTPException(status_code=400, detail="Kategorie erforderlich")
+                    raise HTTPException(status_code=400, detail="Category is required.")
 
                 condition_ids = [c.id for c in rule_data.conditions]
                 if len(condition_ids) != len(set(condition_ids)):
-                    raise HTTPException(status_code=400, detail="Bedingung-IDs müssen eindeutig sein")
+                    raise HTTPException(status_code=400, detail="Condition IDs must be unique.")
 
                 # Generate UUID if not provided or invalid new-id
                 new_rule_id = rule_data.id or str(uuid4())
@@ -266,11 +266,11 @@ async def update_rule(
 
                 return {
                     "id": new_rule_id,
-                    "message": "Regel erfolgreich erstellt",
+                    "message": "Rule created successfully.",
                     "rule": rule
                 }
 
-            raise HTTPException(status_code=404, detail="Regel nicht gefunden")
+            raise HTTPException(status_code=404, detail="Rule not found.")
         
         setting_id = existing_entry["id"]
 
@@ -298,7 +298,7 @@ async def update_rule(
             
         return {
             "id": rule_id,
-            "message": "Regel erfolgreich aktualisiert",
+            "message": "Rule updated successfully.",
             "rule": rule
         }
     except Exception:
@@ -333,13 +333,13 @@ async def delete_rule(
                 break
 
         if target_id is None:
-            raise HTTPException(status_code=404, detail="Regel nicht gefunden")
+            raise HTTPException(status_code=404, detail="Rule not found.")
 
         settings_repo.delete_setting_by_id(target_id)
         safe_commit(connection)
         
         return {
-            "message": "Regel erfolgreich gelöscht",
+            "message": "Rule deleted successfully.",
             "id": rule_id
         }
     except Exception:
@@ -413,7 +413,7 @@ async def test_rule(
     
     return {
         "matches": matches,
-        "message": "Regel passt" if matches else "Regel passt nicht",
+        "message": "Rule matches" if matches else "Rule does not match",
         "conditionResults": condition_results,
         "logicEvaluation": logic_result,
         "transaction": transaction

@@ -382,32 +382,32 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
             f"Required columns not found in {csv_filename}: {', '.join(missing_fields)}"
          )
          
-         # Print for user visibility (imports are often run in terminal)
-         print(f"\n❌ FEHLER - Datei: {csv_filename}")
-         print(f"   Erforderliche Spalten nicht gefunden:")
+         # Log details for user visibility (imports are often run in terminal)
+         logger.error("File: %s", csv_filename)
+         logger.error("Required columns not found:")
          for field in missing_fields:
             config = columns.get(field, {})
             if isinstance(config, dict):
                if "name" in config:
-                  print(f"   - {field}: Erwartet Spalte '{config.get('name')}'")
+                  logger.error("- %s: expected column '%s'", field, config.get("name"))
                elif "names" in config:
                   names = config.get("names", [])
-                  print(f"   - {field}: Erwartet eine dieser Spalten: {', '.join(names)}")
+                  logger.error("- %s: expected one of these columns: %s", field, ", ".join(names))
                elif "sources" in config:
                   sources = config.get("sources", [])
                   source_names = [s.get("name") for s in sources if isinstance(s, dict) and s.get("name")]
-                  print(f"   - {field}: Erwartet eine dieser Quellspalten: {', '.join(source_names)}")
+                  logger.error("- %s: expected one of these source columns: %s", field, ", ".join(source_names))
                elif "join" in config:
                   join_fields = config.get("join", [])
-                  print(f"   - {field}: Erwartet mindestens eine dieser Spalten: {', '.join(join_fields)}")
+                  logger.error("- %s: expected at least one of these columns: %s", field, ", ".join(join_fields))
                else:
-                  print(f"   - {field}")
+                  logger.error("- %s", field)
             else:
-               print(f"   - {field}")
-         print(f"\n   Verfügbare Spalten in der CSV-Datei ({len(csv_fieldnames)}):")
+               logger.error("- %s", field)
+         logger.info("Available columns in CSV (%s):", len(csv_fieldnames))
          for fname in csv_fieldnames:
-            print(f"   - {fname}")
-         print(f"\n   Import für diese Datei wird abgebrochen!\n")
+            logger.info("- %s", fname)
+         logger.error("Import for this file will be aborted.")
          return False
       
       return True
@@ -475,7 +475,7 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
                if not self._validate_csv_headers(fieldnames, columns, csv_path.name):
                   return 0, 0  # Validation failed, abort import
                
-               print(f"✓ CSV-Spalten validiert: {csv_path.name}")
+               logger.info("CSV columns validated: %s", csv_path.name)
                first_pass = False
             
             total += 1
@@ -522,7 +522,7 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
                   pass
                else:
                   # Only print unexpected errors
-                  print(f"  Warning: skipping row {total} in {csv_path.name}: {exc}")
+                  logger.warning("Skipping row %s in %s: %s", total, csv_path.name, exc)
       
          # Flush remaining rows
          flush_batch()
@@ -530,16 +530,16 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
       except ValueError as e:
          # CSV has no header or is empty
          logger.error(f"CSV format error in {csv_path.name}: {str(e)}")
-         print(f"\n❌ FEHLER - Datei: {csv_path.name}")
-         print(f"   {str(e)}")
-         print(f"   Import wird abgebrochen!\n")
+         logger.error("File: %s", csv_path.name)
+         logger.error("%s", str(e))
+         logger.error("Import will be aborted.")
          return 0, 0
       except RuntimeError as e:
          # Encoding detection failed
          logger.error(f"Encoding error in {csv_path.name}: {str(e)}")
-         print(f"\n❌ FEHLER - Datei: {csv_path.name}")
-         print(f"   {str(e)}")
-         print(f"   Import wird abgebrochen!\n")
+         logger.error("File: %s", csv_path.name)
+         logger.error("%s", str(e))
+         logger.error("Import will be aborted.")
          return 0, 0
       finally:
          # Return connection to the pool (important!).
@@ -601,13 +601,13 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
       Imports account data from configured import paths.
       Uses the connection pool manager for database access.
       """
-      print("\n" + "=" * 100)
-      print("FiniA Account CSV Import")
-      print("=" * 100 + "\n")
+      logger.info("%s", "=" * 100)
+      logger.info("FiniA Account CSV Import")
+      logger.info("%s", "=" * 100)
 
       jobs = self._collect_jobs()
       if not jobs:
-         print("No account import paths configured. Add entries to tbl_accountImportPath first.")
+         logger.info("No account import paths configured. Add entries to tbl_accountImportPath first.")
          return True
 
       overall_inserted = 0
@@ -615,12 +615,17 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
 
       for job in jobs:
          if not job.path.exists():
-            print(f"Skipping account '{job.account_name}': folder not found {job.path}")
+            logger.warning("Skipping account '%s': folder not found %s", job.account_name, job.path)
             continue
 
          files = sorted(job.path.glob(f"*.{job.file_ending}"))
          if not files:
-            print(f"No *.{job.file_ending} files found in {job.path} for account '{job.account_name}'")
+            logger.warning(
+               "No *.%s files found in %s for account '%s'",
+               job.file_ending,
+               job.path,
+               job.account_name,
+            )
             continue
 
          for csv_file in files:
@@ -628,20 +633,29 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
             try:
                mapping, detected_version = self._get_mapping(job.format, csv_file)
                logger.info(f"Format '{job.format}' - Detected version: {detected_version} for {csv_file.name}")
-               print(f"\nℹ️  Format '{job.format}' - Erkannte Version: {detected_version} für {csv_file.name}")
+               logger.info(
+                  "Format '%s' detected version '%s' for %s",
+                  job.format,
+                  detected_version,
+                  csv_file.name,
+               )
             except Exception as exc:
                logger.error(f"Error loading format for {csv_file.name}: {exc}")
-               print(f"\n❌ FEHLER beim Laden des Formats für {csv_file.name}: {exc}")
+               logger.error("Failed to load format for %s: %s", csv_file.name, exc)
                continue
             
             inserted, total = self._import_file(csv_file, mapping, job)
             overall_inserted += inserted
             overall_total += total
-            print(
-               f"Imported {inserted}/{total} rows from {csv_file.name} for account '{job.account_name}'"
+            logger.info(
+               "Imported %s/%s rows from %s for account '%s'",
+               inserted,
+               total,
+               csv_file.name,
+               job.account_name,
             )
 
-      print("\n" + "=" * 100)
-      print(f"Finished CSV import. Inserted {overall_inserted} of {overall_total} rows")
-      print("=" * 100 + "\n")
+      logger.info("%s", "=" * 100)
+      logger.info("Finished CSV import. Inserted %s of %s rows", overall_inserted, overall_total)
+      logger.info("%s", "=" * 100)
       return True

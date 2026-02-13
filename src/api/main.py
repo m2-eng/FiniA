@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from contextlib import asynccontextmanager, suppress
+import logging
 
 from api.routers import transactions, theme, categories, year_overview, accounts, category_automation, planning, shares, settings, auth, docs
 from api.dependencies import get_database_config
@@ -27,6 +28,8 @@ import yaml
 import asyncio
 import secrets
 from pathlib import Path
+
+logger = logging.getLogger("uvicorn.error")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -95,9 +98,9 @@ async def startup_event(app: FastAPI):
     encryption_key = Fernet.generate_key().decode()
     jwt_secret = secrets.token_urlsafe(32)
     
-    print("--- FiniA ", (Path(__file__).parent.parent.parent / "VERSION").read_text().strip(), " ---")
-    print("✓ Auth keys generated in memory (never stored on disk)")
-    print("⚠ All sessions will be invalidated on restart (by design)")
+    logger.info("FiniA %s", (Path(__file__).parent.parent.parent / "VERSION").read_text().strip())
+    logger.info("Auth keys generated in memory (never stored on disk)")
+    logger.warning("All sessions will be invalidated on restart (by design)")
     
     # Initialize auth modules
     session_store = SessionStore(
@@ -125,10 +128,10 @@ async def startup_event(app: FastAPI):
     auth_config_with_secrets['auth']['jwt_secret'] = jwt_secret
     set_auth_context(app, session_store, pool_manager, rate_limiter, auth_config_with_secrets)
     
-    # finding: Log design (.e.g indentation) and wording can be improved; maybe also add additional information to the log (e.g. docker module log shall show the 'INFO' messages)
-    print("✓ Auth modules initialized")
-    print("✓ Database config read from cfg/config.yaml")
-    print("✓ All connections use Memory-Only session-based authentication")
+    # finding: Log formatting and wording can be improved; consider adding more log context where useful.
+    logger.info("Auth modules initialized")
+    logger.info("Database config read from cfg/config.yaml")
+    logger.info("All connections use memory-only session-based authentication")
     
     # Start background session cleanup task
     app.state.session_cleanup_task = asyncio.create_task(
@@ -142,7 +145,7 @@ async def session_cleanup_task(session_store: SessionStore):
         await asyncio.sleep(300)  # Run every 5 minutes
         cleaned = session_store.cleanup_expired_sessions()
         if cleaned > 0:
-            print(f"✓ Cleaned up {cleaned} expired session(s)")
+            logger.info("Cleaned up %s expired session(s)", cleaned)
 
 
 async def shutdown_event(app: FastAPI): # finding: Not sure whether everything is closed, what should be closed and what not. Review the content again.
@@ -159,14 +162,14 @@ async def shutdown_event(app: FastAPI): # finding: Not sure whether everything i
     if auth_context and auth_context.pool_manager:
         for session_id in list(auth_context.pool_manager._pools.keys()):
             auth_context.pool_manager.close_pool(session_id)
-        print("✓ All connection pools closed")
+        logger.info("All connection pools closed")
     
     # Close legacy database
     from api.dependencies import get_database
     try:
         db = get_database()  #finding: The configuration is loaded into 'config', use single source of truth to avoid confusion.
         db.close()
-        print("✓ Database connection closed")
+        logger.info("Database connection closed")
     except:
         pass
 

@@ -12,6 +12,7 @@ Transaction API router
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from typing import Optional
+import logging
 from repositories.transaction_repository import TransactionRepository
 from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.category_repository import CategoryRepository
@@ -31,6 +32,8 @@ import os
 from pathlib import Path
 import json
 
+logger = logging.getLogger(__name__)
+
 
 def auto_categorize_entries(cursor, connection) -> dict:
     """
@@ -43,13 +46,13 @@ def auto_categorize_entries(cursor, connection) -> dict:
         # Get all automation rules (no account filter = all rules)
         rules = load_rules(cursor)
         if not rules:
-            return {"categorized": 0, "total_checked": 0, "message": "Keine Kategorisierungsregeln gefunden"}
+            return {"categorized": 0, "total_checked": 0, "message": "No categorization rules found."}
         
         entry_repo = AccountingEntryRepository(cursor)
         entries = entry_repo.get_uncategorized_entries_with_transaction_details()
         
         if not entries:
-            return {"categorized": 0, "total_checked": 0, "message": "Keine unkategorisierten Einträge gefunden"}
+            return {"categorized": 0, "total_checked": 0, "message": "No uncategorized entries found."}
         
         categorized_entry_count = 0
         
@@ -81,7 +84,7 @@ def auto_categorize_entries(cursor, connection) -> dict:
         return {
             "categorized": categorized_entry_count,
             "total_checked": len(entries),
-            "message": "Transaktionen kategorisiert"
+            "message": "Transactions categorized."
         }
     except Exception:
         safe_rollback(connection, "auto categorize transactions")
@@ -335,20 +338,25 @@ async def import_transactions(
             
             for job in jobs:
                 if not job.path.exists():
-                    skipped_info.append(f"Pfad nicht gefunden: {job.path}")
+                    skipped_info.append(f"Path not found: {job.path}")
                     continue
                     
                 files = sorted(job.path.glob(f"*.{job.file_ending}"))
                 if not files:
-                    skipped_info.append(f"Keine *.{job.file_ending} Dateien in {job.path}")
+                    skipped_info.append(f"No *.{job.file_ending} files in {job.path}")
                     continue
                 
                 for csv_file in files:
                     try:
                         mapping, detected_version = importer._get_mapping(job.format, csv_file)
-                        print(f"ℹ️  API Import - Format '{job.format}' - Erkannte Version: {detected_version} für {csv_file.name}") # finding: remove signs/emojis from log messages.
+                        logger.info(
+                            "API import: format '%s' detected version '%s' for %s",
+                            job.format,
+                            detected_version,
+                            csv_file.name,
+                        )
                     except Exception as exc:
-                        skipped_info.append(f"Mapping-Fehler für {job.account_name}/{csv_file.name}: {exc}")
+                        skipped_info.append(f"Mapping error for {job.account_name}/{csv_file.name}: {exc}")
                         continue
                     
                     # _import_file() already fetches a connection from the pool internally
@@ -370,7 +378,7 @@ async def import_transactions(
                     cat_connection = pool_manager.get_connection(session_id) # finding: Another variant to get the connection.
                     categorization_result = auto_categorize_entries(cursor, cat_connection)
                 except Exception as cat_error:
-                    skipped_info.append(f"Automatische Kategorisierung fehlgeschlagen: {cat_error}")
+                    skipped_info.append(f"Automatic categorization failed: {cat_error}")
                 finally:
                     # Return connection to the pool
                     if cat_connection:
@@ -381,7 +389,7 @@ async def import_transactions(
             
             result = {
                 "success": True,
-                "message": f"Import abgeschlossen: {overall_inserted} von {overall_total} Transaktionen importiert",
+                "message": f"Import completed: {overall_inserted} of {overall_total} transactions imported.",
                 "account_id": request.account_id,
                 "inserted": overall_inserted,
                 "total": overall_total,
@@ -401,12 +409,12 @@ async def import_transactions(
             if success:
                 return {
                     "success": True,
-                    "message": "Import für alle Konten abgeschlossen"
+                    "message": "Import completed for all accounts."
                 }
             else:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Import fehlgeschlagen"
+                    detail="Import failed."
                 )
     
     except HTTPException:
@@ -414,7 +422,7 @@ async def import_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Import fehlgeschlagen: {str(e)}"
+            detail=f"Import failed: {str(e)}"
         )
 
 
@@ -445,7 +453,7 @@ async def auto_categorize_transactions(
         safe_rollback(connection, "auto categorize transactions")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Kategorisierung fehlgeschlagen: {str(e)}"
+            detail=f"Categorization failed: {str(e)}"
         )
 
 
@@ -485,7 +493,11 @@ async def import_csv_file(
         # Get format mapping
         try:
             mapping, detected_version = importer._get_mapping(format, Path(temp_file_path))
-            print(f"ℹ️  API Import - Format '{format}' - Erkannte Version: {detected_version}") # finding: remove signs/emojis from log messages.
+            logger.info(
+                "API import: format '%s' detected version '%s'",
+                format,
+                detected_version,
+            )
         except Exception as exc:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -520,7 +532,7 @@ async def import_csv_file(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Import fehlgeschlagen: {str(e)}"
+            detail=f"Import failed: {str(e)}"
         )
     finally:
         # Clean up temporary file

@@ -235,7 +235,7 @@ def import_csv_with_optional_account(
     
     result = {
         "success": True,
-        "message": f"Import abgeschlossen: {inserted} von {total} Transaktionen importiert",
+        "message": f"Import completed: {inserted} of {total} transactions imported.",
         "inserted": inserted,
         "total": total,
         "format": format_name,

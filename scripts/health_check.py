@@ -15,10 +15,13 @@ Monitors the health of FiniA services (API & Database)
 import subprocess
 import json
 import sys
+import logging
 from datetime import datetime
 from urllib.request import urlopen
 from urllib.error import URLError
 import socket
+
+logger = logging.getLogger(__name__)
 
 class HealthChecker:
     def __init__(self, api_url="http://localhost:8000", db_host="localhost", db_port=3306):
@@ -29,47 +32,47 @@ class HealthChecker:
         
     def check_api(self):
         """Check if API is responding"""
-        print("🔍 Checking API health...")
+        logger.info("Checking API health...")
         try:
             response = urlopen(f"{self.api_url}/api/docs", timeout=5)
             if response.status == 200:
                 self.results['api'] = {'status': 'healthy', 'code': 200}
-                print("✅ API is healthy")
+                logger.info("API is healthy")
                 return True
             else:
                 self.results['api'] = {'status': 'unhealthy', 'code': response.status}
-                print(f"❌ API returned status {response.status}")
+                logger.error("API returned status %s", response.status)
                 return False
         except URLError as e:
             self.results['api'] = {'status': 'unreachable', 'error': str(e)}
-            print(f"❌ API is unreachable: {e}")
+            logger.error("API is unreachable: %s", e)
             return False
         except Exception as e:
             self.results['api'] = {'status': 'error', 'error': str(e)}
-            print(f"❌ Error checking API: {e}")
+            logger.error("Error checking API: %s", e)
             return False
     
     def check_database(self):
         """Check if database is responding"""
-        print("🔍 Checking Database health...")
+        logger.info("Checking database health...")
         try:
             sock = socket.create_connection((self.db_host, self.db_port), timeout=5)
             sock.close()
             self.results['database'] = {'status': 'reachable', 'port': self.db_port}
-            print("✅ Database is reachable")
+            logger.info("Database is reachable")
             return True
         except socket.timeout:
             self.results['database'] = {'status': 'timeout', 'port': self.db_port}
-            print(f"❌ Database connection timeout")
+            logger.error("Database connection timeout")
             return False
         except socket.error as e:
             self.results['database'] = {'status': 'unreachable', 'error': str(e)}
-            print(f"❌ Database is unreachable: {e}")
+            logger.error("Database is unreachable: %s", e)
             return False
     
     def check_docker_containers(self):
         """Check Docker container status"""
-        print("🔍 Checking Docker containers...")
+        logger.info("Checking Docker containers...")
         try:
             result = subprocess.run(
                 ["docker-compose", "ps", "--format", "json"],
@@ -84,18 +87,18 @@ class HealthChecker:
                     'count': len(containers),
                     'containers': containers
                 }
-                print(f"✅ Found {len(containers)} containers")
+                logger.info("Found %s containers", len(containers))
                 return True
             else:
                 self.results['containers'] = {
                     'status': 'docker_error',
                     'error': result.stderr
                 }
-                print("❌ Docker Compose error")
+                logger.error("Docker Compose error")
                 return False
         except Exception as e:
             self.results['containers'] = {'status': 'error', 'error': str(e)}
-            print(f"❌ Error checking containers: {e}")
+            logger.error("Error checking containers: %s", e)
             return False
     
     def get_summary(self):
@@ -117,25 +120,28 @@ class HealthChecker:
         """Print formatted health report"""
         summary = self.get_summary()
         
-        print("\n" + "="*50)
-        print("FiniA Health Check Report")
-        print("="*50)
-        print(f"Timestamp: {summary['timestamp']}")
-        print(f"Overall Status: {summary['overall'].upper()}")
-        print("-"*50)
+        logger.info("%s", "=" * 50)
+        logger.info("FiniA Health Check Report")
+        logger.info("%s", "=" * 50)
+        logger.info("Timestamp: %s", summary["timestamp"])
+        logger.info("Overall Status: %s", summary["overall"].upper())
+        logger.info("%s", "-" * 50)
         
         for service, status in self.results.items():
             health = status.get('status', 'unknown')
-            symbol = "✅" if health in ['healthy', 'reachable', 'available'] else "❌"
-            print(f"{symbol} {service.upper()}: {health}")
+            if health in ['healthy', 'reachable', 'available']:
+                logger.info("%s: %s", service.upper(), health)
+            else:
+                logger.error("%s: %s", service.upper(), health)
             if 'error' in status:
-                print(f"   Error: {status['error']}")
+                logger.error("Error: %s", status["error"])
         
-        print("="*50)
+        logger.info("%s", "=" * 50)
         return summary['overall'] == 'healthy'
 
 def main():
     import argparse
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
     
     parser = argparse.ArgumentParser(description='FiniA Health Check')
     parser.add_argument('--api-url', default='http://localhost:8000', 
