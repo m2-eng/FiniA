@@ -1,5 +1,13 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Authentication API Router - login and session management.
+#
 """
-Authentication API Router - Login und Session-Management.
+Authentication API Router - login and session management.
 """
 
 from fastapi import APIRouter, HTTPException, Response, Depends, status, Header
@@ -22,10 +30,10 @@ def get_session_from_token(
     auth_context: AuthContext = Depends(get_auth_context),
 ) -> str:
     """
-    Dependency: Extrahiert Session-ID aus JWT-Token.
+    Dependency: Extracts session ID from JWT token.
     
     Raises:
-        HTTPException: Bei ungültigem/fehlendem Token
+        HTTPException: On invalid/missing token
     """
     if not authorization:
         raise HTTPException(
@@ -35,7 +43,7 @@ def get_session_from_token(
         )
     
     try:
-        # "Bearer <token>" → <token>
+        # "Bearer <token>" -> <token>
         token = authorization.replace("Bearer ", "")
         
         auth_config = auth_context.config.get('auth', {})
@@ -53,7 +61,7 @@ def get_session_from_token(
                 detail="Ungültiger Token"
             )
         
-        # Session-Aktivität aktualisieren
+        # Update session activity
         auth_context.session_store.update_activity(session_id)
         
         return session_id
@@ -81,13 +89,13 @@ def get_session_from_token(
 
 
 class LoginRequest(BaseModel):
-    """Login-Request Model."""
+    """Login request model."""
     username: str
     password: str
 
 
 class LoginResponse(BaseModel):
-    """Login-Response Model."""
+    """Login response model."""
     token: str
     username: str
     database: str
@@ -102,14 +110,14 @@ async def login(
     auth_context: AuthContext = Depends(get_auth_context),
 ):
     """
-    User-Login mit MySQL-Credentials.
+    User login with MySQL credentials.
     
-    Authentifiziert User direkt über MySQL und erstellt Session.
+    Authenticates the user directly via MySQL and creates a session.
     """
     username = credentials.username.strip()
     password = credentials.password
     
-    # Rate Limiting prüfen
+    # Check rate limiting
     if not auth_context.rate_limiter.is_allowed(username):
         retry_after = auth_context.rate_limiter.get_retry_after(username)
         raise HTTPException(
@@ -118,7 +126,7 @@ async def login(
             headers={"Retry-After": str(retry_after)}
         )
     
-    # Datenbankname ableiten
+    # Derive database name
     try:
         auth_config = auth_context.config.get('auth', {})
         database_name = get_database_name(
@@ -133,7 +141,7 @@ async def login(
             detail=str(e)
         )
     
-    # MySQL-Authentifizierung versuchen
+    # Attempt MySQL authentication
     try:
         import mysql.connector
         
@@ -149,7 +157,7 @@ async def login(
         test_conn.close()
         
     except Error as e:
-        # Login fehlgeschlagen
+        # Login failed
         auth_context.rate_limiter.record_attempt(username)
         
         remaining = auth_context.rate_limiter.get_remaining_attempts(username)
@@ -163,17 +171,17 @@ async def login(
             detail=detail
         )
     
-    # Login erfolgreich - Session erstellen
+    # Login successful - create session
     try:
         session_id = auth_context.session_store.create_session(username, password, database_name)
         
-        # Connection Pool erstellen
+        # Create connection pool
         auth_context.pool_manager.create_pool(session_id, username, password, database_name)
         
-        # Rate Limiter zurücksetzen
+        # Reset rate limiter
         auth_context.rate_limiter.reset(username)
         
-        # JWT-Token erstellen
+        # Create JWT token
         auth_config = auth_context.config.get('auth', {})
         expiry_hours = auth_config.get('jwt_expiry_hours', 24)
         expires_at = datetime.utcnow() + timedelta(hours=expiry_hours)
@@ -191,7 +199,7 @@ async def login(
             algorithm="HS256"
         )
         
-        # Cookie setzen (HttpOnly, Secure)
+        # Set cookie (HttpOnly, Secure)
         response.set_cookie(
             key="auth_token",
             value=token,
@@ -209,7 +217,7 @@ async def login(
         )
         
     except Exception as e:
-        # Cleanup bei Fehler
+        # Cleanup on error
         if session_id:
             auth_context.session_store.delete_session(session_id)
             auth_context.pool_manager.close_pool(session_id)
@@ -227,13 +235,13 @@ async def logout(
     auth_context: AuthContext = Depends(get_auth_context),
 ):
     """
-    User-Logout - Löscht Session und Connection Pool.
+    User logout - deletes the session and connection pool.
     """
-    # Session löschen
+    # Delete session
     auth_context.session_store.delete_session(session_id)
     auth_context.pool_manager.close_pool(session_id)
     
-    # Cookie löschen
+    # Delete cookie
     response.delete_cookie(key="auth_token")
     
     return {"message": "Erfolgreich abgemeldet"}
@@ -245,7 +253,7 @@ async def get_session_info(
     auth_context: AuthContext = Depends(get_auth_context),
 ):
     """
-    Gibt Session-Info zurück (ohne Passwort).
+    Returns session info (without password).
     """
     info = auth_context.session_store.get_session_info(session_id)
     
@@ -258,4 +266,4 @@ async def get_session_info(
     return info
 
 
-# Alle Importe am Anfang bereits erledigt
+# All imports are already handled at the top

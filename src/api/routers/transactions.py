@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Transaction API router
+#
 """
 Transaction API router
 """
@@ -343,7 +351,7 @@ async def import_transactions(
                         skipped_info.append(f"Mapping-Fehler für {job.account_name}/{csv_file.name}: {exc}")
                         continue
                     
-                    # _import_file() holt intern bereits eine Connection aus dem Pool
+                    # _import_file() already fetches a connection from the pool internally
                     inserted, total = importer._import_file(csv_file, mapping, job)
                     overall_inserted += inserted
                     overall_total += total
@@ -364,10 +372,10 @@ async def import_transactions(
                 except Exception as cat_error:
                     skipped_info.append(f"Automatische Kategorisierung fehlgeschlagen: {cat_error}")
                 finally:
-                    # Gebe Connection zurück an Pool
+                    # Return connection to the pool
                     if cat_connection:
                         try:
-                            cat_connection.close()  # Zurück an Pool
+                            cat_connection.close()  # Back to pool
                         except Exception:
                             pass
             
@@ -453,7 +461,7 @@ async def import_csv_file(
 ):
     """
     Import transactions from a specific CSV file.
-    Nutzt Session-basierte Connection Pools für Datenbankzugriff.
+    Uses session-based connection pools for database access.
     
     - **file**: CSV file to import
     - **format**: Import format name (e.g., 'csv-cb', 'csv-loan')

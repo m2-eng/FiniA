@@ -1,5 +1,13 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: In-memory session store with encrypted credentials.
+#
 """
-In-Memory Session Store mit verschlüsselten Credentials.
+In-memory session store with encrypted credentials.
 """
 
 from cryptography.fernet import Fernet
@@ -9,30 +17,30 @@ from typing import Dict, Optional
 
 
 class SessionNotFoundError(Exception): # finding: Store exception message within the class to avoid hardcoding strings in multiple places.
-    """Session-ID existiert nicht."""
+    """Session ID does not exist."""
     pass
 
 
 class SessionExpiredError(Exception):  # finding: Store exception message within the class to avoid hardcoding strings in multiple places.
-    """Session ist abgelaufen."""
+    """Session has expired."""
     pass
 
 
 class SessionStore:
     """
-    In-Memory Session Store mit verschlüsselten Credentials.
+    In-memory session store with encrypted credentials.
     
-    Speichert Benutzer-Credentials verschlüsselt im RAM.
-    Sessions laufen nach Inaktivität automatisch ab.
+    Stores user credentials encrypted in memory.
+    Sessions expire automatically after inactivity.
     """
     
     def __init__(self, encryption_key: str, timeout_seconds: int = 3600):
         """
-        Initialisiert Session Store.
+        Initializes the session store.
         
         Args:
             encryption_key: Base64-encoded Fernet encryption key
-            timeout_seconds: Inaktivitäts-Timeout in Sekunden (default: 1h)
+            timeout_seconds: Inactivity timeout in seconds (default: 1h)
         """
         self.sessions: Dict[str, dict] = {}
         self.cipher = Fernet(encryption_key.encode())
@@ -40,19 +48,19 @@ class SessionStore:
         
     def create_session(self, username: str, password: str, database: str) -> str:
         """
-        Erstellt neue Session mit verschlüsselten Credentials.
+        Creates a new session with encrypted credentials.
         
         Args:
-            username: DB-Username
-            password: DB-Password (wird verschlüsselt gespeichert)
-            database: Datenbankname
+            username: DB username
+            password: DB password (stored encrypted)
+            database: Database name
             
         Returns:
-            Session-ID (URL-safe Token)
+            Session ID (URL-safe token)
         """
         session_id = secrets.token_urlsafe(32)
         
-        # Passwort verschlüsseln
+        # Encrypt password
         encrypted_password = self.cipher.encrypt(password.encode())
         
         now = datetime.now()
@@ -69,30 +77,30 @@ class SessionStore:
     
     def update_activity(self, session_id: str) -> None:
         """
-        Aktualisiert last_activity Timestamp.
+        Updates the last_activity timestamp.
         
         Args:
-            session_id: Session-ID
+            session_id: Session ID
             
         Raises:
-            SessionNotFoundError: Session existiert nicht
+            SessionNotFoundError: Session does not exist
         """
         if session_id not in self.sessions:
-            raise SessionNotFoundError(f"Session nicht gefunden: {session_id}")
+            raise SessionNotFoundError(f"Session not found: {session_id}")
         
         self.sessions[session_id]["last_activity"] = datetime.now()
     
     def delete_session(self, session_id: str) -> None:
         """
-        Löscht Session und überschreibt Passwort im RAM.
+        Deletes a session and overwrites the password in memory.
         
         Args:
-            session_id: Session-ID
+            session_id: Session ID
         """
         if session_id in self.sessions:
             session = self.sessions[session_id]
             
-            # Passwort im RAM überschreiben (Security)
+            # Overwrite password in memory (security)
             if "encrypted_password" in session:
                 pwd_len = len(session["encrypted_password"])
                 session["encrypted_password"] = b'\x00' * pwd_len
@@ -101,12 +109,12 @@ class SessionStore:
     
     def cleanup_expired_sessions(self) -> int: # review note: The call wass review but not the content of this function.
         """
-        Entfernt abgelaufene Sessions.
+        Removes expired sessions.
         
-        Sollte regelmäßig (z.B. alle 5 Minuten) aufgerufen werden.
+        Should be called regularly (e.g. every 5 minutes).
         
         Returns:
-            Anzahl gelöschter Sessions
+            Number of deleted sessions
         """
         expired = []
         now = datetime.now()
@@ -122,18 +130,18 @@ class SessionStore:
         return len(expired)
     
     def get_session_count(self) -> int:
-        """Gibt Anzahl aktiver Sessions zurück."""
+        """Returns the number of active sessions."""
         return len(self.sessions)
     
     def get_session_info(self, session_id: str) -> Optional[dict]:
         """
-        Gibt Session-Info ohne Passwort zurück.
+        Returns session info without the password.
         
         Args:
-            session_id: Session-ID
+            session_id: Session ID
             
         Returns:
-            Dict mit Session-Info (ohne Passwort) oder None
+            Dict with session info (without password) or None
         """
         if session_id not in self.sessions:
             return None

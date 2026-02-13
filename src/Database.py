@@ -1,11 +1,19 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Module for Database.
+#
 import mysql.connector
 from mysql.connector import Error
 import threading
 
 class Database:
-   """Einfache, robuste MySQL-Verbindung mit globalem Lock für serielle Abarbeitung."""
+   """Simple, robust MySQL connection with a global lock for serial execution."""
    
-   # Globaler Lock - nur EIN Request gleichzeitig auf DB
+   # Global lock - only one request at a time on the DB
    _global_lock = threading.RLock()
    
    def __init__(self, host: str, user: str, password: str, database_name: str, port: int = 3306):
@@ -37,7 +45,7 @@ class Database:
          True on successful connection, False otherwise.
       """
       try:
-         # Schließe alte Connection falls vorhanden
+         # Close existing connection if present
          if self.connection:
             try:
                if self.connection.is_connected():
@@ -46,7 +54,7 @@ class Database:
                pass
             self.connection = None
          
-         # Einfache, dauerhafte Connection
+         # Simple, persistent connection
          self.connection = mysql.connector.connect(
             host=self.host,
             user=self.user,
@@ -109,11 +117,11 @@ class Database:
 
    def get_cursor(self):
       """
-      Return cursor. Verbindung wird in get_db_cursor_with_auth() gemanagt (dependencies.py).
-      Lock wird von get_db_cursor_with_auth() gehalten.
+      Return cursor. Connection is managed by get_db_cursor_with_auth() (dependencies.py).
+      Lock is held by get_db_cursor_with_auth().
       """
       try:
-         # Erstelle Cursor - Verbindung wurde bereits in get_db_cursor() validiert
+         # Create cursor - connection already validated in get_db_cursor()
          if not self.connection:
             raise RuntimeError("Connection not available")
          
@@ -139,4 +147,4 @@ class Database:
             self.connection.rollback()
       except Exception as e:
          print(f"Rollback failed: {e}")
-         # Rollback-Fehler nicht durchreichen
+         # Do not propagate rollback errors

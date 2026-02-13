@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Module for import service.
+#
 from typing import List, Optional, Any
 from services.import_steps.base import ImportStep
 from services.csv_utils import read_csv_rows, parse_amount, parse_date
@@ -11,12 +19,12 @@ from datetime import datetime
 class ImportService:
    def __init__(self, pool_manager, session_id: str, steps: List[ImportStep]):
       """
-      Initialisiert den Import-Service mit Connection Pool Manager.
+        Initializes the import service with the connection pool manager.
       
       Args:
-         pool_manager: ConnectionPoolManager Instanz
-         session_id: Session-ID für den Connection Pool
-         steps: Liste von ImportStep Instanzen
+            pool_manager: ConnectionPoolManager instance
+            session_id: Session ID for the connection pool
+            steps: List of ImportStep instances
       """
       self.pool_manager = pool_manager
       self.session_id = session_id
@@ -24,13 +32,13 @@ class ImportService:
 
    def run(self, data: dict) -> bool:
       """
-      Führt alle Import-Schritte nacheinander aus.
+        Runs all import steps in sequence.
       
       Args:
-         data: Daten für den Import
+            data: Data for the import
          
       Returns:
-         True wenn alle Schritte erfolgreich waren, False sonst
+            True if all steps succeeded, False otherwise
       """
       success = True
       for step in self.steps:
@@ -41,7 +49,7 @@ class ImportService:
                ok = step.run(data, uow)
                success = success and ok
          finally:
-            # Verbindung wird automatisch zum Pool zurückgegeben
+                # Connection is returned to the pool automatically
             pass
       return success
 
@@ -56,14 +64,14 @@ def import_csv_with_optional_account(
 ) -> dict:
     """
     Import CSV file with support for optional account column.
-    Nutzt Connection Pool Manager für Datenbankzugriff.
+    Uses the connection pool manager for database access.
     
     If the CSV has an account column, use it to determine the account for each row.
     Otherwise, use the default_account_id for all rows.
     
     Args:
-        pool_manager: ConnectionPoolManager Instanz
-        session_id: Session-ID für den Connection Pool
+        pool_manager: ConnectionPoolManager instance
+        session_id: Session ID for the connection pool
         csv_path: Path to CSV file
         format_name: Format name (e.g., 'csv-loan')
         mapping: Format mapping configuration
@@ -193,10 +201,10 @@ def import_csv_with_optional_account(
             detail=f"CSV file error: {str(file_error)}"
         ) from file_error
     finally:
-        # Gebe Connection zurück an Pool (wichtig!)
+        # Return connection to the pool (important!).
         if connection:
             try:
-                connection.close()  # Zurück an Pool
+                connection.close()  # Back to pool
             except Exception:
                 pass
     
@@ -213,7 +221,7 @@ def import_csv_with_optional_account(
         except Exception as cat_error:
             warnings.append(f"Auto-categorization failed: {str(cat_error)}")
         finally:
-            # Gebe Cursor und Connection zurück an Pool (wichtig!)
+            # Return cursor and connection to the pool (important!).
             if cursor:
                 try:
                     cursor.close()
@@ -221,7 +229,7 @@ def import_csv_with_optional_account(
                     pass
             if cat_connection:
                 try:
-                    cat_connection.close()  # Zurück an Pool
+                    cat_connection.close()  # Back to pool
                 except Exception:
                     pass
     

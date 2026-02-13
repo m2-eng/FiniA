@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Database creation script for FiniA
+#
 """
 Database creation script for FiniA
 Creates the database structure from the SQL dump file on a specified MySQL/MariaDB server.

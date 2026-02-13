@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Utility functions for authentication.
+#
 """
 Utility functions for authentication.
 """
@@ -5,38 +13,38 @@ Utility functions for authentication.
 
 def get_database_name(db_username: str, username_prefix: str = "finia_", database_prefix: str = "finiaDB_") -> str:
     """
-    Leitet Datenbanknamen aus DB-Username ab.
+    Derives database name from DB username.
     
-    Pattern: finia_<Name> → finiaDB_<Name>
+    Pattern: finia_<name> -> finiaDB_<name>
     
     Args:
-        db_username: MySQL-Username (z.B. "finia_username")
-        username_prefix: Erwartetes Präfix im Username
-        database_prefix: Präfix für Datenbanknamen
+        db_username: MySQL username (e.g. "finia_username")
+        username_prefix: Expected prefix in the username
+        database_prefix: Prefix for database names
         
     Returns:
-        Datenbankname (z.B. "finiaDB_username")
+        Database name (e.g. "finiaDB_username")
         
     Raises:
-        ValueError: Bei ungültigem Username-Format
+        ValueError: On invalid username format
         
-    Beispiele:
+    Examples:
         >>> get_database_name("finia_username")
         'finiaDB_username'
         >>> get_database_name("finia_alice")
         'finiaDB_alice'
     """
     if not db_username.startswith(username_prefix):
-        raise ValueError(f"Username muss mit '{username_prefix}' beginnen")
+        raise ValueError(f"Username must start with '{username_prefix}'")
     
     if len(db_username) <= len(username_prefix):
-        raise ValueError("Username zu kurz")
+        raise ValueError("Username too short")
     
-    # Suffix extrahieren (z.B. "username" aus "finia_username")
+    # Extract suffix (e.g. "username" from "finia_username")
     suffix = db_username[len(username_prefix):]
     
-    # Nur alphanumerische Zeichen + Underscore erlauben
+    # Allow only alphanumeric characters and underscores
     if not suffix.replace("_", "").isalnum():
-        raise ValueError("Ungültige Zeichen im Username")
+        raise ValueError("Invalid characters in username")
     
     return f"{database_prefix}{suffix}"

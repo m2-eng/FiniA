@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: FastAPI dependencies for database access and authentication
+#
 """
 FastAPI dependencies for database access and authentication
 """
@@ -75,12 +83,12 @@ def get_db_cursor_with_auth(
     auth_context: AuthContext = Depends(get_auth_context),
 ):
     """
-    Liefert Cursor basierend auf Session-Auth (Connection Pool).
+    Returns a cursor based on session auth (connection pool).
     
-    Nutzt Connection Pool der User-Session für bessere Performance.
+    Uses the user-session connection pool for better performance.
     
     Args:
-        session_id: Session-ID aus JWT-Token (via get_current_session dependency)
+        session_id: Session ID from JWT token (via get_current_session dependency)
         
     Yields:
         MySQL Cursor
@@ -96,7 +104,7 @@ def get_db_cursor_with_auth(
     db_config = get_database_config('database')
     
     try:
-        # Connection aus Session-Pool holen
+        # Get connection from the session pool
         conn = auth_context.pool_manager.get_connection(session_id)
         
         if not conn:
@@ -107,7 +115,7 @@ def get_db_cursor_with_auth(
         
         cursor = conn.cursor(buffered=True)
         
-        # Session-Timeouts erhöhen
+        # Increase session timeouts
         try: # finding: add a parameter to 'config.yaml' to define the timeout values
             cursor.execute(f"SET SESSION net_read_timeout={db_config.get('net_read_timeout', 120)}")
             cursor.execute(f"SET SESSION net_write_timeout={db_config.get('net_write_timeout', 120)}")
@@ -164,7 +172,7 @@ def get_db_cursor_with_auth(
                 print(f"Warning: Error closing cursor: {e}")
         if conn:
             try:
-                conn.close()  # Gibt Connection zurück an Pool
+                conn.close()  # Return connection to pool
             except Exception:
                 pass
 
@@ -174,10 +182,10 @@ def get_db_connection_with_auth(
     auth_context: AuthContext = Depends(get_auth_context),
 ):
     """
-    Liefert Connection basierend auf Session-Auth für Transaktionen.
+    Returns a connection based on session auth for transactions.
     
     Args:
-        session_id: Session-ID aus JWT-Token (via get_current_session dependency)
+        session_id: Session ID from JWT token (via get_current_session dependency)
         
     Yields:
         MySQL Connection
@@ -200,10 +208,10 @@ def get_db_connection_with_auth(
                 detail="Database connection unavailable"
             )
         
-        # Setze Connection in Context für Cursor
+        # Store connection in context for cursor access
         _request_connection.set(conn)
         
-        # Session-Timeouts
+        # Session timeouts
         try:
             cur = conn.cursor()
             cur.execute(f"SET SESSION net_read_timeout={db_config.get('net_read_timeout', 120)}")
@@ -239,20 +247,20 @@ def get_db_connection_with_auth(
             pass
         if conn:
             try:
-                conn.close()  # Zurück an Pool
+                conn.close()  # Back to pool
             except Exception:
                 pass
 
 
 def get_pool_manager(auth_context: AuthContext = Depends(get_auth_context)):
     """
-    Liefert den ConnectionPoolManager für Importe.
+    Returns the ConnectionPoolManager for imports.
     
     Returns:
-        ConnectionPoolManager Instanz
+        ConnectionPoolManager instance
         
     Raises:
-        HTTPException: Wenn Pool Manager nicht initialisiert
+        HTTPException: If the pool manager is not initialized
     """
     if not auth_context.pool_manager:
         raise HTTPException(

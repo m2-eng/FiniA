@@ -1,6 +1,14 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Central error handling for the FiniA API.
+#
 """
-Zentrale Fehlerbehandlung für FiniA API
-Bietet konsistente Error-Handling-Patterns für alle Router
+Central error handling for the FiniA API.
+Provides consistent error-handling patterns for all routers.
 """
 
 from functools import wraps
@@ -11,22 +19,22 @@ import traceback
 
 
 class DatabaseConnectionError(Exception):
-    """Wird geworfen, wenn Datenbankverbindung fehlschlägt"""
+    """Raised when database connection fails."""
     pass
 
 
 def handle_db_errors(operation_name: str = "database operation"): # finding: Check for exceptions, which can be handled here instead of in individual endpoints.
     """
-    Decorator für einheitliche Fehlerbehandlung in API-Endpunkten.
+    Decorator for consistent error handling in API endpoints.
     
     Args:
-        operation_name: Name der Operation für Fehlermeldungen
+        operation_name: Operation name for error messages
         
-    Verwendung:
+    Usage:
         @router.get("/endpoint")
         @handle_db_errors("fetch data")
         def my_endpoint(cursor = Depends(get_db_cursor_with_auth)):
-            # Code hier...
+            # Code here...
     """
     def decorator(func: Callable) -> Callable:
         @wraps(func)
@@ -34,7 +42,7 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
             try:
                 return await func(*args, **kwargs)
             except HTTPException:
-                # HTTPExceptions direkt durchreichen (404, etc.)
+                # Re-raise HTTPExceptions directly (404, etc.)
                 raise
             except (OperationalError, InterfaceError, DatabaseError) as exc:
                 print(f"Database error in {operation_name}: {exc}")
@@ -63,7 +71,7 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
             try:
                 return func(*args, **kwargs)
             except HTTPException:
-                # HTTPExceptions direkt durchreichen (404, etc.)
+                # Re-raise HTTPExceptions directly (404, etc.)
                 raise
             except (OperationalError, InterfaceError, DatabaseError) as exc:
                 print(f"Database error in {operation_name}: {exc}")
@@ -87,7 +95,7 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
                     detail=f"Internal server error during {operation_name}"
                 )
         
-        # Prüfe ob Funktion async ist
+        # Check if function is async
         import asyncio
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
@@ -98,14 +106,14 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
 
 def safe_commit(connection, operation_name: str = "operation"):
     """
-    Sichere Commit-Operation mit Fehlerbehandlung.
+    Safe commit operation with error handling.
     
     Args:
         connection: Database connection
-        operation_name: Name der Operation für Fehlermeldungen
+        operation_name: Operation name for error messages
         
     Raises:
-        HTTPException: Bei Commit-Fehler
+        HTTPException: On commit failure
     """
     try:
         if connection and hasattr(connection, 'commit'):
@@ -120,11 +128,11 @@ def safe_commit(connection, operation_name: str = "operation"):
 
 def safe_rollback(connection, operation_name: str = "operation"):
     """
-    Sichere Rollback-Operation mit Fehlerbehandlung.
+    Safe rollback operation with error handling.
     
     Args:
         connection: Database connection
-        operation_name: Name der Operation für Fehlermeldungen
+        operation_name: Operation name for error messages
     """
     try:
         if connection and hasattr(connection, 'rollback'):
@@ -132,4 +140,4 @@ def safe_rollback(connection, operation_name: str = "operation"):
             print(f"Rollback executed for {operation_name}")
     except Exception as exc:
         print(f"Rollback failed for {operation_name}: {exc}")
-        # Rollback-Fehler nicht durchreichen
+        # Do not propagate rollback errors

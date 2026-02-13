@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: FiniA Health Check Script
+#
 """
 FiniA Health Check Script
 Monitors the health of FiniA services (API & Database)

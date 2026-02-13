@@ -1,5 +1,13 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: MySQL connection pool management per session.
+#
 """
-MySQL Connection Pool Management pro Session.
+MySQL connection pool management per session.
 """
 
 import mysql.connector.pooling
@@ -8,26 +16,26 @@ from mysql.connector import Error
 
 
 class PoolNotFoundError(Exception):
-    """Connection Pool existiert nicht."""
+    """Connection pool does not exist."""
     pass
 
 
 class ConnectionPoolManager:
     """
-    Verwaltet MySQL Connection Pools pro Session.
+    Manages MySQL connection pools per session.
     
-    Jede Session bekommt einen eigenen Connection Pool
-    für bessere Performance und Isolation.
+    Each session gets its own connection pool
+    for better performance and isolation.
     """
     
     def __init__(self, host: str, port: int, pool_size: int = 5):
         """
-        Initialisiert Connection Pool Manager.
+        Initializes the connection pool manager.
         
         Args:
-            host: MySQL-Server Host
-            port: MySQL-Server Port
-            pool_size: Anzahl Connections pro Pool (default: 5)
+            host: MySQL server host
+            port: MySQL server port
+            pool_size: Connections per pool (default: 5)
         """
         self.host = host
         self.port = port
@@ -36,16 +44,16 @@ class ConnectionPoolManager:
     
     def create_pool(self, session_id: str, username: str, password: str, database: str) -> None:
         """
-        Erstellt neuen Connection Pool für Session.
+        Creates a new connection pool for a session.
         
         Args:
-            session_id: Session-ID
-            username: DB-Username
-            password: DB-Password
-            database: Datenbankname
+            session_id: Session ID
+            username: DB username
+            password: DB password
+            database: Database name
             
         Raises:
-            Error: Bei DB-Connection-Fehler
+            Error: On DB connection error
         """
         pool_name = f"pool_{session_id[:16]}"
         
@@ -62,49 +70,49 @@ class ConnectionPoolManager:
                 use_pure=True
             )
         except Error as e:
-            raise Error(f"Fehler beim Erstellen des Connection Pools: {e}")
+            raise Error(f"Error creating connection pool: {e}")
     
     def get_connection(self, session_id: str):
         """
-        Holt Connection aus Pool für diese Session.
+        Gets a connection from the pool for this session.
         
         Args:
-            session_id: Session-ID
+            session_id: Session ID
             
         Returns:
             MySQL Connection
             
         Raises:
-            PoolNotFoundError: Pool existiert nicht
+            PoolNotFoundError: Pool does not exist
         """
         if session_id not in self.pools:
-            raise PoolNotFoundError(f"Connection Pool nicht gefunden für Session: {session_id}")
+            raise PoolNotFoundError(f"Connection pool not found for session: {session_id}")
         
         return self.pools[session_id].get_connection()
     
     def close_pool(self, session_id: str) -> None:
         """
-        Schließt alle Connections und entfernt Pool.
+        Closes all connections and removes the pool.
         
         Args:
-            session_id: Session-ID
+            session_id: Session ID
         """
         if session_id in self.pools:
-            # Pool wird automatisch bereinigt bei Deletion
+            # Pool is cleaned up on deletion
             del self.pools[session_id]
     
     def get_pool_count(self) -> int:
-        """Gibt Anzahl aktiver Connection Pools zurück."""
+        """Returns the number of active connection pools."""
         return len(self.pools)
     
     def has_pool(self, session_id: str) -> bool:
         """
-        Prüft ob Pool für Session existiert.
+        Checks whether a pool exists for the session.
         
         Args:
-            session_id: Session-ID
+            session_id: Session ID
             
         Returns:
-            True wenn Pool existiert
+            True if the pool exists
         """
         return session_id in self.pools
