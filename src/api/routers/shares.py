@@ -68,6 +68,9 @@ async def create_share(
         safe_commit(connection)
         
         return {"status": "success", "share_id": share_id}
+    except Exception:
+        safe_rollback(connection, "create share")
+        raise
     finally:
         try:
             cursor.close()
@@ -100,6 +103,9 @@ async def update_share(
         repo.update_share(share_id, name, isin, wkn)
         safe_commit(connection)
         return {"status": "success"}
+    except Exception:
+        safe_rollback(connection, "update share")
+        raise
     finally:
         try:
             cursor.close()
@@ -120,6 +126,9 @@ async def delete_share(
         repo.delete_share(share_id)
         safe_commit(connection)
         return {"status": "success"}
+    except Exception:
+        safe_rollback(connection, "delete share")
+        raise
     finally:
         try:
             cursor.close()
@@ -224,6 +233,9 @@ async def update_share_transaction(
         transaction_repo.update_transaction(transaction_id, share['id'], tradingVolume, dateTransaction, accountingEntryId)
         safe_commit(connection)
         return {"status": "success"}
+    except Exception:
+        safe_rollback(connection, "update share transaction")
+        raise
     finally:
         try:
             cursor.close()
@@ -243,6 +255,9 @@ async def delete_share_transaction(
         transaction_repo.delete_transaction(transaction_id)
         safe_commit(connection)
         return {"status": "success"}
+    except Exception:
+        safe_rollback(connection, "delete share transaction")
+        raise
     finally:
         try:
             cursor.close()
@@ -309,6 +324,9 @@ async def set_share_history_checked(
         history_repo.set_checked(history_id, checked)
         safe_commit(connection)
         return {"status": "success"}
+    except Exception:
+        safe_rollback(connection, "mark share history checked")
+        raise
     finally:
         try:
             cursor.close()
@@ -381,6 +399,9 @@ async def auto_fill_share_history(connection=Depends(get_db_connection_with_auth
 
         safe_commit(connection)
         return {"status": "success", "created": created, "skipped": skipped}
+    except Exception:
+        safe_rollback(connection, "auto-fill share history")
+        raise
     finally:
         try:
             cursor.close()
@@ -400,6 +421,9 @@ async def delete_share_history(
         history_repo.delete_history(history_id)
         safe_commit(connection)
         return {"status": "success"}
+    except Exception:
+        safe_rollback(connection, "delete share history")
+        raise
     finally:
         try:
             cursor.close()

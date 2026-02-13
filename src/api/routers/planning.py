@@ -13,7 +13,7 @@ from api.models import (
     PlanningCycleResponse,
     PlanningEntriesResponse
 )
-from api.error_handling import handle_db_errors, safe_commit
+from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 
 
 router = APIRouter(prefix="/planning", tags=["planning"])
@@ -108,6 +108,9 @@ async def generate_planning_entries(
             )
 
         safe_commit(connection)
+    except Exception:
+        safe_rollback(connection, "generate planning entries")
+        raise
     finally:
         try:
             cursor.close()
@@ -149,6 +152,9 @@ async def delete_planning_entry(
             )
 
         safe_commit(connection)
+    except Exception:
+        safe_rollback(connection, "delete planning entry")
+        raise
     finally:
         try:
             cursor.close()
@@ -224,6 +230,9 @@ async def create_planning(
             )
         
         return created_planning
+    except Exception:
+        safe_rollback(connection, "create planning")
+        raise
     finally:
         try:
             cursor.close()
@@ -283,6 +292,9 @@ async def update_planning(
         # Fetch the updated planning
         updated_planning = repo.get_planning_by_id(planning_id)
         return updated_planning
+    except Exception:
+        safe_rollback(connection, "update planning")
+        raise
     finally:
         try:
             cursor.close()
@@ -324,6 +336,9 @@ async def delete_planning(
             )
         
         safe_commit(connection)
+    except Exception:
+        safe_rollback(connection, "delete planning")
+        raise
     finally:
         try:
             cursor.close()
