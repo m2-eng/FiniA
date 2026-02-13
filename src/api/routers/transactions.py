@@ -36,24 +36,8 @@ def auto_categorize_entries(cursor, connection) -> dict:
     if not rules:
         return {"categorized": 0, "total_checked": 0, "message": "Keine Kategorisierungsregeln gefunden"}
     
-    # Get all uncategorized entries with their transaction details
-    query = """
-        SELECT DISTINCT
-            ae.id as entry_id,
-            ae.transaction as transaction_id,
-            t.description,
-            t.recipientApplicant,
-            t.amount,
-            t.iban,
-            t.account as account_id
-        FROM tbl_accountingEntry ae
-        INNER JOIN tbl_transaction t ON ae.transaction = t.id
-        WHERE ae.category IS NULL
-        ORDER BY t.dateValue DESC
-    """
-    
-    cursor.execute(query) # finding: Use repository method instead of SQL command here. If no method exists, create one.
-    entries = cursor.fetchall()
+    entry_repo = AccountingEntryRepository(cursor)
+    entries = entry_repo.get_uncategorized_entries_with_transaction_details()
     
     if not entries:
         return {"categorized": 0, "total_checked": 0, "message": "Keine unkategorisierten Einträge gefunden"}
@@ -61,14 +45,14 @@ def auto_categorize_entries(cursor, connection) -> dict:
     categorized_entry_count = 0
     
     for entry in entries:
-        entry_id = entry[0]
+        entry_id = entry["entry_id"]
         transaction_data = {
-            "description": entry[2],
-            "recipientApplicant": entry[3],
-            "amount": float(entry[4]),
-            "iban": entry[5]
+            "description": entry["description"],
+            "recipientApplicant": entry["recipientApplicant"],
+            "amount": float(entry["amount"]),
+            "iban": entry["iban"]
         }
-        account_id = entry[6]
+        account_id = entry["account_id"]
         
         # Filter rules for this specific account
         account_rules = [
@@ -80,10 +64,8 @@ def auto_categorize_entries(cursor, connection) -> dict:
         category_id = apply_rules_to_transaction(transaction_data, account_rules)
         
         if category_id:
-            # Update entry with category
-            update_query = "UPDATE tbl_accountingEntry SET category = %s WHERE id = %s"
-            cursor.execute(update_query, (category_id, entry_id))
-            categorized_entry_count += 1
+            if entry_repo.update_category(entry_id, category_id):
+                categorized_entry_count += 1
     
     safe_commit(connection)
     

@@ -128,3 +128,115 @@ class AccountingEntryRepository(BaseRepository):
       self.cursor.execute(sql, (transaction_id,))
       columns = [desc[0] for desc in self.cursor.description]
       return [dict(zip(columns, row)) for row in self.cursor.fetchall()]
+
+   def get_uncategorized_entries_with_transaction_details(self) -> list[dict]:
+      """
+      Get uncategorized accounting entries with transaction details.
+
+      Returns:
+         List of dicts with entry and transaction fields.
+      """
+      sql = """
+         SELECT DISTINCT
+            ae.id as entry_id,
+            ae.transaction as transaction_id,
+            t.description,
+            t.recipientApplicant,
+            t.amount,
+            t.iban,
+            t.account as account_id
+         FROM tbl_accountingEntry ae
+         INNER JOIN tbl_transaction t ON ae.transaction = t.id
+         WHERE ae.category IS NULL
+         ORDER BY t.dateValue DESC
+      """
+      self.cursor.execute(sql)
+      rows = self.cursor.fetchall()
+      columns = [desc[0] for desc in self.cursor.description]
+      return [dict(zip(columns, row)) for row in rows]
+
+   def update_category(self, entry_id: int, category_id: int) -> bool:
+      """
+      Update the category for a single accounting entry.
+
+      Args:
+         entry_id: Accounting entry ID
+         category_id: Category ID to assign
+
+      Returns:
+         True if update was successful, False otherwise
+      """
+      sql = "UPDATE tbl_accountingEntry SET category = %s WHERE id = %s"
+      self.cursor.execute(sql, (category_id, entry_id))
+      return self.cursor.rowcount > 0
+
+   def get_entry_with_transaction_by_id(self, entry_id: int) -> dict | None:
+      """
+      Get a single accounting entry with transaction details by ID.
+
+      Args:
+         entry_id: Accounting entry ID
+
+      Returns:
+         Dict with entry fields or None if not found
+      """
+      sql = """
+         SELECT ae.id, ae.amount, ae.dateImport, t.description, t.dateValue
+         FROM tbl_accountingEntry ae
+         JOIN tbl_transaction t ON ae.transaction = t.id
+         WHERE ae.id = %s
+      """
+      self.cursor.execute(sql, (entry_id,))
+      row = self.cursor.fetchone()
+      if not row:
+         return None
+      columns = [desc[0] for desc in self.cursor.description]
+      return dict(zip(columns, row))
+
+   def get_available_for_share_transactions(
+      self,
+      category_ids: list[int],
+      start_date=None,
+      end_date=None,
+      limit: int = 100,
+   ) -> list[dict]:
+      """
+      Get unlinked accounting entries for share transactions.
+
+      Args:
+         category_ids: Category IDs to filter
+         start_date: Optional start date for t.dateValue filter
+         end_date: Optional end date for t.dateValue filter
+         limit: Max number of rows
+
+      Returns:
+         List of accounting entry dicts
+      """
+      if not category_ids:
+         return []
+
+      placeholders = ",".join(["%s"] * len(category_ids))
+      params = list(category_ids)
+      date_clause = ""
+      if start_date and end_date:
+         date_clause = " AND t.dateValue BETWEEN %s AND %s"
+         params.extend([start_date, end_date])
+
+      sql = f"""
+         SELECT ae.id, ae.amount, ae.dateImport, t.description, t.dateValue
+         FROM tbl_accountingEntry ae
+         JOIN tbl_transaction t ON ae.transaction = t.id
+         WHERE ae.id NOT IN (
+            SELECT COALESCE(accountingEntry, 0)
+            FROM tbl_shareTransaction
+            WHERE accountingEntry IS NOT NULL
+         )
+           AND ae.category IN ({placeholders}){date_clause}
+         ORDER BY t.dateValue DESC
+         LIMIT %s
+      """
+      params.append(limit)
+      self.cursor.execute(sql, params)
+      rows = self.cursor.fetchall()
+      columns = [desc[0] for desc in self.cursor.description]
+      return [dict(zip(columns, row)) for row in rows]

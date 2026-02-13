@@ -228,6 +228,18 @@ class CategoryRepository(BaseRepository):
          for row in results
       ]
 
+   def get_simple_list(self) -> list[dict]:
+      """
+      Get simple list of all categories with id and fullname.
+
+      Returns:
+         List of dicts with id and fullname
+      """
+      sql = "SELECT id, fullname FROM view_categoryFullname ORDER BY fullname"
+      self.cursor.execute(sql)
+      rows = self.cursor.fetchall()
+      return [{"id": row[0], "fullname": row[1]} for row in rows]
+
    def update_category(self, category_id: int, new_name: str, parent_category_id: int = None) -> bool:
       """
       Update a category's name and/or parent.

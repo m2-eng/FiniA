@@ -73,15 +73,8 @@ async def list_categories_simple(cursor=Depends(get_db_cursor_with_auth)):
     """
     Get simple list of all categories with id and fullname for dropdowns.
     """
-    query = """
-        SELECT id, fullname
-        FROM view_categoryFullname
-        ORDER BY fullname
-    """
-    cursor.execute(query)
-    rows = cursor.fetchall()
-    
-    categories = [{"id": row[0], "fullname": row[1]} for row in rows]
+    repo = CategoryRepository(cursor)
+    categories = repo.get_simple_list()
     return {"categories": categories}
 
 

@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 
-from api.routers import transactions, theme, categories, years, year_overview, accounts, category_automation, planning, shares, settings, auth, docs
+from api.routers import transactions, theme, categories, year_overview, accounts, category_automation, planning, shares, settings, auth, docs
 from api.dependencies import get_database_config
 from api.auth_context import set_auth_context
 from auth.session_store import SessionStore
@@ -52,8 +52,8 @@ app.include_router(auth.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api")
 app.include_router(theme.router, prefix="/api")
 app.include_router(categories.router, prefix="/api")
-app.include_router(years.router, prefix="/api")
 app.include_router(year_overview.router, prefix="/api")
+app.include_router(year_overview.years_router, prefix="/api")
 app.include_router(accounts.router, prefix="/api")
 app.include_router(category_automation.router, prefix="/api")
 app.include_router(planning.router, prefix="/api")
