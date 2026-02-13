@@ -4,7 +4,7 @@ Account details API router - provides income/expense breakdown per account
 
 from fastapi import APIRouter, Depends, Query, HTTPException, Path, UploadFile, File
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth, get_pool_manager
-from api.error_handling import handle_db_errors, safe_commit
+from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from api.auth_middleware import get_current_session
 from api.models import AccountData
 from services.import_service import ImportService
@@ -383,11 +383,12 @@ async def update_account(
                 )
             
         safe_commit(connection)
-            
-        # finding: Here should be also 'safe_rollback' in case of errors during commit.
-
+        
         # Return updated account
         return await get_account_detail(account_id, cursor)
+    except Exception:
+        safe_rollback(connection, "update account")
+        raise
     finally:
         try:
             cursor.close()
@@ -415,6 +416,9 @@ async def delete_account(
         safe_commit(connection)
             
         return {"message": "Konto erfolgreich gelöscht"}
+    except Exception:
+        safe_rollback(connection, "delete account")
+        raise
     finally:
         try:
             repo.cursor.close()

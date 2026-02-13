@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from typing import Optional
 import json
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
-from api.error_handling import handle_db_errors, safe_commit
+from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from api.models import RuleData, TestRuleRequest
 from repositories.settings_repository import SettingsRepository
 from repositories.category_repository import CategoryRepository
@@ -183,6 +183,9 @@ async def create_rule(
             "message": "Regel erfolgreich erstellt",
             "rule": rule
             }
+    except Exception:
+        safe_rollback(connection, "create category automation rule")
+        raise
     finally:
         try:
             cursor.close()
@@ -253,8 +256,6 @@ async def update_rule(
                 settings_repo.add_setting("category_automation_rule", json.dumps(rule))
                 safe_commit(connection)
 
-                # finding: Here should be also 'safe_rollback' in case of errors during commit.
-
                 return {
                     "id": new_rule_id,
                     "message": "Regel erfolgreich erstellt",
@@ -286,14 +287,15 @@ async def update_rule(
         jsonValue = json.dumps(rule)
         settings_repo.update_setting_value(setting_id, jsonValue)
         safe_commit(connection)
-
-        # finding: Here should be also 'safe_rollback' in case of errors during commit.
             
         return {
             "id": rule_id,
             "message": "Regel erfolgreich aktualisiert",
             "rule": rule
         }
+    except Exception:
+        safe_rollback(connection, "update category automation rule")
+        raise
     finally:
         try:
             cursor.close()
@@ -327,13 +329,14 @@ async def delete_rule(
 
         settings_repo.delete_setting_by_id(target_id)
         safe_commit(connection)
-
-        # finding: Here should be also 'safe_rollback' in case of errors during commit.
         
         return {
             "message": "Regel erfolgreich gelöscht",
             "id": rule_id
         }
+    except Exception:
+        safe_rollback(connection, "delete category automation rule")
+        raise
     finally:
         try:
             cursor.close()

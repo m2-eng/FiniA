@@ -31,49 +31,53 @@ def auto_categorize_entries(cursor, connection) -> dict:
     Returns:
         Dict with categorization statistics
     """
-    # Get all automation rules (no account filter = all rules)
-    rules = load_rules(cursor)
-    if not rules:
-        return {"categorized": 0, "total_checked": 0, "message": "Keine Kategorisierungsregeln gefunden"}
-    
-    entry_repo = AccountingEntryRepository(cursor)
-    entries = entry_repo.get_uncategorized_entries_with_transaction_details()
-    
-    if not entries:
-        return {"categorized": 0, "total_checked": 0, "message": "Keine unkategorisierten Einträge gefunden"}
-    
-    categorized_entry_count = 0
-    
-    for entry in entries:
-        entry_id = entry["entry_id"]
-        transaction_data = {
-            "description": entry["description"],
-            "recipientApplicant": entry["recipientApplicant"],
-            "amount": float(entry["amount"]),
-            "iban": entry["iban"]
+    try:
+        # Get all automation rules (no account filter = all rules)
+        rules = load_rules(cursor)
+        if not rules:
+            return {"categorized": 0, "total_checked": 0, "message": "Keine Kategorisierungsregeln gefunden"}
+        
+        entry_repo = AccountingEntryRepository(cursor)
+        entries = entry_repo.get_uncategorized_entries_with_transaction_details()
+        
+        if not entries:
+            return {"categorized": 0, "total_checked": 0, "message": "Keine unkategorisierten Einträge gefunden"}
+        
+        categorized_entry_count = 0
+        
+        for entry in entries:
+            entry_id = entry["entry_id"]
+            transaction_data = {
+                "description": entry["description"],
+                "recipientApplicant": entry["recipientApplicant"],
+                "amount": float(entry["amount"]),
+                "iban": entry["iban"]
+            }
+            account_id = entry["account_id"]
+            
+            # Filter rules for this specific account
+            account_rules = [
+                rule for rule in rules
+                if not rule.get('accounts') or account_id in rule.get('accounts', [])
+            ]
+            
+            # Apply rules
+            category_id = apply_rules_to_transaction(transaction_data, account_rules)
+            
+            if category_id:
+                if entry_repo.update_category(entry_id, category_id):
+                    categorized_entry_count += 1
+        
+        safe_commit(connection)
+        
+        return {
+            "categorized": categorized_entry_count,
+            "total_checked": len(entries),
+            "message": "Transaktionen kategorisiert"
         }
-        account_id = entry["account_id"]
-        
-        # Filter rules for this specific account
-        account_rules = [
-            rule for rule in rules
-            if not rule.get('accounts') or account_id in rule.get('accounts', [])
-        ]
-        
-        # Apply rules
-        category_id = apply_rules_to_transaction(transaction_data, account_rules)
-        
-        if category_id:
-            if entry_repo.update_category(entry_id, category_id):
-                categorized_entry_count += 1
-    
-    safe_commit(connection)
-    
-    return {
-        "categorized": categorized_entry_count,
-        "total_checked": len(entries),
-        "message": "Transaktionen kategorisiert"
-    }
+    except Exception:
+        safe_rollback(connection, "auto categorize transactions")
+        raise
 
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
@@ -261,6 +265,9 @@ async def update_transaction_entries(
     except HTTPException:
         safe_rollback(connection, "update transaction entries")
         raise
+    except Exception:
+        safe_rollback(connection, "update transaction entries")
+        raise
 
 
 @router.post("/mark-checked")
@@ -272,9 +279,13 @@ async def bulk_mark_transactions_checked(
 ):
     """Mark all accounting entries of the given transactions as checked/unchecked."""
     entry_repo = AccountingEntryRepository(cursor)
-    updated = entry_repo.set_checked_for_transactions(request.transaction_ids, request.checked)
-    safe_commit(connection, "bulk mark transactions checked")
-    return {"updated_entries": updated}
+    try:
+        updated = entry_repo.set_checked_for_transactions(request.transaction_ids, request.checked)
+        safe_commit(connection, "bulk mark transactions checked")
+        return {"updated_entries": updated}
+    except Exception:
+        safe_rollback(connection, "bulk mark transactions checked")
+        raise
 
 
 @router.post("/import")
