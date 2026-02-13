@@ -1,5 +1,13 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Authentication middleware and dependencies.
+#
 """
-Authentication middleware und dependencies.
+Authentication middleware and dependencies.
 """
 
 # JWT session dependency using app auth context.
@@ -16,13 +24,13 @@ async def get_current_session(
     authorization: Optional[str] = Header(None, alias="Authorization"),
 ) -> str:
     """
-    Dependency: Extrahiert Session-ID aus JWT-Token.
+    Dependency: Extracts session ID from JWT token.
     
     Returns:
-        Session-ID
+        Session ID
         
     Raises:
-        HTTPException: Bei ungültigem/fehlendem Token oder abgelaufener Session
+        HTTPException: On invalid/missing token or expired session
     """
     if not authorization:
         print("AUTH 401: No authorization header")
@@ -35,7 +43,7 @@ async def get_current_session(
     auth_context = get_auth_context(request)
     
     try:
-        # "Bearer <token>" → <token>
+        # "Bearer <token>" -> <token>
         token = authorization.replace("Bearer ", "").strip()
         
         auth_config = auth_context.config.get('auth', {})
@@ -54,7 +62,7 @@ async def get_current_session(
                 detail="Ungültiger Token"
             )
         
-        # Session-Aktivität aktualisieren
+        # Update session activity
         auth_context.session_store.update_activity(session_id)
         
         return session_id
@@ -72,7 +80,7 @@ async def get_current_session(
             detail="Ungültiger Token"
         )
     except SessionNotFoundError:
-        print("AUTH 401: Session not found (möglicherweise durch Cleanup gelöscht)")
+        print("AUTH 401: Session not found (possibly removed by cleanup)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session nicht gefunden. Bitte neu einloggen."

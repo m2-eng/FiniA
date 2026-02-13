@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Module for account data importer.
+#
 import csv
 import re
 import logging
@@ -31,11 +39,11 @@ class ImportJob:
 class AccountDataImporter: # finding: Check design. Is it correct to handover the pool_manager
    def __init__(self, pool_manager, session_id: str):
       """
-      Initialisiert den Account Data Importer mit Connection Pool Manager.
+      Initializes the account data importer with the connection pool manager.
       
       Args:
-         pool_manager: ConnectionPoolManager Instanz
-         session_id: Session-ID für den Connection Pool
+         pool_manager: ConnectionPoolManager instance
+         session_id: Session ID for the connection pool
       """
       self.pool_manager = pool_manager
       self.session_id = session_id
@@ -75,10 +83,10 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
                cursor.close()
             except Exception:
                pass
-         # Gebe Connection zurück an Pool (wichtig!)
+         # Return connection to the pool (important!).
          if connection:
             try:
-               connection.close()  # Zurück an Pool
+               connection.close()  # Back to pool
             except Exception:
                pass
 
@@ -108,7 +116,7 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
                      if isinstance(item, str):
                         # Try to parse string as key:value pairs
                         try:
-                           # String like "name: Einzelheiten" -> {name: "Einzelheiten"}
+                           # String like "name: Details" -> {name: "Details"}
                            if ':' in item:
                               key, value = item.split(':', 1)
                               repaired_sources.append({key.strip(): value.strip()})
@@ -430,7 +438,7 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
       inserted = 0
       total = 0
       
-      # Hole EINMAL eine Connection für den gesamten Import (nicht pro Zeile!)
+      # Get one connection for the entire import (not per row!).
       connection = None
       try:
          connection = self.pool_manager.get_connection(self.session_id)
@@ -534,10 +542,10 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
          print(f"   Import wird abgebrochen!\n")
          return 0, 0
       finally:
-         # Gebe Connection zurück an Pool (wichtig!)
+         # Return connection to the pool (important!).
          if connection:
             try:
-               connection.close()  # Zurück an Pool
+               connection.close()  # Back to pool
             except Exception:
                pass
       
@@ -545,8 +553,8 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
 
    def _collect_jobs(self) -> list[ImportJob]:
       """
-      Sammelt alle zu importierenden Jobs aus der Datenbank.
-      Nutzt Connection Pool Manager für Datenbankzugriff.
+      Collects all jobs to import from the database.
+      Uses the connection pool manager for database access.
       """
       connection = None
       try:
@@ -555,10 +563,10 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
             repo = AccountImportRepository(uow)
             rows = repo.list_import_paths()
       finally:
-         # Gebe Connection zurück an Pool (wichtig!)
+         # Return connection to the pool (important!).
          if connection:
             try:
-               connection.close()  # Zurück an Pool
+               connection.close()  # Back to pool
             except Exception:
                pass
       
@@ -590,8 +598,8 @@ class AccountDataImporter: # finding: Check design. Is it correct to handover th
 
    def import_account_data(self) -> bool:
       """
-      Importiert Account-Daten aus konfigurierten Import-Pfaden.
-      Nutzt Connection Pool Manager für Datenbankzugriff.
+      Imports account data from configured import paths.
+      Uses the connection pool manager for database access.
       """
       print("\n" + "=" * 100)
       print("FiniA Account CSV Import")

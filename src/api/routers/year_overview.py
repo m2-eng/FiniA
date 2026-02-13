@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Year overview API router - exposes balances at the start of each month for a given year.
+#
 """Year overview API router - exposes balances at the start of each month for a given year."""
 
 from fastapi import APIRouter, Depends, Query

@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Module for accounts.
+#
 from services.import_steps.base import ImportStep
 from domain.account import Account
 from repositories.account_repository import AccountRepository
@@ -17,7 +25,7 @@ class AccountsStep(ImportStep):
       inserted = 0
       paths_inserted = 0
 
-      # Erste Runde: Accounts anlegen
+      # First pass: create accounts
       accounts = data["account_data"]
       for item in accounts:
          acc = item.get("account", {})
@@ -48,7 +56,7 @@ class AccountsStep(ImportStep):
       print(f"  Inserted {inserted} accounts into tbl_account")
       if paths_inserted:
          print(f"  Inserted {paths_inserted} import paths/formats")
-      # Zweite Runde: Clearing-Accounts setzen
+      # Second pass: set clearing accounts
       updated = 0
       for item in accounts:
          acc = item.get("account", {})

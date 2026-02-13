@@ -1,5 +1,13 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Central error handling for the repository layer.
+#
 """
-Zentrale Fehlerbehandlung fuer die Repository-Schicht.
+Central error handling for the repository layer.
 """
 
 from __future__ import annotations
@@ -11,7 +19,7 @@ from mysql.connector.errors import Error as MySQLError, OperationalError, Interf
 
 
 def handle_repository_errors(operation_name: str = "database operation"):
-    """Decorator fuer einheitliche Fehlerbehandlung in Repositories."""
+    """Decorator for consistent error handling in repositories."""
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:

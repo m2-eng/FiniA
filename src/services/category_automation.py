@@ -1,3 +1,11 @@
+#
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 m2-eng
+# Author: m2-eng
+# Co-Author: GitHub Copilot
+# License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
+# Purpose: Category automation utilities - rule evaluation and application logic
+#
 """
 Category automation utilities - rule evaluation and application logic
 
@@ -67,7 +75,7 @@ def parse_condition_logic(logic_str: str, condition_results: Dict[int, bool]) ->
         return any(condition_results.values())
     
     try:
-        # Normalize: German → English
+        # Normalize: German -> English
         normalized = logic_str.upper()
         normalized = normalized.replace(' UND ', ' AND ')
         normalized = normalized.replace(' ODER ', ' OR ')
