@@ -14,6 +14,7 @@ from decimal import Decimal
 from services.csv_utils import parse_amount, parse_date
 
 from repositories.share_repository import ShareRepository
+from repositories.accounting_entry_repository import AccountingEntryRepository
 from repositories.share_history_repository import ShareHistoryRepository
 from repositories.share_transaction_repository import ShareTransactionRepository
 from repositories.settings_repository import SettingsRepository
@@ -528,26 +529,20 @@ async def get_accounting_entry(
     cursor=Depends(get_db_cursor_with_auth)
 ):
     """Get a single accounting entry by ID (including those already assigned to share transactions)"""
-    query = """
-        SELECT ae.id, ae.amount, ae.dateImport, t.description, t.dateValue
-        FROM tbl_accountingEntry ae
-        JOIN tbl_transaction t ON ae.transaction = t.id
-        WHERE ae.id = %s
-    """
-    cursor.execute(query, (entry_id,)) # finding: Use repository method instead. If no method exists, create one.
-    row = cursor.fetchone()
+    entry_repo = AccountingEntryRepository(cursor)
+    entry = entry_repo.get_entry_with_transaction_by_id(entry_id)
     
-    if not row:
+    if not entry:
         return {'entry': None}
     
     return {
         'entry': {
-            'id': row[0],
-            'amount': float(row[1]),
-            'dateImport': row[2].isoformat() if row[2] else None,
-            'description': row[3],
-            'dateValue': row[4].isoformat() if row[4] else None,
-            'display': f"{row[4]} - {row[3]} ({row[1]}€)" if row[4] and row[3] else f"ID: {row[0]}"
+            'id': entry['id'],
+            'amount': float(entry['amount']),
+            'dateImport': entry['dateImport'].isoformat() if entry['dateImport'] else None,
+            'description': entry['description'],
+            'dateValue': entry['dateValue'].isoformat() if entry['dateValue'] else None,
+            'display': f"{entry['dateValue']} - {entry['description']} ({entry['amount']}€)" if entry['dateValue'] and entry['description'] else f"ID: {entry['id']}"
         }
     }
 
@@ -598,41 +593,35 @@ async def get_accounting_entries(
     if not filter_ids:
         return {'entries': []}
 
-    placeholders = ','.join(['%s'] * len(filter_ids))
-
-    params = list(filter_ids)
-    date_clause = ""
+    entry_repo = AccountingEntryRepository(cursor)
+    start_date = None
+    end_date = None
     if date:
         try:
             start_date = datetime.fromisoformat(date).date()
             start_minus_7 = start_date - timedelta(days=7)
             end_plus_7 = start_date + timedelta(days=7)
-            date_clause = " AND t.dateValue BETWEEN %s AND %s"
-            params.extend([start_minus_7, end_plus_7])
+            start_date = start_minus_7
+            end_date = end_plus_7
         except Exception:
             pass
 
-    query = f"""
-        SELECT ae.id, ae.amount, ae.dateImport, t.description, t.dateValue
-        FROM tbl_accountingEntry ae
-        JOIN tbl_transaction t ON ae.transaction = t.id
-        WHERE ae.id NOT IN (SELECT COALESCE(accountingEntry, 0) FROM tbl_shareTransaction WHERE accountingEntry IS NOT NULL)
-          AND ae.category IN ({placeholders}){date_clause}
-        ORDER BY t.dateValue DESC
-        LIMIT 100
-    """
-    cursor.execute(query, params)
-    rows = cursor.fetchall()
+    entries = entry_repo.get_available_for_share_transactions(
+        filter_ids,
+        start_date=start_date,
+        end_date=end_date,
+        limit=100,
+    )
     
     entries_list = []
-    for row in rows:
+    for entry in entries:
         entries_list.append({
-            'id': row[0],
-            'amount': float(row[1]),
-            'dateImport': row[2].isoformat() if row[2] else None,
-            'description': row[3],
-            'dateValue': row[4].isoformat() if row[4] else None,
-            'display': f"{row[4]} - {row[3]} ({row[1]}€)" if row[4] and row[3] else f"ID: {row[0]}"
+            'id': entry['id'],
+            'amount': float(entry['amount']),
+            'dateImport': entry['dateImport'].isoformat() if entry['dateImport'] else None,
+            'description': entry['description'],
+            'dateValue': entry['dateValue'].isoformat() if entry['dateValue'] else None,
+            'display': f"{entry['dateValue']} - {entry['description']} ({entry['amount']}€)" if entry['dateValue'] and entry['description'] else f"ID: {entry['id']}"
         })
     
     return {'entries': entries_list}

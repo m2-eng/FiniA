@@ -8,6 +8,8 @@ import json
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
 from api.error_handling import handle_db_errors, safe_commit
 from api.models import RuleData, TestRuleRequest
+from repositories.settings_repository import SettingsRepository
+from repositories.category_repository import CategoryRepository
 from services.category_automation import (
     evaluate_rule,
     parse_condition_logic
@@ -29,19 +31,14 @@ async def get_rules(
     Get all automation rules from settings table.
     Returns rules sorted by priority (descending).
     """
-    query = """
-        SELECT id, value
-        FROM tbl_setting
-        WHERE `key` = 'category_automation_rule'
-    """
-    
-    cursor.execute(query)
-    rows = cursor.fetchall()
-    
+    settings_repo = SettingsRepository(cursor)
+    category_repo = CategoryRepository(cursor)
+    entries = settings_repo.get_setting_entries("category_automation_rule")
+
     rules = []
-    for row in rows:
+    for entry in entries:
         try:
-            rule = json.loads(row[1])
+            rule = json.loads(entry["value"])
             
             # Filter by enabled status
             if enabled_only and not rule.get('enabled', True):
@@ -55,12 +52,8 @@ async def get_rules(
             
             # Fetch category name
             category_id = rule.get('category')
-            cursor.execute(
-                "SELECT name FROM tbl_category WHERE id = %s",
-                (category_id,) # comma is needed to make it a tuple
-            )
-            cat_row = cursor.fetchone()
-            category_name = cat_row[0] if cat_row else None
+            category = category_repo.get_category_by_id(category_id) if category_id else None
+            category_name = category['name'] if category else None
             
             rules.append({
                 "id": rule.get('id'),
@@ -78,7 +71,7 @@ async def get_rules(
             })
             
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"Warning: Failed to parse rule {row[0]}: {e}")
+            print(f"Warning: Failed to parse rule {entry.get('id')}: {e}")
             continue
     
     # Sort by priority descending
@@ -97,46 +90,43 @@ async def get_rule_by_id(
     cursor = Depends(get_db_cursor_with_auth)
 ):
     """Get a specific rule by ID."""
-    query = """
-        SELECT id, value
-        FROM tbl_setting
-        WHERE `key` = 'category_automation_rule'
-          AND JSON_EXTRACT(value, '$.id') = %s
-    """
-    
-    cursor.execute(query, (rule_id,))
-    row = cursor.fetchone()
-    
-    if not row:
+    settings_repo = SettingsRepository(cursor)
+    category_repo = CategoryRepository(cursor)
+    entries = settings_repo.get_setting_entries("category_automation_rule")
+
+    matching = None
+    for entry in entries:
+        try:
+            rule = json.loads(entry["value"])
+        except (json.JSONDecodeError, KeyError):
+            continue
+        if rule.get("id") == rule_id:
+            matching = rule
+            break
+
+    if not matching:
         raise HTTPException(status_code=404, detail="Regel nicht gefunden")
-    
+
     try:
-        rule = json.loads(row[1])
-        
-        # Fetch category name
-        category_id = rule.get('category')
-        cursor.execute(
-            "SELECT name FROM tbl_category WHERE id = %s",
-            (category_id,)
-        )
-        cat_row = cursor.fetchone()
-        category_name = cat_row[0] if cat_row else None
-        
+        category_id = matching.get('category')
+        category = category_repo.get_category_by_id(category_id) if category_id else None
+        category_name = category['name'] if category else None
+
         return {
-            "id": rule.get('id'),
-            "name": rule.get('name'),
-            "description": rule.get('description'),
-            "conditions": rule.get('conditions', []),
-            "conditionLogic": rule.get('conditionLogic'),
+            "id": matching.get('id'),
+            "name": matching.get('name'),
+            "description": matching.get('description'),
+            "conditions": matching.get('conditions', []),
+            "conditionLogic": matching.get('conditionLogic'),
             "category": category_id,
             "category_name": category_name,
-            "accounts": rule.get('accounts', []),
-            "priority": rule.get('priority', 5),
-            "enabled": rule.get('enabled', True),
-            "dateCreated": rule.get('dateCreated'),
-            "dateModified": rule.get('dateModified')
+            "accounts": matching.get('accounts', []),
+            "priority": matching.get('priority', 5),
+            "enabled": matching.get('enabled', True),
+            "dateCreated": matching.get('dateCreated'),
+            "dateModified": matching.get('dateModified')
         }
-        
+
     except (json.JSONDecodeError, KeyError) as e:
         raise HTTPException(status_code=500, detail=f"Fehler beim Parsen der Regel: {str(e)}")
 
@@ -184,13 +174,8 @@ async def create_rule(
             "dateModified": now
         }
         
-        # Insert into settings
-        insert_query = """
-            INSERT INTO tbl_setting (user_id, `key`, `value`)
-            VALUES (NULL, 'category_automation_rule', %s)
-        """
-        
-        cursor.execute(insert_query, (json.dumps(rule),))
+        settings_repo = SettingsRepository(cursor)
+        settings_repo.add_setting("category_automation_rule", json.dumps(rule))
         safe_commit(connection)
             
         return {
@@ -219,18 +204,21 @@ async def update_rule(
         if rule_data is None:
             raise HTTPException(status_code=400, detail="Regeldaten erforderlich")
         
-        # Find existing rule
-        find_query = """
-            SELECT id
-            FROM tbl_setting
-            WHERE `key` = 'category_automation_rule'
-            AND JSON_EXTRACT(value, '$.id') = %s
-        """
-        
-        cursor.execute(find_query, (rule_id,))
-        row = cursor.fetchone()
-        
-        if not row:
+        settings_repo = SettingsRepository(cursor)
+        entries = settings_repo.get_setting_entries("category_automation_rule")
+        existing_entry = None
+        existing_rule = None
+        for entry in entries:
+            try:
+                parsed = json.loads(entry["value"])
+            except (json.JSONDecodeError, KeyError):
+                continue
+            if parsed.get("id") == rule_id:
+                existing_entry = entry
+                existing_rule = parsed
+                break
+
+        if not existing_entry:
             # Frontend sends PUT for new rules with id prefix "new-..."
             if rule_id.startswith("new-"):
                 # Validate minimal fields (same as create)
@@ -262,12 +250,7 @@ async def update_rule(
                     "dateModified": now
                 }
 
-                insert_query = """
-                    INSERT INTO tbl_setting (user_id, `key`, `value`)
-                    VALUES (NULL, 'category_automation_rule', %s)
-                """
-
-                cursor.execute(insert_query, (json.dumps(rule),))
+                settings_repo.add_setting("category_automation_rule", json.dumps(rule))
                 safe_commit(connection)
 
                 # finding: Here should be also 'safe_rollback' in case of errors during commit.
@@ -280,20 +263,11 @@ async def update_rule(
 
             raise HTTPException(status_code=404, detail="Regel nicht gefunden")
         
-        setting_id = row[0]
+        setting_id = existing_entry["id"]
 
         # Build updated rule
         now = datetime.now().isoformat()
-        
-        # Keep existing dateCreated if present
-        get_created = """
-            SELECT JSON_EXTRACT(value, '$.dateCreated')
-            FROM tbl_setting
-            WHERE id = %s
-        """
-        cursor.execute(get_created, (setting_id,))
-        created_row = cursor.fetchone()
-        date_created = created_row[0].strip('"') if created_row and created_row[0] else now
+        date_created = (existing_rule or {}).get("dateCreated", now)
         
         rule = {
             "id": rule_id,
@@ -309,14 +283,8 @@ async def update_rule(
             "dateModified": now
         }
         
-        # Update
-        update_query = """
-            UPDATE tbl_setting
-            SET `value` = %s
-            WHERE id = %s
-        """
         jsonValue = json.dumps(rule)
-        cursor.execute(update_query, (jsonValue, setting_id))
+        settings_repo.update_setting_value(setting_id, jsonValue)
         safe_commit(connection)
 
         # finding: Here should be also 'safe_rollback' in case of errors during commit.
@@ -342,19 +310,25 @@ async def delete_rule(
     """Delete a rule."""
     cursor = connection.cursor(buffered=True)
     try:
-        delete_query = """
-            DELETE FROM tbl_setting
-            WHERE `key` = 'category_automation_rule'
-              AND JSON_EXTRACT(value, '$.id') = %s
-        """
-        
-        cursor.execute(delete_query, (rule_id,))
-        safe_commit(connection) 
+        settings_repo = SettingsRepository(cursor)
+        entries = settings_repo.get_setting_entries("category_automation_rule")
+        target_id = None
+        for entry in entries:
+            try:
+                rule = json.loads(entry["value"])
+            except (json.JSONDecodeError, KeyError):
+                continue
+            if rule.get("id") == rule_id:
+                target_id = entry["id"]
+                break
+
+        if target_id is None:
+            raise HTTPException(status_code=404, detail="Regel nicht gefunden")
+
+        settings_repo.delete_setting_by_id(target_id)
+        safe_commit(connection)
 
         # finding: Here should be also 'safe_rollback' in case of errors during commit.
-        
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Regel nicht gefunden")
         
         return {
             "message": "Regel erfolgreich gelöscht",
