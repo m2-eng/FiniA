@@ -88,7 +88,7 @@ class AccountTypeRepository(BaseRepository):
 
    def insert_ignore(self, type_id: int, type_name: str) -> None:
       """Insert account type with specific ID, ignoring duplicates."""
-      sql = "INSERT IGNORE INTO tbl_accountType (id, type, dateImport) VALUES (%s, %s, NOW())"
+      sql = "INSERT IGNORE INTO tbl_accountType (id, type, dateImport) VALUES (%s, %s, NOW())" # finding: 'sql' should be renamed to 'query' for consistency with other methods.
       self.cursor.execute(sql, (type_id, type_name))
 
    def insert_with_id(self, account_type_id: int, type_name: str):

@@ -144,6 +144,7 @@ class AccountingEntryRepository(BaseRepository):
       Returns:
          List of dicts with entry and transaction fields.
       """
+      #finding: 'sql' should be renamed to 'query'
       sql = """
          SELECT DISTINCT
             ae.id as entry_id,

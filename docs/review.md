@@ -1,5 +1,44 @@
 # 📋 Review Status (main branch)
 
+## [#72 - Domain & Repositories](https://github.com/m2-eng/FiniA/issues/72)
+
+### Backend (Python)
+- [src/domain/account.py](../src/domain/account.py)
+- [src/infrastructure/unit_of_work.py](../src/infrastructure/unit_of_work.py)
+- [src/repositories/account_import_repository.py](../src/repositories/account_import_repository.py)
+- [src/repositories/account_repository.py](../src/repositories/account_repository.py)
+- [src/repositories/account_type_repository.py](../src/repositories/account_type_repository.py)
+- [src/repositories/accounting_entry_repository.py](src/repositories/accounting_entry_repository.py)
+- [src/repositories/base.py](../src/repositories/base.py)
+- [src/repositories/category_repository.py](../src/repositories/category_repository.py)
+- [src/repositories/error_handling.py](../src/repositories/error_handling.py)
+- [src/repositories/planning_cycle_repository.py](../src/repositories/planning_cycle_repository.py)
+- [src/repositories/planning_repository.py](../src/repositories/planning_repository.py)
+- [src/repositories/settings_repository.py](../src/repositories/settings_repository.py)
+- [src/repositories/share_history_repository.py](../src/repositories/share_history_repository.py)
+- [src/repositories/share_repository.py](../src/repositories/share_repository.py)
+- [src/repositories/share_transaction_repository.py](../src/repositories/share_transaction_repository.py)
+- [src/repositories/transaction_repository.py](../src/repositories/transaction_repository.py)
+- [src/repositories/year_overview_repository.py](../src/repositories/year_overview_repository.py)
+
+
+### Frontend (JavaScript)
+- none
+
+### HTML Templates
+- none
+
+### Others
+- none
+
+### New issues
+- [#108 - Unify repository error handling with shared decorator/logging](https://github.com/m2-eng/FiniA/issues/108)
+- [#107 - Use logging instead of print](https://github.com/m2-eng/FiniA/issues/107)
+
+### Updated issues
+- [#90 - Renaming of functions and other stuff](https://github.com/m2-eng/FiniA/issues/90)
+
+
 ## [#71 - Authentication & Sessions](https://github.com/m2-eng/FiniA/issues/71)
 
 ### Backend (Python)
@@ -116,12 +155,6 @@
 
 
 ## ✅ Review Strategy (6–8 Issues, thematic/functional)
-
-### Issue 3 – Domain & Repositories
-**Focus:** Domain models, repositories, persistence abstraction
-- [src/domain/](../src/domain/)
-- [src/repositories/](../src/repositories/)
-- [src/infrastructure/unit_of_work.py](../src/infrastructure/unit_of_work.py)
 
 ### Issue 4 – Service Layer (Business Logic)
 **Focus:** Business logic, automations
