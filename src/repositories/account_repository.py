@@ -106,7 +106,7 @@ class AccountRepository:
     def insert(self, account: Account) -> None:
         acc_id = self.get_id_by_name(account.name)
         if acc_id:
-            print(f"  Info: Account '{account.name}' already exists. Skipping insertion.")
+            print(f"  Info: Account '{account.name}' already exists. Skipping insertion.") # finding: Consider using logging instead of print for better control over output
             return  # Account already exists
         
         type_id = self.get_type_id(account.type_name)
@@ -141,7 +141,6 @@ class AccountRepository:
         from datetime import date
         today = date.today()
 
-        # finding: The string can be simplified by extracting the substring, e.g. column names. The substring can be reused in other queries.
         query = f"""
             SELECT
                 cat AS Kategorie, 
@@ -184,8 +183,8 @@ class AccountRepository:
 
         query = f"""
             SELECT
-            cat AS Kategorie, 
-            {SQL_COLUMN_HEADER}
+                cat AS Kategorie, 
+                {SQL_COLUMN_HEADER}
             FROM (
             -- Actual transactions up to today
             SELECT
@@ -338,8 +337,8 @@ class AccountRepository:
 
         query = f"""
             SELECT
-            cat AS Kategorie, 
-            {SQL_COLUMN_HEADER}
+                cat AS Kategorie, 
+                {SQL_COLUMN_HEADER}
             FROM (
             -- Actual transactions up to today
             SELECT
@@ -543,7 +542,7 @@ class AccountRepository:
         query = f"""
             -- Haben row (income: positive amounts)
             SELECT 'Haben' AS Kategorie,
-            {SQL_COLUMN_HEADER}
+                {SQL_COLUMN_HEADER}
             FROM (
             SELECT
                 {SQL_VALUES_INCOME}
@@ -620,8 +619,8 @@ class AccountRepository:
 
         query = f"""
             SELECT
-            cat AS Kategorie, 
-            {SQL_COLUMN_HEADER}
+                cat AS Kategorie, 
+                {SQL_COLUMN_HEADER}
             FROM (
             -- Actual transactions up to today
             SELECT
@@ -662,8 +661,8 @@ class AccountRepository:
 
         query = f"""
             SELECT
-            cat AS Kategorie, 
-            {SQL_COLUMN_HEADER}
+                cat AS Kategorie, 
+                {SQL_COLUMN_HEADER}
             FROM (
             -- Actual transactions up to today
             SELECT
@@ -705,7 +704,7 @@ class AccountRepository:
         query = f"""
             -- Haben row (income: positive amounts)
             SELECT 'Haben' AS Kategorie,
-            {SQL_COLUMN_HEADER}
+                {SQL_COLUMN_HEADER}
             FROM (
             SELECT
                 {SQL_VALUES_INCOME}
