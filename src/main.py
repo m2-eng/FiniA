@@ -27,8 +27,7 @@ from utils import load_config
 
 if __name__ == "__main__":
    """Main function with argument parsing"""
-   logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-   logger = logging.getLogger(__name__)
+   logger = logging.getLogger("uvicorn.error")  # Use uvicorn's logger for consistency with API logs
    # Argument parser setup
    parser = argparse.ArgumentParser(
       description='FiniA - Finanzverwaltungssystem (uses config.yaml for defaults)',

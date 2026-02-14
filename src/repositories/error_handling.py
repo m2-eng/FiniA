@@ -14,22 +14,39 @@ from __future__ import annotations
 
 from functools import wraps
 from typing import Callable, Any, Tuple
+import logging
 
 from mysql.connector.errors import Error as MySQLError, OperationalError, InterfaceError, DatabaseError
 
+logger = logging.getLogger(__name__)
 
-def handle_repository_errors(operation_name: str = "database operation"):
+
+def handle_repository_errors(
+    operation_name: str = "database operation",
+    error_message: str | None = None,
+    additional_info: str = "",
+):
     """Decorator for consistent error handling in repositories."""
     def decorator(func: Callable) -> Callable:
+        def build_detail(base_message: str, exc: Exception) -> str:
+            detail = f"{base_message} ({operation_name}): {exc}"
+            if additional_info:
+                detail = f"{detail} | {additional_info}"
+            return detail
+
+        def log_exception(exc: Exception, base_message: str) -> None:
+            final_message = error_message or base_message
+            logger.exception(build_detail(final_message, exc))
+
         @wraps(func)
         def wrapper(*args, **kwargs) -> Any:
             try:
                 return func(*args, **kwargs)
             except (OperationalError, InterfaceError, DatabaseError) as exc:
-                print(f"Database error in repository during {operation_name}: {exc}")
+                log_exception(exc, "Database connection error")
                 raise
             except MySQLError as exc:
-                print(f"MySQL error in repository during {operation_name}: {exc}")
+                log_exception(exc, "Database error")
                 raise
         return wrapper
     return decorator
