@@ -12,9 +12,7 @@ from services.csv_utils import read_csv_rows, parse_amount, parse_date
 from services.field_extractor import extract_field_value
 from infrastructure.unit_of_work import UnitOfWork
 from pathlib import Path
-from decimal import Decimal
-from datetime import datetime
-
+from fastapi import HTTPException
 
 class ImportService:
    def __init__(self, pool_manager, session_id: str, steps: List[ImportStep]):
@@ -105,7 +103,7 @@ def import_csv_with_optional_account(
         batch_size = int(batch_size)
     except Exception:
         batch_size = 1000
-    batch_size = max(100, min(batch_size, 5000))
+    batch_size = max(100, min(batch_size, 5000)) # finding: Define import batch size in the configuration file
 
     batch_rows: list[tuple] = []
 
