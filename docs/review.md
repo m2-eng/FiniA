@@ -1,5 +1,28 @@
 # 📋 Review Status (main branch)
 
+## [#73 - Service Layer (Business Logic)](https://github.com/m2-eng/FiniA/issues/73)
+
+### Backend (Python)
+- [src/services/account_data_importer.py](../src/services/account_data_importer.py)
+- [src/services/category_automation.py](../src/services/category_automation.py)
+- [src/services/field_extractor.py](../src/services/field_extractor.py)
+- [src/services/import_service.py](../src/services/import_service.py)
+
+### Frontend (JavaScript)
+- none
+
+### HTML Templates
+- none
+
+### Others
+- none
+
+### New issues
+- [#110 - src/services/import_service.py](https://github.com/m2-eng/FiniA/issues/110)
+
+### Updated issues
+- none
+
 ## [#72 - Domain & Repositories](https://github.com/m2-eng/FiniA/issues/72)
 
 ### Backend (Python)
@@ -155,13 +178,6 @@
 
 
 ## ✅ Review Strategy (6–8 Issues, thematic/functional)
-
-### Issue 4 – Service Layer (Business Logic)
-**Focus:** Business logic, automations
-- [src/services/account_data_importer.py](../src/services/account_data_importer.py)
-- [src/services/category_automation.py](../src/services/category_automation.py)
-- [src/services/field_extractor.py](../src/services/field_extractor.py)
-- [src/services/import_service.py](../src/services/import_service.py)
 
 ### Issue 5 – Data Access & Import Pipeline
 **Focus:** DB setup, import pipeline, CSV utilities
