@@ -15,15 +15,21 @@ from functools import wraps
 from typing import Callable, Any
 from fastapi import HTTPException, status
 from mysql.connector.errors import Error as MySQLError, OperationalError, InterfaceError, DatabaseError
+
+import logging
 import traceback
 
+logger = logging.getLogger("uvicorn.error")
 
 class DatabaseConnectionError(Exception):
     """Raised when database connection fails."""
     pass
 
 
-def handle_db_errors(operation_name: str = "database operation"): # finding: Check for exceptions, which can be handled here instead of in individual endpoints.
+def handle_db_errors(
+    operation_name: str = "database operation",
+    error_message: str | None = None,
+):
     """
     Decorator for consistent error handling in API endpoints.
     
@@ -37,6 +43,23 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
             # Code here...
     """
     def decorator(func: Callable) -> Callable:
+        def log_exception(
+            exc: Exception,
+            base_message: str,
+            status_code: int,
+            additional_info: str = "",
+        ) -> None:
+            final_message = error_message or base_message
+            detail = f"{final_message} ({operation_name}): {exc}"
+            if additional_info:
+                detail = f"{detail}\n\n{additional_info}"
+            logger.error(detail)
+            traceback.print_exc()
+            raise HTTPException(
+                status_code=status_code,
+                detail=detail
+            )
+
         @wraps(func)
         async def async_wrapper(*args, **kwargs) -> Any:
             try:
@@ -45,25 +68,23 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
                 # Re-raise HTTPExceptions directly (404, etc.)
                 raise
             except (OperationalError, InterfaceError, DatabaseError) as exc:
-                print(f"Database error in {operation_name}: {exc}")
-                traceback.print_exc()
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"Database connection error during {operation_name}. Please try again."
+                log_exception(
+                    exc,
+                    "Database connection error",
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    additional_info="Please try again.",
                 )
             except MySQLError as exc:
-                print(f"MySQL error in {operation_name}: {exc}")
-                traceback.print_exc()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Database error during {operation_name}: {str(exc)}"
+                log_exception(
+                    exc,
+                    "Database error",
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
             except Exception as exc:
-                print(f"Unexpected error in {operation_name}: {exc}")
-                traceback.print_exc()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Internal server error during {operation_name}"
+                log_exception(
+                    exc,
+                    "Internal server error",
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         
         @wraps(func)
@@ -74,25 +95,23 @@ def handle_db_errors(operation_name: str = "database operation"): # finding: Che
                 # Re-raise HTTPExceptions directly (404, etc.)
                 raise
             except (OperationalError, InterfaceError, DatabaseError) as exc:
-                print(f"Database error in {operation_name}: {exc}")
-                traceback.print_exc()
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail=f"Database connection error during {operation_name}. Please try again."
+                log_exception(
+                    exc,
+                    "Database connection error",
+                    status.HTTP_503_SERVICE_UNAVAILABLE,
+                    additional_info="Please try again.",
                 )
             except MySQLError as exc:
-                print(f"MySQL error in {operation_name}: {exc}")
-                traceback.print_exc()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Database error during {operation_name}: {str(exc)}"
+                log_exception(
+                    exc,
+                    "Database error",
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
             except Exception as exc:
-                print(f"Unexpected error in {operation_name}: {exc}")
-                traceback.print_exc()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Internal server error during {operation_name}"
+                log_exception(
+                    exc,
+                    "Internal server error",
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
         
         # Check if function is async
@@ -119,7 +138,7 @@ def safe_commit(connection, operation_name: str = "operation"):
         if connection and hasattr(connection, 'commit'):
             connection.commit()
     except Exception as exc:
-        print(f"Commit failed for {operation_name}: {exc}")
+        logger.error(f"Commit failed for {operation_name}: {exc}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to save changes for {operation_name}"
@@ -137,7 +156,7 @@ def safe_rollback(connection, operation_name: str = "operation"):
     try:
         if connection and hasattr(connection, 'rollback'):
             connection.rollback()
-            print(f"Rollback executed for {operation_name}")
+            logger.info(f"Rollback executed for {operation_name}")
     except Exception as exc:
-        print(f"Rollback failed for {operation_name}: {exc}")
+        logger.error(f"Rollback failed for {operation_name}: {exc}")
         # Do not propagate rollback errors
