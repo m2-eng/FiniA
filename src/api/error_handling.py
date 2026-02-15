@@ -39,7 +39,7 @@ def handle_db_errors(
     Usage:
         @router.get("/endpoint")
         @handle_db_errors("fetch data")
-        def my_endpoint(cursor = Depends(get_db_cursor_with_auth)):
+        def my_endpoint(cursor = Depends(get_db_cursor)):
             # Code here...
     """
     def decorator(func: Callable) -> Callable:

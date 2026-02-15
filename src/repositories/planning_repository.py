@@ -45,7 +45,7 @@ class PlanningRepository(BaseRepository):
         total = self.cursor.fetchone()[0]
         
         # Get paginated data
-        sql = """
+        query = """
             SELECT 
                 p.id,
                 p.dateImport,
@@ -66,7 +66,7 @@ class PlanningRepository(BaseRepository):
             ORDER BY p.dateStart DESC, p.id DESC
             LIMIT %s OFFSET %s
         """
-        self.cursor.execute(sql, (page_size, offset))
+        self.cursor.execute(query, (page_size, offset))
         
         plannings = []
         for row in self.cursor.fetchall():
@@ -95,13 +95,13 @@ class PlanningRepository(BaseRepository):
 
     def get_planning_entries(self, planning_id: int) -> list[dict]:
         """Return all planning entries for a planning ordered by date."""
-        sql = """
+        query = """
             SELECT id, dateImport, dateValue
             FROM tbl_planningEntry
             WHERE planning = %s
             ORDER BY dateValue
         """
-        self.cursor.execute(sql, (planning_id,))
+        self.cursor.execute(query, (planning_id,))
         entries = []
         for row in self.cursor.fetchall():
             entries.append({
@@ -113,8 +113,8 @@ class PlanningRepository(BaseRepository):
         return entries
 
     def _get_cycle(self, cycle_id: int) -> dict | None:
-        sql = "SELECT id, cycle, periodValue, periodUnit FROM tbl_planningCycle WHERE id = %s"
-        self.cursor.execute(sql, (cycle_id,))
+        query = "SELECT id, cycle, periodValue, periodUnit FROM tbl_planningCycle WHERE id = %s"
+        self.cursor.execute(query, (cycle_id,))
         row = self.cursor.fetchone()
         if not row:
             return None
@@ -245,8 +245,8 @@ class PlanningRepository(BaseRepository):
 
     def delete_planning_entry(self, planning_id: int, entry_id: int) -> bool:
         """Delete a single planning entry by id for a specific planning."""
-        sql = "DELETE FROM tbl_planningEntry WHERE id = %s AND planning = %s"
-        self.cursor.execute(sql, (entry_id, planning_id))
+        query = "DELETE FROM tbl_planningEntry WHERE id = %s AND planning = %s"
+        self.cursor.execute(query, (entry_id, planning_id))
         return self.cursor.rowcount > 0
     
     def get_planning_by_id(self, planning_id: int) -> dict | None:
@@ -259,7 +259,7 @@ class PlanningRepository(BaseRepository):
         Returns:
             Planning dictionary or None if not found
         """
-        sql = """
+        query = """
             SELECT 
                 p.id,
                 p.dateImport,
@@ -279,7 +279,7 @@ class PlanningRepository(BaseRepository):
             JOIN tbl_planningCycle pc ON p.cycle = pc.id
             WHERE p.id = %s
         """
-        self.cursor.execute(sql, (planning_id,))
+        self.cursor.execute(query, (planning_id,))
         row = self.cursor.fetchone()
         
         if not row:
@@ -325,13 +325,13 @@ class PlanningRepository(BaseRepository):
         Returns:
             ID of the created planning
         """
-        sql = """
+        query = """
             INSERT INTO tbl_planning 
             (dateImport, description, amount, dateStart, dateEnd, account, category, cycle)
             VALUES (NOW(), %s, %s, %s, %s, %s, %s, %s)
         """
         self.cursor.execute(
-            sql,
+            query,
             (description, amount, date_start, date_end, account_id, category_id, cycle_id)
         )
         return self.cursor.lastrowid
@@ -363,7 +363,7 @@ class PlanningRepository(BaseRepository):
         Returns:
             True if statement executed (row may be unchanged)
         """
-        sql = """
+        query = """
             UPDATE tbl_planning
             SET description = %s,
                 amount = %s,
@@ -375,7 +375,7 @@ class PlanningRepository(BaseRepository):
             WHERE id = %s
         """
         self.cursor.execute(
-            sql,
+            query,
             (description, amount, date_start, date_end, account_id, category_id, cycle_id, planning_id)
         )
         # Even if rowcount == 0 (no data change), the update is considered successful because the row exists
@@ -392,12 +392,12 @@ class PlanningRepository(BaseRepository):
             True if deleted, False if not found
         """
         # First delete all planning entries
-        sql_entries = "DELETE FROM tbl_planningEntry WHERE planning = %s"
-        self.cursor.execute(sql_entries, (planning_id,))
+        entries_query = "DELETE FROM tbl_planningEntry WHERE planning = %s"
+        self.cursor.execute(entries_query, (planning_id,))
         
         # Then delete the planning itself
-        sql = "DELETE FROM tbl_planning WHERE id = %s"
-        self.cursor.execute(sql, (planning_id,))
+        query = "DELETE FROM tbl_planning WHERE id = %s"
+        self.cursor.execute(query, (planning_id,))
         return self.cursor.rowcount > 0
     
     def get_all_cycles(self) -> list[dict]:
@@ -407,7 +407,7 @@ class PlanningRepository(BaseRepository):
         Returns:
             List of cycle dictionaries
         """
-        sql = "SELECT id, cycle FROM tbl_planningCycle ORDER BY id"
-        self.cursor.execute(sql)
+        query = "SELECT id, cycle FROM tbl_planningCycle ORDER BY id"
+        self.cursor.execute(query)
         
         return [{"id": row[0], "cycle": row[1]} for row in self.cursor.fetchall()]

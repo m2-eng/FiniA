@@ -13,7 +13,7 @@ Endpoints for managing shares, transactions, and price history
 
 import json
 from fastapi import APIRouter, Depends, UploadFile, File, Form, Query
-from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
+from api.dependencies import get_db_cursor, get_db_connection
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 import csv
 import io
@@ -38,7 +38,7 @@ async def get_shares(
     filter: str = None,
     sort_by: str = None,
     sort_dir: str = None,
-    cursor=Depends(get_db_cursor_with_auth)
+    cursor=Depends(get_db_cursor)
 ):
     """Get all shares with pagination, optional search, filter, and sorting"""
     repo = ShareRepository(cursor)
@@ -51,7 +51,7 @@ async def create_share(
     isin: str = Form(...),
     name: str = Form(None),
     wkn: str = Form(None),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Create a new share
     Args:
@@ -92,7 +92,7 @@ async def update_share(
     isin: str = Form(...),
     name: str = Form(None),
     wkn: str = Form(None),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Update an existing share
     Args:
@@ -124,7 +124,7 @@ async def update_share(
 @handle_db_errors("Failed to delete share")
 async def delete_share(
     share_id: int,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Delete a share"""
     cursor = connection.cursor(buffered=True)
@@ -152,7 +152,7 @@ async def get_share_history(
     sort_dir: str = None,
     search: str = None,
     checked: str = None,
-    cursor=Depends(get_db_cursor_with_auth)
+    cursor=Depends(get_db_cursor)
 ):
     """Get all share history with pagination, sorting, search, and checked filter"""
     repo = ShareHistoryRepository(cursor)
@@ -167,7 +167,7 @@ async def get_share_transactions(
     search: str = None,
     sort_by: str = None,
     sort_dir: str = None,
-    cursor=Depends(get_db_cursor_with_auth)
+    cursor=Depends(get_db_cursor)
 ):
     """Get all share transactions with pagination, optional search, and sorting"""
     repo = ShareTransactionRepository(cursor)
@@ -181,7 +181,7 @@ async def create_share_transaction(
     dateTransaction: str = Form(...),
     tradingVolume: float = Form(...),
     accountingEntryId: int = Form(None),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Create a new share transaction
     Args:
@@ -226,7 +226,7 @@ async def update_share_transaction(
     dateTransaction: str = Form(...),
     tradingVolume: float = Form(...),
     accountingEntryId: int = Form(None),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     cursor = connection.cursor(buffered=True)
     try:
@@ -254,7 +254,7 @@ async def update_share_transaction(
 @handle_db_errors("Failed to delete transaction")
 async def delete_share_transaction(
     transaction_id: int,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     cursor = connection.cursor(buffered=True)
     try:
@@ -278,7 +278,7 @@ async def create_share_history(
     isin: str = Form(...),
     date: str = Form(...),
     amount: float = Form(...),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Create a new share history entry
     Args:
@@ -323,7 +323,7 @@ async def create_share_history(
 async def set_share_history_checked(
     history_id: int,
     checked: bool = Form(True),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     cursor = connection.cursor(buffered=True)
     try:
@@ -343,7 +343,7 @@ async def set_share_history_checked(
 
 @router.post("/shares/history/auto-fill")
 @handle_db_errors("Failed to auto-fill share history")
-async def auto_fill_share_history(connection=Depends(get_db_connection_with_auth)):
+async def auto_fill_share_history(connection=Depends(get_db_connection)):
     """Create missing month-end history entries with amount=0 for shares in holdings at month end (up to last completed month)."""
     cursor = connection.cursor(buffered=True)
     try:
@@ -420,7 +420,7 @@ async def auto_fill_share_history(connection=Depends(get_db_connection_with_auth
 @handle_db_errors("Failed to delete history")
 async def delete_share_history(
     history_id: int,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     cursor = connection.cursor(buffered=True)
     try:
@@ -442,7 +442,7 @@ async def delete_share_history(
 @handle_db_errors("Failed to import history")
 async def import_share_history(
     file: UploadFile = File(...),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Import share history from CSV file
     Expected format: ISIN/WKN ; Datum ; Betrag
@@ -557,7 +557,7 @@ async def import_share_history(
 @handle_db_errors("Failed to fetch accounting entry")
 async def get_accounting_entry(
     entry_id: int,
-    cursor=Depends(get_db_cursor_with_auth)
+    cursor=Depends(get_db_cursor)
 ):
     """Get a single accounting entry by ID (including those already assigned to share transactions)"""
     entry_repo = AccountingEntryRepository(cursor)
@@ -583,7 +583,7 @@ async def get_accounting_entry(
 async def get_accounting_entries(
     type: str = Query(None, description="buy|sell to filter by configured category set"),
     date: str | None = Query(None, description="YYYY-MM-DD; when provided and date filter enabled, limits to date..date+7d"),
-    cursor=Depends(get_db_cursor_with_auth)
+    cursor=Depends(get_db_cursor)
 ):
     """Get list of available accounting entries for linking with transactions.
     Filters by configured categories for buy/sell if available.
@@ -662,7 +662,7 @@ async def get_accounting_entries(
 @handle_db_errors("Failed to import transactions")
 async def import_share_transactions(
     file: UploadFile = File(...),
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Import share transactions from CSV file
     Expected format: ISIN/WKN ; Datum ; Anteile

@@ -15,7 +15,7 @@ import json
 import logging
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
+from api.dependencies import get_db_cursor, get_db_connection
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from repositories.settings_repository import SettingsRepository
 from repositories.account_type_repository import AccountTypeRepository
@@ -32,7 +32,7 @@ SETTINGS_KEY_IMPORT_FORMAT = "import_format"
 
 @router.get("/shares-tx-categories")
 @handle_db_errors("fetch shares transaction category settings")
-async def get_shares_tx_categories(cursor=Depends(get_db_cursor_with_auth)):
+async def get_shares_tx_categories(cursor=Depends(get_db_cursor)):
     """Get all category assignments for share transactions"""
     repo = SettingsRepository(cursor)
     entries = repo.get_settings(SETTINGS_KEY_SHARES_TX)
@@ -55,7 +55,7 @@ async def get_shares_tx_categories(cursor=Depends(get_db_cursor_with_auth)):
 @handle_db_errors("add shares transaction category setting")
 async def add_shares_tx_category(
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Add a category assignment for share transactions"""
     category_id = body.get("category_id")
@@ -88,7 +88,7 @@ async def add_shares_tx_category(
 @router.get("/import-formats")
 @handle_db_errors("fetch import formats")
 async def get_import_formats(
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Get all import formats from database settings table."""
     cursor = connection.cursor(buffered=True)
@@ -123,7 +123,7 @@ async def get_import_formats(
 @handle_db_errors("add import format")
 async def add_import_format(
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Add a new import format entry."""
     name = body.get("name")
@@ -172,7 +172,7 @@ async def add_import_format(
 async def update_import_format(
     setting_id: int,
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Update an existing import format entry by ID."""
     name = body.get("name")
@@ -230,7 +230,7 @@ async def update_import_format(
 @handle_db_errors("delete import format")
 async def delete_import_format(
     setting_id: int,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Delete an import format entry by ID."""
     cursor = connection.cursor(buffered=True)
@@ -259,7 +259,7 @@ async def delete_import_format(
 @handle_db_errors("upload import formats YAML")
 async def upload_import_formats_yaml(
     file: UploadFile = File(...),
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """Upload and parse import formats from YAML file using Python's yaml parser.
     
@@ -357,7 +357,7 @@ async def upload_import_formats_yaml(
 @handle_db_errors("delete shares transaction category setting")
 async def delete_shares_tx_category(
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Delete a category assignment for share transactions"""
     category_id = body.get("category_id")
@@ -397,7 +397,7 @@ async def delete_shares_tx_category(
 
 @router.get("/account-types")
 @handle_db_errors("fetch account types")
-async def get_account_types(cursor=Depends(get_db_cursor_with_auth)):
+async def get_account_types(cursor=Depends(get_db_cursor)):
     """Get all account types from tbl_accountType."""
     repo = AccountTypeRepository(cursor)
     account_types = repo.get_all()
@@ -408,7 +408,7 @@ async def get_account_types(cursor=Depends(get_db_cursor_with_auth)):
 @handle_db_errors("add account type")
 async def add_account_type(
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Add a new account type."""
     type_name = body.get("type")
@@ -459,7 +459,7 @@ async def add_account_type(
 async def update_account_type(
     account_type_id: int,
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Update an existing account type."""
     type_name = body.get("type")
@@ -527,7 +527,7 @@ async def update_account_type(
 @handle_db_errors("delete account type")
 async def delete_account_type(
     account_type_id: int,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Delete an account type by ID."""
     cursor = connection.cursor(buffered=True)
@@ -581,7 +581,7 @@ async def delete_account_type(
 
 @router.get("/planning-cycles")
 @handle_db_errors("fetch planning cycles")
-async def get_planning_cycles(cursor=Depends(get_db_cursor_with_auth)):
+async def get_planning_cycles(cursor=Depends(get_db_cursor)):
     """Get all planning cycles from tbl_planningCycle."""
     repo = PlanningCycleRepository(cursor)
     cycles = repo.get_all()
@@ -592,7 +592,7 @@ async def get_planning_cycles(cursor=Depends(get_db_cursor_with_auth)):
 @handle_db_errors("add planning cycle")
 async def add_planning_cycle(
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Add a new planning cycle."""
     cycle_name = body.get("cycle")
@@ -665,7 +665,7 @@ async def add_planning_cycle(
 async def update_planning_cycle(
     cycle_id: int,
     body: dict,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Update an existing planning cycle."""
     cycle_name = body.get("cycle")
@@ -752,7 +752,7 @@ async def update_planning_cycle(
 @handle_db_errors("delete planning cycle")
 async def delete_planning_cycle(
     cycle_id: int,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """Delete a planning cycle by ID."""
     cursor = connection.cursor(buffered=True)
@@ -760,7 +760,7 @@ async def delete_planning_cycle(
         repo = PlanningCycleRepository(cursor)
         existing = repo.get_by_id(cycle_id)
         if not existing:
-            raise HTTPException( # finding: Move exceptions and/or messages to a central place for consistency and easier maintenance.
+            raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Planning cycle with ID {cycle_id} not found"
             )

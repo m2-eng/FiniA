@@ -12,7 +12,7 @@ Planning API router
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from repositories.planning_repository import PlanningRepository
-from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
+from api.dependencies import get_db_cursor, get_db_connection
 from api.models import (
     PlanningResponse,
     PlanningListResponse,
@@ -29,7 +29,7 @@ router = APIRouter(prefix="/planning", tags=["planning"])
 
 @router.get("/cycles", response_model=list[PlanningCycleResponse])
 @handle_db_errors("fetch planning cycles")
-async def get_planning_cycles(cursor = Depends(get_db_cursor_with_auth)):
+async def get_planning_cycles(cursor = Depends(get_db_cursor)):
     """
     Get all available planning cycles.
     
@@ -45,7 +45,7 @@ async def get_planning_cycles(cursor = Depends(get_db_cursor_with_auth)):
 async def get_plannings(
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(100, ge=1, le=1000, description="Records per page"),
-    cursor = Depends(get_db_cursor_with_auth)
+    cursor = Depends(get_db_cursor)
 ):
     """
     Get paginated planning entries.
@@ -66,7 +66,7 @@ async def get_plannings(
 @handle_db_errors("fetch planning entries")
 async def get_planning_entries(
     planning_id: int,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """
     Get all planning entries for a planning.
@@ -99,7 +99,7 @@ async def get_planning_entries(
 @handle_db_errors("generate planning entries")
 async def generate_planning_entries(
     planning_id: int,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """
     Generate planning entries up to the planning end date or the end of next year.
@@ -137,7 +137,7 @@ async def generate_planning_entries(
 async def delete_planning_entry(
     planning_id: int,
     entry_id: int,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """Delete a single planning entry for a planning."""
     cursor = connection.cursor(buffered=True)
@@ -174,7 +174,7 @@ async def delete_planning_entry(
 @handle_db_errors("fetch planning")
 async def get_planning(
     planning_id: int,
-    cursor = Depends(get_db_cursor_with_auth)
+    cursor = Depends(get_db_cursor)
 ):
     """
     Get a single planning entry by ID.
@@ -201,7 +201,7 @@ async def get_planning(
 @handle_db_errors("create planning")
 async def create_planning(
     planning: PlanningCreateRequest,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """
     Create a new planning entry.
@@ -253,7 +253,7 @@ async def create_planning(
 async def update_planning(
     planning_id: int,
     planning: PlanningUpdateRequest,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """
     Update an existing planning entry.
@@ -314,7 +314,7 @@ async def update_planning(
 @handle_db_errors("delete planning")
 async def delete_planning(
     planning_id: int,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """
     Delete a planning entry.

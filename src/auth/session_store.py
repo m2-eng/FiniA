@@ -16,12 +16,12 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 
-class SessionNotFoundError(Exception): # finding: Store exception message within the class to avoid hardcoding strings in multiple places.
+class SessionNotFoundError(Exception):
     """Session ID does not exist."""
     pass
 
 
-class SessionExpiredError(Exception):  # finding: Store exception message within the class to avoid hardcoding strings in multiple places.
+class SessionExpiredError(Exception):
     """Session has expired."""
     pass
 

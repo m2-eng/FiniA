@@ -147,7 +147,7 @@ async def session_cleanup_task(session_store: SessionStore):
             logger.info("Cleaned up %s expired session(s)", cleaned)
 
 
-async def shutdown_event(app: FastAPI): # finding: Not sure whether everything is closed, what should be closed and what not. Review the content again.
+async def shutdown_event(app: FastAPI):
     """Close database connection and cleanup auth resources on shutdown"""
     # Stop background cleanup task
     cleanup_task = getattr(app.state, "session_cleanup_task", None)
