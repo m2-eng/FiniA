@@ -1,5 +1,37 @@
 # 📋 Review Status (main branch)
 
+## [#74](https://github.com/m2-eng/FiniA/issues/74)
+
+### Backend (Python)
+- [src/Database.py](../src/Database.py)
+- [src/DatabaseCreator.py](../src/DatabaseCreator.py)
+- [src/DataImporter.py](../src/DataImporter.py)
+- [src/services/import_steps/accounts.py](../src/services/import_steps/accounts.py)
+- [src/services/import_steps/account_types.py](../src/services/import_steps/account_types.py)
+- [src/services/import_steps/base.py](../src/services/import_steps/base.py)
+- [src/services/import_steps/categories.py](../src/services/import_steps/categories.py)
+- [src/services/import_steps/planning_cycles.py](../src/services/import_steps/planning_cycles.py)
+- [src/services/csv_utils.py](../src/services/csv_utils.py)
+
+### Frontend (JavaScript)
+- none
+
+### HTML Templates
+- none
+
+### Others
+
+- [db/finia_draft.sql](../db/finia_draft.sql)
+
+### New issues
+- [#111 - Remove not needed objects, imports, ...](https://github.com/m2-eng/FiniA/issues/111)
+- [#113 - Remove CLI and move DB setup/init to API](https://github.com/m2-eng/FiniA/issues/113)
+  - Note: Some files maybe removed by this issue
+
+### Updated issues
+- none
+
+
 ## [#73 - Service Layer (Business Logic)](https://github.com/m2-eng/FiniA/issues/73)
 
 ### Backend (Python)
