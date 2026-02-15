@@ -14,7 +14,7 @@ from contextvars import ContextVar
 import logging
 from fastapi import Depends, HTTPException, status
 from mysql.connector.errors import OperationalError, InterfaceError, DatabaseError, PoolError
-from utils import load_config
+from config import get_config_section
 from api.auth_context import AuthContext, get_auth_context
 from api.auth_middleware import get_current_session
 
@@ -27,7 +27,7 @@ _request_connection: ContextVar[object] = ContextVar("request_connection", defau
 
 def get_database_config(subconfig: str = None) -> dict:
     """Load database configuration from config file."""
-    return load_config(config_path='cfg/config.yaml', subconfig=subconfig)
+    return get_config_section(subconfig)
 
 
 # ============================================================================

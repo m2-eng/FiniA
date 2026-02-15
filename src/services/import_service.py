@@ -14,9 +14,19 @@ from services.field_extractor import extract_field_value
 from infrastructure.unit_of_work import UnitOfWork
 from pathlib import Path
 from fastapi import HTTPException
+from config import get_config_section
 
 
 logger = logging.getLogger(__name__)
+
+
+def _get_default_batch_size() -> int:
+    try:
+        import_config = get_config_section("import")
+        value = import_config.get("batch_size", 1000) if isinstance(import_config, dict) else 1000
+        return int(value)
+    except Exception:
+        return 1000
 
 class ImportService:
     def __init__(self, pool_manager, session_id: str | List[ImportStep], steps: List[ImportStep] | None = None):
@@ -123,12 +133,15 @@ def import_csv_with_optional_account(
     # Get a single connection from pool for all operations
     connection = pool_manager.get_connection(session_id)
     
-    # Batch settings (opt-in via mapping, default 1000)
-    batch_size = mapping.get("batch_size", 1000)
+    # Batch settings (mapping override, otherwise config default)
+    if "batch_size" in mapping:
+        batch_size = mapping.get("batch_size")
+    else:
+        batch_size = _get_default_batch_size()
     try:
         batch_size = int(batch_size)
     except Exception:
-        batch_size = 1000
+        batch_size = _get_default_batch_size()
     batch_size = max(100, min(batch_size, 5000))
 
     batch_rows: list[tuple] = []
