@@ -13,65 +13,18 @@ FastAPI dependencies for database access and authentication
 from contextvars import ContextVar
 from fastapi import Depends, HTTPException, status
 from mysql.connector.errors import OperationalError, InterfaceError, DatabaseError, PoolError
-from Database import Database
 from utils import load_config
 import traceback
 from api.auth_context import AuthContext, get_auth_context
 from api.auth_middleware import get_current_session
 
 
-# Global database instance (initialized on startup)
-_db_instance: Database | None = None # finding: Is this the correct database instance? Does the authentication uses the same database instance?
 _request_connection: ContextVar[object] = ContextVar("request_connection", default=None)
-
-# Global credentials storage (set before API startup)
-_db_credentials: dict = {} # finding: Is this a dupolicate of the configuration loaded elsewhere?
 
 
 def get_database_config(subconfig: str = None) -> dict:
     """Load database configuration from config file."""
     return load_config(config_path='cfg/config.yaml', subconfig=subconfig)
-
-
-def get_database() -> Database: # finding: Is this the correct database instance?
-    """
-    Get database instance (singleton pattern).
-    
-    Returns:
-        Database instance
-        
-    Raises:
-        HTTPException: If database not initialized
-    """
-    if _db_instance is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database not initialized"
-        )
-    return _db_instance # finding: Is this the correct database instance?
-
-
-def set_database_instance(db: Database): # finding: Is this the correct database instance? [#77]
-    """Set the global database instance."""
-    global _db_instance
-    _db_instance = db
-
-
-def set_database_credentials(user: str, password: str, host: str = None, name: str = None, port: int = None): # finding: Is this the correct database instance? Is this a duplicate? [#77]
-    """Set database credentials for API startup."""
-    global _db_credentials
-    _db_credentials = {
-        'user': user,
-        'password': password,
-        'host': host,
-        'name': name,
-        'port': port
-    }
-
-
-def get_database_credentials() -> dict: # finding: Is this a duplicate?
-    """Get stored database credentials."""
-    return _db_credentials
 
 
 # ============================================================================
@@ -116,7 +69,7 @@ def get_db_cursor_with_auth(
         cursor = conn.cursor(buffered=True)
         
         # Increase session timeouts
-        try: # finding: add a parameter to 'config.yaml' to define the timeout values
+        try:
             cursor.execute(f"SET SESSION net_read_timeout={db_config.get('net_read_timeout', 120)}")
             cursor.execute(f"SET SESSION net_write_timeout={db_config.get('net_write_timeout', 120)}")
             try:

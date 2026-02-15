@@ -36,7 +36,7 @@ class ImportJob:
    file_ending: str
 
 
-class AccountDataImporter: # finding: Check design. Is it correct to handover the pool_manager
+class AccountDataImporter:
    def __init__(self, pool_manager, session_id: str):
       """
       Initializes the account data importer with the connection pool manager.

@@ -15,41 +15,63 @@ from pathlib import Path
 from fastapi import HTTPException
 
 class ImportService:
-   def __init__(self, pool_manager, session_id: str, steps: List[ImportStep]):
-      """
-        Initializes the import service with the connection pool manager.
-      
-      Args:
-            pool_manager: ConnectionPoolManager instance
-            session_id: Session ID for the connection pool
-            steps: List of ImportStep instances
-      """
-      self.pool_manager = pool_manager
-      self.session_id = session_id
-      self.steps = steps
+    def __init__(self, pool_manager, session_id: str | List[ImportStep], steps: List[ImportStep] | None = None):
+        """
+        Initializes the import service.
 
-   def run(self, data: dict) -> bool:
-      """
+        Args:
+            pool_manager: ConnectionPoolManager instance OR a direct MySQL connection
+            session_id: Session ID for the connection pool OR the steps list (direct connection mode)
+            steps: List of ImportStep instances (pool manager mode only)
+        """
+        self.pool_manager = None
+        self.session_id = None
+        self.connection = None
+
+        if steps is None and isinstance(session_id, list):
+            # Direct-connection mode (used by setup/import scripts)
+            self.connection = pool_manager
+            self.steps = session_id
+        else:
+            # Pool-manager mode (used by API requests)
+            self.pool_manager = pool_manager
+            self.session_id = session_id
+            self.steps = steps or []
+
+        if not self.steps:
+            raise ValueError("Import steps are required.")
+
+    def run(self, data: dict) -> bool:
+        """
         Runs all import steps in sequence.
-      
-      Args:
+
+        Args:
             data: Data for the import
-         
-      Returns:
+
+        Returns:
             True if all steps succeeded, False otherwise
-      """
-      success = True
-      for step in self.steps:
-         print(f"Running step: {step.name()}")
-         connection = self.pool_manager.get_connection(self.session_id)
-         try:
-            with UnitOfWork(connection) as uow:
-               ok = step.run(data, uow)
-               success = success and ok
-         finally:
-                # Connection is returned to the pool automatically
-            pass
-      return success
+        """
+        success = True
+        for step in self.steps:
+            print(f"Running step: {step.name()}")
+            connection = None
+            if self.pool_manager:
+                connection = self.pool_manager.get_connection(self.session_id)
+            else:
+                connection = self.connection
+
+            if not connection:
+                raise RuntimeError("Database connection unavailable for import step")
+
+            try:
+                with UnitOfWork(connection) as uow:
+                    ok = step.run(data, uow)
+                    success = success and ok
+            finally:
+                if self.pool_manager:
+                    # Connection is returned to the pool automatically
+                    pass
+        return success
 
 
 def import_csv_with_optional_account(
@@ -103,7 +125,7 @@ def import_csv_with_optional_account(
         batch_size = int(batch_size)
     except Exception:
         batch_size = 1000
-    batch_size = max(100, min(batch_size, 5000)) # finding: Define import batch size in the configuration file
+    batch_size = max(100, min(batch_size, 5000))
 
     batch_rows: list[tuple] = []
 

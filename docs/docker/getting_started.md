@@ -98,7 +98,16 @@ docker-compose restart api
 
 - [ ] Set up CSV import paths in `cfg/data.yaml`
 - [ ] Configure import formats in `cfg/import_formats.yaml`
-- [ ] Import initial data: `docker exec -it finia-api python3 src/main.py --setup --init-database --user <user> --password <pass>`
+- [ ] Import initial data via API (inside container or from host):
+```bash
+curl -X POST http://localhost:8000/api/setup/database \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<user>","password":"<pass>","database_name":"finiaDB_<username>"}'
+
+curl -X POST http://localhost:8000/api/setup/init-data \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<user>","password":"<pass>","database_name":"finiaDB_<username>"}'
+```
 - [ ] See full documentation: [docs/docker.md](../docker.md)
 
 ## Synology NAS deployment

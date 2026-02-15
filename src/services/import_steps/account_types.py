@@ -23,5 +23,5 @@ class AccountTypesStep(ImportStep):
       for type_name, type_id in data["accountType"].items():
          repo.insert_ignore(type_id, type_name)
          inserted += 1
-      print(f"  Inserted {inserted} account types into tbl_accountType") # finding: USe 'logging' instead of 'print' for better log management.
+      print(f"  Inserted {inserted} account types into tbl_accountType")
       return True

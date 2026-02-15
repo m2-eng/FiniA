@@ -33,11 +33,7 @@ services:
     # No environment variables needed - Single Source of Truth!
     # User credentials come from login form (Memory-Only Auth)
     command: >
-      python3 src/main.py 
-      --api 
-      --host 0.0.0.0 
-      --port 8000
-      --config cfg/config.yaml
+      python3 src/main.py
 
   # Optional: Nginx Reverse Proxy for production
   # Uncomment and configure if you want to serve on a different port or add SSL

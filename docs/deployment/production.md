@@ -488,7 +488,7 @@ Type=simple
 User=finia
 Group=finia
 WorkingDirectory=/opt/finia
-ExecStart=/opt/finia/.venv/bin/python src/main.py --api --host 0.0.0.0 --port 8000
+ExecStart=/opt/finia/.venv/bin/python src/main.py
 Restart=on-failure
 
 # Resource limits

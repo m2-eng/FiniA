@@ -98,6 +98,73 @@ Check API availability (no authentication required).
 }
 ```
 
+## Setup and Initialization
+
+These endpoints replace the CLI setup flow. They require MySQL credentials with
+permissions to create databases and write schema/data. Protect these endpoints
+behind a trusted network or reverse proxy.
+
+**Optional protection:** If `setup.token` is set in `cfg/config.yaml` (or via
+`FINIA_SETUP_TOKEN`), requests must include `X-Setup-Token`.
+
+### Create Database
+
+**POST** `/api/setup/database`
+
+Creates the database schema using the SQL dump configured in `cfg/config.yaml`.
+
+**Request:**
+```json
+{
+  "username": "root",
+  "password": "your_mysql_password",
+  "database_name": "finiaDB_admin"
+}
+```
+
+**Headers (if token enabled):**
+```
+X-Setup-Token: <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "database": "finiaDB_admin",
+  "sql_file": "db/finia_draft.sql"
+}
+```
+
+### Initialize Database
+
+**POST** `/api/setup/init-data`
+
+Imports initial data using the YAML file configured in `cfg/config.yaml`.
+
+**Request:**
+```json
+{
+  "username": "root",
+  "password": "your_mysql_password",
+  "database_name": "finiaDB_admin"
+}
+```
+
+**Headers (if token enabled):**
+```
+X-Setup-Token: <token>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "database": "finiaDB_admin",
+  "data_file": "cfg/data.yaml"
+}
+```
+
 ## Transactions
 
 Manage financial transactions and accounting entries.

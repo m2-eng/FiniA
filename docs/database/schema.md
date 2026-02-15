@@ -609,13 +609,17 @@ tbl_accountImportPath
 **Schema Creation:**
 ```bash
 # Create database and import schema
-python src/main.py --setup --user <user> --password <pass>
+curl -X POST http://127.0.0.1:8000/api/setup/database \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<user>","password":"<pass>","database_name":"finiaDB_<username>"}'
 ```
 
 **Seed Data:**
 ```bash
 # Import account types, planning cycles, categories
-python src/main.py --init-database --user <user> --password <pass>
+curl -X POST http://127.0.0.1:8000/api/setup/init-data \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<user>","password":"<pass>","database_name":"finiaDB_<username>"}'
 ```
 
 **SQL File:** [db/finia_draft.sql](../../db/finia_draft.sql)

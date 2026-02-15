@@ -30,7 +30,7 @@ Docker Host
 # Application code: src/ directory
 # Config: cfg/ copied at build time (Windows path issues)
 # Exposed port: 8000
-# Default command: python3 src/main.py --api --host 0.0.0.0
+# Default command: python3 src/main.py
 ```
 
 See [Dockerfile](Dockerfile) for full implementation.
@@ -53,14 +53,22 @@ services:
       retries: 3
     restart: unless-stopped
     command: >
-      python3 src/main.py 
-      --api 
-      --host 0.0.0.0 
-      --port 8000
-      --config cfg/config.yaml
+      python3 src/main.py
 ```
 
 **Note:** No embedded database service; uses external MySQL/MariaDB configured in `cfg/config.yaml`.
+
+### Optional setup protection
+
+If you want to protect `/api/setup` in Docker, pass a token via environment
+variable (recommended) and set `allow_localhost: false` in `cfg/config.yaml`:
+
+```yaml
+services:
+  api:
+    environment:
+      - FINIA_SETUP_TOKEN=changeme
+```
 
 ## Configuration mounting
 

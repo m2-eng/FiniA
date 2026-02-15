@@ -106,7 +106,7 @@ class AccountRepository:
     def insert(self, account: Account) -> None:
         acc_id = self.get_id_by_name(account.name)
         if acc_id:
-            print(f"  Info: Account '{account.name}' already exists. Skipping insertion.") # finding: Consider using logging instead of print for better control over output
+            print(f"  Info: Account '{account.name}' already exists. Skipping insertion.")
             return  # Account already exists
         
         type_id = self.get_type_id(account.type_name)
