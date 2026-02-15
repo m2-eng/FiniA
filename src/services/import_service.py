@@ -6,7 +6,7 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for import service.
 #
-from typing import List, Optional, Any
+from typing import List, Optional
 from services.import_steps.base import ImportStep
 from services.csv_utils import read_csv_rows, parse_amount, parse_date
 from services.field_extractor import extract_field_value

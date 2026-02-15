@@ -6,7 +6,6 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for DatabaseCreator.
 #
-import mysql.connector
 from mysql.connector import Error
 
 from Database import Database

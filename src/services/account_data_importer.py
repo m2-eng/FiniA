@@ -7,7 +7,6 @@
 # Purpose: Module for account data importer.
 #
 import csv
-import re
 import logging
 from dataclasses import dataclass
 from pathlib import Path
