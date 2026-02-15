@@ -11,12 +11,14 @@ Repository for ShareHistory entities
 Handles all database operations for tbl_shareHistory
 """
 
+from repositories.error_handling import wrap_repository_cursor
+
 class ShareHistoryRepository:
     """Repository class for managing share price history in the database"""
     
     def __init__(self, cursor):
         """Initialize with database cursor"""
-        self.cursor = cursor
+        self.cursor = wrap_repository_cursor(cursor, operation_prefix=type(self).__name__)
     
     def get_all_paginated(self, page=1, page_size=50, sort_by: str = None, sort_dir: str = None, search: str = None, checked_filter: str = None):
         """Get all share history with pagination, share details, sorting, search, and checked filter"""

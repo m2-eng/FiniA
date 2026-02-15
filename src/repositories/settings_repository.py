@@ -6,11 +6,14 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for settings repository.
 #
+from repositories.error_handling import wrap_repository_cursor
+
+
 class SettingsRepository:
     """Repository for storing and retrieving application settings (global or user-specific)."""
 
     def __init__(self, cursor):
-        self.cursor = cursor
+        self.cursor = wrap_repository_cursor(cursor, operation_prefix=type(self).__name__)
 
     def get_settings(self, key: str, user_id: int | None = None):
         """Get all settings entries for a given key (returns list of values)"""

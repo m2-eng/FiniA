@@ -6,6 +6,9 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for base.
 #
+from repositories.error_handling import wrap_repository_cursor
+
+
 class BaseRepository:
    def __init__(self, uow_or_cursor):
       """Initialize repository with either UnitOfWork or raw DB cursor.
@@ -16,8 +19,12 @@ class BaseRepository:
       if hasattr(uow_or_cursor, "cursor"):
          # UnitOfWork or connection wrapper
          self.uow = uow_or_cursor
-         self.cursor = uow_or_cursor.cursor
+         raw_cursor = uow_or_cursor.cursor
       else:
          # Raw cursor passed directly
          self.uow = None
-         self.cursor = uow_or_cursor
+         raw_cursor = uow_or_cursor
+      if raw_cursor is None:
+         self.cursor = None
+      else:
+         self.cursor = wrap_repository_cursor(raw_cursor, operation_prefix=type(self).__name__)

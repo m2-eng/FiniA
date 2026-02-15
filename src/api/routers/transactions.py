@@ -94,10 +94,10 @@ def auto_categorize_entries(cursor, connection) -> dict:
 router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
-@router.get("/import-formats") # finding: missing error handling
+@router.get("/import-formats")
+@handle_db_errors("fetch import formats")
 async def get_import_formats(
     cursor=Depends(get_db_cursor_with_auth),
-    connection=Depends(get_db_connection_with_auth)
 ):
     """
     Get list of available import formats from database settings table.
@@ -105,29 +105,19 @@ async def get_import_formats(
     from repositories.settings_repository import SettingsRepository
     settings_key = "import_format"
 
-    try:
-        repo = SettingsRepository(cursor)
-        entries = repo.get_setting_entries(settings_key)
+    repo = SettingsRepository(cursor)
+    entries = repo.get_setting_entries(settings_key)
 
-        formats = []
-        for entry in entries:
-            try:
-                data = json.loads(entry.get("value") or "{}")
-                if data.get("name"):
-                    formats.append(data.get("name"))
-            except Exception:
-                continue
+    formats = []
+    for entry in entries:
+        try:
+            data = json.loads(entry.get("value") or "{}")
+            if data.get("name"):
+                formats.append(data.get("name"))
+        except Exception:
+            continue
 
-        return {"success": True, "formats": formats}
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        safe_rollback(connection)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to load import formats: {str(e)}"
-        )
+    return {"success": True, "formats": formats}
 
 
 @router.get("/", response_model=TransactionListResponse)
