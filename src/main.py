@@ -42,6 +42,7 @@ if __name__ == "__main__":
       Use command-line arguments to override config values.
       """
    )
+   # finding: CLI shall be removed and replace by API calls. The API will be the main entry point for all operations, including database setup and initialization. 
    parser.add_argument('--user',
                        help='MySQL user (only required for --setup, --init-database)')
    parser.add_argument('--password',
@@ -115,7 +116,7 @@ if __name__ == "__main__":
    if not args.api and (not args.user or not args.password):
       parser.error("--user and --password are required for database operations")
 
-   db = Database(
+   db = Database( # finding: It seems that the database is a duplicate.
       host=db_config.get('host', 'localhost'),
       user=args.user,
       password=args.password,
