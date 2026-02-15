@@ -100,6 +100,13 @@ class ConnectionPoolManager:
         if session_id in self.pools:
             # Pool is cleaned up on deletion
             del self.pools[session_id]
+
+    def close_all(self) -> int:
+        """Closes all pools and returns the number removed."""
+        session_ids = list(self.pools.keys())
+        for session_id in session_ids:
+            self.close_pool(session_id)
+        return len(session_ids)
     
     def get_pool_count(self) -> int:
         """Returns the number of active connection pools."""
