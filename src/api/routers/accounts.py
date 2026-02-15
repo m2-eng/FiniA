@@ -248,7 +248,7 @@ async def get_account_list(
 @router.get("/list")
 @handle_db_errors("fetch accounts for management")
 async def get_account_list(
-    cursor = Depends(get_db_cursor)
+    page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(50, ge=1, le=1000),
     search: str = Query("", description="Search by name or IBAN"),
     cursor = Depends(get_db_cursor)
