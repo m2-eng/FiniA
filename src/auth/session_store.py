@@ -128,6 +128,18 @@ class SessionStore:
             self.delete_session(session_id)
         
         return len(expired)
+
+    def clear_all_sessions(self) -> int:
+        """
+        Deletes all sessions and overwrites secrets in memory.
+
+        Returns:
+            Number of deleted sessions
+        """
+        session_ids = list(self.sessions.keys())
+        for session_id in session_ids:
+            self.delete_session(session_id)
+        return len(session_ids)
     
     def get_session_count(self) -> int:
         """Returns the number of active sessions."""

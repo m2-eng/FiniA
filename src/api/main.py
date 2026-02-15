@@ -156,12 +156,23 @@ async def shutdown_event(app: FastAPI): # finding: Not sure whether everything i
         with suppress(asyncio.CancelledError):
             await cleanup_task
 
-    # Cleanup connection pools
+    # Cleanup auth secrets and connection pools
     auth_context = getattr(app.state, "auth_context", None)
-    if auth_context and auth_context.pool_manager:
-        for session_id in list(auth_context.pool_manager._pools.keys()):
-            auth_context.pool_manager.close_pool(session_id)
-        logger.info("All connection pools closed")
+    if auth_context:
+        if auth_context.session_store:
+            cleared = auth_context.session_store.clear_all_sessions()
+            logger.info("Cleared %s session(s) from memory", cleared)
+
+        if auth_context.config:
+            auth_config = auth_context.config.get("auth", {})
+            jwt_secret = auth_config.get("jwt_secret")
+            if jwt_secret:
+                auth_config["jwt_secret"] = "0" * len(jwt_secret)
+                auth_config.pop("jwt_secret", None)
+
+        if auth_context.pool_manager:
+            closed = auth_context.pool_manager.close_all()
+            logger.info("All connection pools closed (%s)", closed)
 
     # No legacy singleton database to close
 
