@@ -12,12 +12,16 @@ Authentication middleware and dependencies.
 
 # JWT session dependency using app auth context.
 
+import logging
 from fastapi import Header, HTTPException, Request, status
 import jwt
 from typing import Optional
 
 from auth.session_store import SessionNotFoundError, SessionExpiredError
 from api.auth_context import get_auth_context
+
+
+logger = logging.getLogger(__name__)
 
 async def get_current_session(
     request: Request,
@@ -33,7 +37,7 @@ async def get_current_session(
         HTTPException: On invalid/missing token or expired session
     """
     if not authorization:
-        print("AUTH 401: No authorization header")
+        logger.warning("AUTH 401: No authorization header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required. Please sign in.",
@@ -56,7 +60,7 @@ async def get_current_session(
         session_id = payload.get("session_id")
         
         if not session_id:
-            print("AUTH 401: No session_id in token payload")
+            logger.warning("AUTH 401: No session_id in token payload")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token."
@@ -68,25 +72,25 @@ async def get_current_session(
         return session_id
         
     except jwt.ExpiredSignatureError:
-        print("AUTH 401: JWT token expired")
+        logger.warning("AUTH 401: JWT token expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token expired. Please sign in again."
         )
     except jwt.InvalidTokenError:
-        print("AUTH 401: Invalid JWT token")
+        logger.warning("AUTH 401: Invalid JWT token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token."
         )
     except SessionNotFoundError:
-        print("AUTH 401: Session not found (possibly removed by cleanup)")
+        logger.warning("AUTH 401: Session not found (possibly removed by cleanup)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session not found. Please sign in again."
         )
     except SessionExpiredError:
-        print("AUTH 401: Session expired (inactivity timeout)")
+        logger.warning("AUTH 401: Session expired (inactivity timeout)")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Session expired. Please sign in again."

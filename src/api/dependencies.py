@@ -11,12 +11,15 @@ FastAPI dependencies for database access and authentication
 """
 
 from contextvars import ContextVar
+import logging
 from fastapi import Depends, HTTPException, status
 from mysql.connector.errors import OperationalError, InterfaceError, DatabaseError, PoolError
 from utils import load_config
-import traceback
 from api.auth_context import AuthContext, get_auth_context
 from api.auth_middleware import get_current_session
+
+
+logger = logging.getLogger(__name__)
 
 
 _request_connection: ContextVar[object] = ContextVar("request_connection", default=None)
@@ -77,12 +80,12 @@ def get_db_cursor_with_auth(
             except:
                 pass
         except Exception as e:
-            print(f"Warning: Could not set session timeouts: {e}")
+            logger.warning("Could not set session timeouts: %s", e)
         
         yield cursor
         
     except PoolError as e:
-        print(f"Connection pool exhausted: {e}")
+        logger.warning("Connection pool exhausted: %s", e)
         if cursor:
             try:
                 cursor.close()
@@ -101,8 +104,7 @@ def get_db_cursor_with_auth(
         # Preserve explicit HTTP errors from route handlers
         raise
     except Exception as e:
-        print(f"Database error in get_db_cursor_with_auth: {e}")
-        traceback.print_exc()
+        logger.exception("Database error in get_db_cursor_with_auth: %s", e)
         if cursor:
             try:
                 cursor.close()
@@ -122,7 +124,7 @@ def get_db_cursor_with_auth(
             try:
                 cursor.close()
             except Exception as e:
-                print(f"Warning: Error closing cursor: {e}")
+                logger.warning("Error closing cursor: %s", e)
         if conn:
             try:
                 conn.close()  # Return connection to pool
@@ -175,13 +177,12 @@ def get_db_connection_with_auth(
                 pass
             cur.close()
         except Exception as e:
-            print(f"Warning: Could not set session timeouts: {e}")
+            logger.warning("Could not set session timeouts: %s", e)
         
         yield conn
         
     except (OperationalError, InterfaceError, DatabaseError) as e:
-        print(f"Database error during transaction: {e}")
-        traceback.print_exc()
+        logger.exception("Database error during transaction: %s", e)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database connection error during transaction"
@@ -190,8 +191,7 @@ def get_db_connection_with_auth(
         # Preserve explicit HTTP errors from route handlers
         raise
     except Exception as e:
-        print(f"Unexpected error during transaction: {e}")
-        traceback.print_exc()
+        logger.exception("Unexpected error during transaction: %s", e)
         raise
     finally:
         try:

@@ -6,9 +6,13 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for DatabaseCreator.
 #
+import logging
 from mysql.connector import Error
 
 from Database import Database
+
+
+logger = logging.getLogger(__name__)
 
 class DatabaseCreator:
    """Create the database schema from an SQL dump using a provided Database instance."""
@@ -24,11 +28,11 @@ class DatabaseCreator:
             f"CREATE DATABASE IF NOT EXISTS `{self.db.database_name}` "
             f"DEFAULT CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci"
          )
-         print(f"Database '{self.db.database_name}' created or already exists")
+         logger.info("Database '%s' created or already exists", self.db.database_name)
          cursor.close()
          return True
       except Error as e:
-         print(f"Error creating database: {e}")
+         logger.error("Error creating database: %s", e)
          return False
             
 
@@ -72,7 +76,7 @@ class DatabaseCreator:
          total = len(statements)
          executed = 0
           
-         print(f"\nExecuting {total} SQL statements...")
+         logger.info("Executing %s SQL statements...", total)
           
          for i, statement in enumerate(statements, 1):
             try:
@@ -85,25 +89,25 @@ class DatabaseCreator:
                   
                # Print progress every 10 statements
                if i % 10 == 0 or i == total:
-                  print(f"  Progress: {i}/{total} statements executed", end='\r')
+                  logger.info("Progress: %s/%s statements executed", i, total)
                     
             except Error as e:
                # Some statements might fail (e.g., ALGORITHM settings), continue with warnings
                if "ALGORITHM" not in str(e) and "DEFINER" not in str(e):
-                  print(f"\nWarning executing statement {i}: {e}")
-                  print(f"  Statement: {statement[:100]}...\n")
+                  logger.warning("Warning executing statement %s: %s", i, e)
+                  logger.warning("Statement: %s...", statement[:100])
           
          self.db.connection.commit()
          cursor.close()
           
-         print(f"\nSuccessfully executed {executed} SQL statements")
+         logger.info("Successfully executed %s SQL statements", executed)
          return True
           
       except FileNotFoundError:
-         print(f"SQL file not found: {sql_file_path}")
+         logger.error("SQL file not found: %s", sql_file_path)
          return False
       except Error as e:
-         print(f"Error executing SQL file: {e}")
+         logger.error("Error executing SQL file: %s", e)
          return False
       
             
@@ -117,9 +121,9 @@ class DatabaseCreator:
       Returns:
          True on success, False on failure.
       """
-      print(f"\n{'='*100}")
-      print(f"FiniA Database Creation Script")
-      print(f"{'='*100}\n")
+      logger.info("%s", "=" * 100)
+      logger.info("FiniA Database Creation Script")
+      logger.info("%s", "=" * 100)
         
       # Connect to server
       if not self.db.connect(use_database=False):
@@ -142,12 +146,12 @@ class DatabaseCreator:
       self.db.close()
         
       if success:
-         print(f"\n{'='*100}")
-         print(f"Database '{self.db.database_name}' created successfully!")
-         print(f"{'='*100}\n")
+         logger.info("%s", "=" * 100)
+         logger.info("Database '%s' created successfully!", self.db.database_name)
+         logger.info("%s", "=" * 100)
       else:
-         print(f"\n{'='*100}")
-         print(f"Database creation failed")
-         print(f"{'='*100}\n")
+         logger.error("%s", "=" * 100)
+         logger.error("Database creation failed")
+         logger.error("%s", "=" * 100)
             
       return success

@@ -6,6 +6,7 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for import service.
 #
+import logging
 from typing import List, Optional
 from services.import_steps.base import ImportStep
 from services.csv_utils import read_csv_rows, parse_amount, parse_date
@@ -13,6 +14,9 @@ from services.field_extractor import extract_field_value
 from infrastructure.unit_of_work import UnitOfWork
 from pathlib import Path
 from fastapi import HTTPException
+
+
+logger = logging.getLogger(__name__)
 
 class ImportService:
     def __init__(self, pool_manager, session_id: str | List[ImportStep], steps: List[ImportStep] | None = None):
@@ -53,7 +57,7 @@ class ImportService:
         """
         success = True
         for step in self.steps:
-            print(f"Running step: {step.name()}")
+            logger.info("Running step: %s", step.name())
             connection = None
             if self.pool_manager:
                 connection = self.pool_manager.get_connection(self.session_id)

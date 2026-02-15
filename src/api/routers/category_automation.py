@@ -10,9 +10,10 @@
 Category Automation API router - for automated transaction categorization rules
 """
 
+import json
+import logging
 from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from typing import Optional
-import json
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from api.models import RuleData, TestRuleRequest
@@ -24,6 +25,9 @@ from services.category_automation import (
 )
 from uuid import uuid4
 from datetime import datetime
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/category-automation", tags=["category-automation"])
 
@@ -79,7 +83,7 @@ async def get_rules(
             })
             
         except (json.JSONDecodeError, KeyError) as e:
-            print(f"Warning: Failed to parse rule {entry.get('id')}: {e}")
+            logger.warning("Failed to parse rule %s: %s", entry.get('id'), e)
             continue
     
     # Sort by priority descending
