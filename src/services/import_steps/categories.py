@@ -6,8 +6,13 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for categories.
 #
+import logging
+
 from services.import_steps.base import ImportStep
 from repositories.category_repository import CategoryRepository
+
+
+logger = logging.getLogger(__name__)
 
 
 class CategoriesStep(ImportStep):
@@ -16,7 +21,7 @@ class CategoriesStep(ImportStep):
 
    def run(self, data: dict, uow) -> bool:
       if not data or "categories" not in data:
-         print("  No categories data found in YAML")
+         logger.info("No categories data found in YAML")
          return True
       
       repo = CategoryRepository(uow)
@@ -75,5 +80,9 @@ class CategoriesStep(ImportStep):
          if isinstance(category_data, dict):
             insert_category_recursive(category_data, None)
       
-      print(f"  Inserted {inserted} new categories, {updated} existing categories recognized")
+      logger.info(
+         "Inserted %s new categories, %s existing categories recognized",
+         inserted,
+         updated,
+      )
       return True

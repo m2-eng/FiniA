@@ -6,9 +6,13 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for Database.
 #
+import logging
 import mysql.connector
 from mysql.connector import Error
 import threading
+
+
+logger = logging.getLogger(__name__)
 
 class Database:
    """Simple, robust MySQL connection with a global lock for serial execution."""
@@ -67,11 +71,11 @@ class Database:
             
          if self.connection.is_connected():
             db_info = self.connection.get_server_info()
-            print(f"Successfully connected to MySQL server version {db_info}")
+            logger.info("Successfully connected to MySQL server version %s", db_info)
             return True
             
       except Error as e:
-         print(f"Error connecting to MySQL: {e}")
+         logger.error("Error connecting to MySQL: %s", e)
          return False
       
       return False
@@ -93,7 +97,7 @@ class Database:
          )
          return conn
       except Error as e:
-         print(f"Error creating new connection: {e}")
+         logger.error("Error creating new connection: %s", e)
          return None
 
       
@@ -102,9 +106,9 @@ class Database:
       try:
          if self.connection and self.connection.is_connected():
             self.connection.close()
-            print("Database connection closed")
+            logger.info("Database connection closed")
       except Exception as e:
-         print(f"Error closing connection: {e}")
+         logger.error("Error closing connection: %s", e)
       finally:
          self.connection = None
 
@@ -137,7 +141,7 @@ class Database:
          if self.is_connected():
             self.connection.commit()
       except Exception as e:
-         print(f"Commit failed: {e}")
+         logger.error("Commit failed: %s", e)
          raise
    
    def rollback(self) -> None:
@@ -146,5 +150,5 @@ class Database:
          if self.is_connected():
             self.connection.rollback()
       except Exception as e:
-         print(f"Rollback failed: {e}")
+         logger.error("Rollback failed: %s", e)
          # Do not propagate rollback errors

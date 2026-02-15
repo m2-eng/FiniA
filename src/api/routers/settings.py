@@ -12,6 +12,7 @@ Handles global/user settings storage.
 """
 
 import json
+import logging
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
@@ -19,6 +20,9 @@ from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from repositories.settings_repository import SettingsRepository
 from repositories.account_type_repository import AccountTypeRepository
 from repositories.planning_cycle_repository import PlanningCycleRepository
+
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -337,8 +341,7 @@ async def upload_import_formats_yaml(
             raise
         except Exception as e:
             safe_rollback(connection)
-            import traceback
-            print(f"Traceback: {traceback.format_exc()}")
+            logger.exception("Upload failed: %s", e)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Upload failed: {str(e)}"

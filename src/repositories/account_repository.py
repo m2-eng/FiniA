@@ -6,7 +6,12 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for account repository.
 #
+import logging
+
 from domain.account import Account
+
+
+logger = logging.getLogger(__name__)
 
 
 SQL_COLUMN_HEADER = (
@@ -106,7 +111,7 @@ class AccountRepository:
     def insert(self, account: Account) -> None:
         acc_id = self.get_id_by_name(account.name)
         if acc_id:
-            print(f"  Info: Account '{account.name}' already exists. Skipping insertion.")
+            logger.info("Account '%s' already exists. Skipping insertion.", account.name)
             return  # Account already exists
         
         type_id = self.get_type_id(account.type_name)

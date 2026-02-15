@@ -168,7 +168,7 @@ def main():
     
     # Output results
     if args.json:
-        print(json.dumps(checker.get_summary(), indent=2))
+        logger.info("%s", json.dumps(checker.get_summary(), indent=2))
     else:
         is_healthy = checker.print_report()
         sys.exit(0 if is_healthy else 1)

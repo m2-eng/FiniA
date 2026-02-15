@@ -18,8 +18,12 @@ Features:
 """
 
 import json
+import logging
 import re
 from typing import Optional, Dict, List
+
+
+logger = logging.getLogger(__name__)
 
 def _evaluate_string_rule(tx_value: str, rule_value: str, rule_type: str, case_sensitive: bool) -> bool:
     """Evaluate string-based rules"""
@@ -102,7 +106,7 @@ def parse_condition_logic(logic_str: str, condition_results: Dict[int, bool]) ->
         
     except Exception as e:
         # Fallback on error: OR all conditions
-        print(f"Warning: Failed to parse condition logic '{logic_str}': {e}")
+        logger.warning("Failed to parse condition logic '%s': %s", logic_str, e)
         return any(condition_results.values())
 
 
@@ -223,7 +227,7 @@ def load_rules(cursor, account_id: Optional[int] = None) -> List[Dict]:
                 rules.append(rule)
                 
             except (json.JSONDecodeError, TypeError) as e:
-                print(f"Warning: Failed to parse rule {row[0]}: {e}")
+                logger.warning("Failed to parse rule %s: %s", row[0], e)
                 continue
         
         # Sort by priority descending, then by dateCreated
@@ -238,7 +242,7 @@ def load_rules(cursor, account_id: Optional[int] = None) -> List[Dict]:
         return rules
         
     except Exception as e:
-        print(f"Error loading automation rules: {e}")
+        logger.error("Error loading automation rules: %s", e)
         return []
 
 

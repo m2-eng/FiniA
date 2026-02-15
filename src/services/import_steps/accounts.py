@@ -6,10 +6,15 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for accounts.
 #
+import logging
+
 from services.import_steps.base import ImportStep
 from domain.account import Account
 from repositories.account_repository import AccountRepository
 from repositories.account_import_repository import AccountImportRepository
+
+
+logger = logging.getLogger(__name__)
 
 
 class AccountsStep(ImportStep):
@@ -53,9 +58,9 @@ class AccountsStep(ImportStep):
                import_repo.insert_path(folder, acc_id, fmt_id)
                paths_inserted += 1
 
-      print(f"  Inserted {inserted} accounts into tbl_account")
+      logger.info("Inserted %s accounts into tbl_account", inserted)
       if paths_inserted:
-         print(f"  Inserted {paths_inserted} import paths/formats")
+         logger.info("Inserted %s import paths/formats", paths_inserted)
       # Second pass: set clearing accounts
       updated = 0
       for item in accounts:
@@ -64,5 +69,5 @@ class AccountsStep(ImportStep):
             repo.update_clearing_account(acc.get("name", ""), acc["clearingAccount"])
             updated += 1
 
-      print(f"  Updated {updated} accounts with clearing account references")
+      logger.info("Updated %s accounts with clearing account references", updated)
       return True

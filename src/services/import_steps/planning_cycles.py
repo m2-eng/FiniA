@@ -6,8 +6,13 @@
 # License: GNU Affero General Public License v3.0 (AGPL-3.0-only)
 # Purpose: Module for planning cycles.
 #
+import logging
+
 from services.import_steps.base import ImportStep
 from repositories.planning_cycle_repository import PlanningCycleRepository
+
+
+logger = logging.getLogger(__name__)
 
 
 class PlanningCyclesStep(ImportStep):
@@ -17,7 +22,7 @@ class PlanningCyclesStep(ImportStep):
    def run(self, data: dict, uow) -> bool:
       key = "planningCycle"
       if not data or key not in data:
-         print("  No planningCycle data found in YAML")
+         logger.info("No planningCycle data found in YAML")
          return True
       repo = PlanningCycleRepository(uow)
       inserted = 0
@@ -37,7 +42,7 @@ class PlanningCyclesStep(ImportStep):
             repo.insert(cycle_name, period_value, period_unit)
             inserted += 1
       else:
-         print("  Unsupported planningCycle format in YAML")
+         logger.warning("Unsupported planningCycle format in YAML")
          return True
-      print(f"  Inserted {inserted} planning cycles into tbl_planningCycle")
+      logger.info("Inserted %s planning cycles into tbl_planningCycle", inserted)
       return True
