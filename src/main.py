@@ -18,12 +18,12 @@ import platform
 
 import uvicorn
 
-from utils import load_config
+from config import get_config_section
 
 
 if __name__ == "__main__":
    logger = logging.getLogger("uvicorn.error")
-   api_config = load_config(config_path="cfg/config.yaml", subconfig="api")
+   api_config = get_config_section("api")
 
    host = api_config.get("host", "127.0.0.1")
    port = api_config.get("port", 8000)
