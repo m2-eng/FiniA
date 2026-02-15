@@ -12,7 +12,7 @@ from datetime import date
 from typing import Tuple
 
 from repositories.base import BaseRepository
-from repositories.error_handling import execute_fetchall_with_retry, handle_repository_errors
+from repositories.error_handling import execute_fetchall_with_retry
 
 MONTH_NAMES = [
     "Januar",
@@ -69,7 +69,6 @@ def _extend_month_params(params: list, today: date, month_values: list[int]) -> 
 
 
 class YearOverviewRepository(BaseRepository):
-    @handle_repository_errors("fetch data")
     def _fetch_dicts(self, query: str, params: Tuple) -> list[dict]:
         rows, description = execute_fetchall_with_retry(self.cursor, query, params, retries=1)
         columns = [col[0] for col in description]

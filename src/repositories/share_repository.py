@@ -11,12 +11,14 @@ Repository for Share (Wertpapier) entities
 Handles all database operations for tbl_share
 """
 
+from repositories.error_handling import wrap_repository_cursor
+
 class ShareRepository:
     """Repository class for managing shares/stocks in the database"""
     
     def __init__(self, cursor):
         """Initialize with database cursor"""
-        self.cursor = cursor
+        self.cursor = wrap_repository_cursor(cursor, operation_prefix=type(self).__name__)
     
     def get_all_shares_paginated(self, page=1, page_size=50, search: str = None, holdings_filter: str = None, sort_by: str = None, sort_dir: str = None):
         """Get all shares with pagination, optional text search, holdings filter, sorting, and portfolio value"""

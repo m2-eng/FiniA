@@ -8,6 +8,8 @@
 #
 import logging
 
+from repositories.error_handling import wrap_repository_cursor
+
 from domain.account import Account
 
 
@@ -86,7 +88,7 @@ class AccountRepository:
 
     def __init__(self, cursor):
         """Initialize with database cursor"""
-        self.cursor = cursor
+        self.cursor = wrap_repository_cursor(cursor, operation_prefix=type(self).__name__)
 
     def _month_params(self, today, count: int = 12) -> list:
         return [today] * count

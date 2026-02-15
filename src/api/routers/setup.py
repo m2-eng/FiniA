@@ -16,6 +16,7 @@ from pathlib import Path
 import os
 
 from api.dependencies import get_database_config
+from api.error_handling import handle_db_errors
 from Database import Database
 from DatabaseCreator import DatabaseCreator
 from DataImporter import DataImporter
@@ -82,6 +83,7 @@ def require_setup_token(
 
 
 @router.post("/database", dependencies=[Depends(require_setup_token)])
+@handle_db_errors("create database")
 async def create_database(payload: SetupDatabaseRequest):
     """
     Create the database schema from the configured SQL dump.
@@ -104,13 +106,7 @@ async def create_database(payload: SetupDatabaseRequest):
 
     creator = DatabaseCreator(db)
 
-    try:
-        success = creator.create_from_file(str(sql_file))
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database creation failed: {exc}"
-        ) from exc
+    success = creator.create_from_file(str(sql_file))
 
     if not success:
         raise HTTPException(
@@ -126,6 +122,7 @@ async def create_database(payload: SetupDatabaseRequest):
 
 
 @router.post("/init-data", dependencies=[Depends(require_setup_token)])
+@handle_db_errors("initialize database")
 async def init_database(payload: InitDatabaseRequest):
     """
     Initialize the database with predefined YAML data.
@@ -148,13 +145,7 @@ async def init_database(payload: InitDatabaseRequest):
 
     importer = DataImporter(db)
 
-    try:
-        success = importer.import_data(str(data_file))
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database initialization failed: {exc}"
-        ) from exc
+    success = importer.import_data(str(data_file))
 
     if not success:
         raise HTTPException(
