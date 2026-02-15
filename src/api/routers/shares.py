@@ -18,7 +18,6 @@ from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 import csv
 import io
 from datetime import datetime, date, timedelta
-from decimal import Decimal
 from services.csv_utils import parse_amount, parse_date
 
 from repositories.share_repository import ShareRepository

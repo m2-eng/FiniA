@@ -27,7 +27,6 @@ from services.category_automation import (
     evaluate_condition,
     evaluate_rule
 )
-from datetime import datetime
 
 
 class TestConditionLogicParser(unittest.TestCase):

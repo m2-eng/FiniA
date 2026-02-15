@@ -19,7 +19,7 @@ Features:
 
 import json
 import re
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List
 
 def _evaluate_string_rule(tx_value: str, rule_value: str, rule_type: str, case_sensitive: bool) -> bool:
     """Evaluate string-based rules"""

@@ -24,7 +24,6 @@ from auth.session_store import SessionStore
 from auth.connection_pool_manager import ConnectionPoolManager
 from auth.rate_limiter import LoginRateLimiter
 from cryptography.fernet import Fernet
-import yaml
 import asyncio
 import secrets
 from pathlib import Path
