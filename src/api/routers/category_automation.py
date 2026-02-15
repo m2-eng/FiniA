@@ -14,7 +14,7 @@ import json
 import logging
 from fastapi import APIRouter, Depends, Query, HTTPException, Path
 from typing import Optional
-from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
+from api.dependencies import get_db_cursor, get_db_connection
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 from api.models import RuleData, TestRuleRequest
 from repositories.settings_repository import SettingsRepository
@@ -37,7 +37,7 @@ router = APIRouter(prefix="/category-automation", tags=["category-automation"])
 async def get_rules(
     account: Optional[int] = Query(None, description="Filter by account ID"),
     enabled_only: bool = Query(True, description="Only return enabled rules"),
-    cursor = Depends(get_db_cursor_with_auth)
+    cursor = Depends(get_db_cursor)
 ):
     """
     Get all automation rules from settings table.
@@ -99,7 +99,7 @@ async def get_rules(
 @handle_db_errors("fetch rule by ID")
 async def get_rule_by_id(
     rule_id: str = Path(..., description="Rule UUID"),
-    cursor = Depends(get_db_cursor_with_auth)
+    cursor = Depends(get_db_cursor)
 ):
     """Get a specific rule by ID."""
     settings_repo = SettingsRepository(cursor)
@@ -147,7 +147,7 @@ async def get_rule_by_id(
 @handle_db_errors("create category automation rule")
 async def create_rule(
     rule_data: RuleData,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """Create a new category automation rule."""
     cursor = connection.cursor(buffered=True)
@@ -210,7 +210,7 @@ async def create_rule(
 async def update_rule(
     rule_id: str = Path(..., description="Rule UUID"),
     rule_data: RuleData = None,
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """Update an existing rule."""
     cursor = connection.cursor(buffered=True)
@@ -319,7 +319,7 @@ async def update_rule(
 @handle_db_errors("delete category automation rule")
 async def delete_rule(
     rule_id: str = Path(..., description="Rule UUID"),
-    connection = Depends(get_db_connection_with_auth)
+    connection = Depends(get_db_connection)
 ):
     """Delete a rule."""
     cursor = connection.cursor(buffered=True)
@@ -360,7 +360,7 @@ async def delete_rule(
 @handle_db_errors("test category automation rule")
 async def test_rule(
     payload: TestRuleRequest,
-    cursor = Depends(get_db_cursor_with_auth)
+    cursor = Depends(get_db_cursor)
 ):
     """Test a rule against sample transaction data."""
     

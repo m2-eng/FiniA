@@ -12,7 +12,7 @@ Categories API Router
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from repositories.category_repository import CategoryRepository
-from api.dependencies import get_db_cursor_with_auth, get_db_connection_with_auth
+from api.dependencies import get_db_cursor, get_db_connection
 from api.models import CategoryCreateRequest, CategoryUpdateRequest
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
 
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/categories", tags=["categories"])
 async def get_categories(
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(100, ge=1, le=1000, description="Records per page"),
-    cursor=Depends(get_db_cursor_with_auth)
+    cursor=Depends(get_db_cursor)
 ):
     """
     Get paginated categories with their full hierarchical names.
@@ -42,10 +42,10 @@ async def get_categories(
 
 @router.get("/hierarchy")
 @handle_db_errors("fetch category hierarchy")
-async def get_categories_hierarchy( # finding: Add 'paginated' to the function name.
+async def get_categories_hierarchy_paginated(
     page: int = Query(1, ge=1, description="Page number (1-based)"),
     page_size: int = Query(100, ge=1, le=1000, description="Records per page"),
-    cursor=Depends(get_db_cursor_with_auth)
+    cursor=Depends(get_db_cursor)
 ):
     """
     Get paginated categories with parent information for building a tree structure.
@@ -63,7 +63,7 @@ async def get_categories_hierarchy( # finding: Add 'paginated' to the function n
 
 @router.get("/hierarchy/all")
 @handle_db_errors("fetch all categories hierarchy")
-async def get_all_categories_hierarchy_unpaginated(cursor=Depends(get_db_cursor_with_auth)):
+async def get_all_categories_hierarchy_unpaginated(cursor=Depends(get_db_cursor)):
     """
     Get ALL categories with parent information in a single efficient query.
     Use this for full category tree loading on category management page.
@@ -77,7 +77,7 @@ async def get_all_categories_hierarchy_unpaginated(cursor=Depends(get_db_cursor_
 
 @router.get("/list")
 @handle_db_errors("fetch categories list")
-async def list_categories_simple(cursor=Depends(get_db_cursor_with_auth)):
+async def list_categories_simple(cursor=Depends(get_db_cursor)):
     """
     Get simple list of all categories with id and fullname for dropdowns.
     """
@@ -88,7 +88,7 @@ async def list_categories_simple(cursor=Depends(get_db_cursor_with_auth)):
 
 @router.get("/{category_id}")
 @handle_db_errors("fetch category")
-async def get_category(category_id: int, cursor=Depends(get_db_cursor_with_auth)):
+async def get_category(category_id: int, cursor=Depends(get_db_cursor)):
     """
     Get a specific category by ID.
     """
@@ -103,7 +103,7 @@ async def get_category(category_id: int, cursor=Depends(get_db_cursor_with_auth)
 @handle_db_errors("create category")
 async def create_category(
     request: CategoryCreateRequest,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """
     Create a new category.
@@ -156,7 +156,7 @@ async def create_category(
 async def update_category(
     category_id: int,
     request: CategoryUpdateRequest,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """
     Update a category's name and/or parent.
@@ -215,7 +215,7 @@ async def update_category(
 @handle_db_errors("delete category")
 async def delete_category(
     category_id: int,
-    connection=Depends(get_db_connection_with_auth)
+    connection=Depends(get_db_connection)
 ):
     """
     Delete a category and reassign its children to its parent.

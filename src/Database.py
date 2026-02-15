@@ -121,8 +121,8 @@ class Database:
 
    def get_cursor(self):
       """
-      Return cursor. Connection is managed by get_db_cursor_with_auth() (dependencies.py).
-      Lock is held by get_db_cursor_with_auth().
+      Return cursor. Connection is managed by get_db_cursor() (dependencies.py).
+      Lock is held by get_db_cursor().
       """
       try:
          # Create cursor - connection already validated in get_db_cursor()

@@ -34,7 +34,7 @@ def get_database_config(subconfig: str = None) -> dict:
 # Session-based Auth Dependencies
 # ============================================================================
 
-def get_db_cursor_with_auth(
+def get_db_cursor(
     session_id: str = Depends(get_current_session),
     auth_context: AuthContext = Depends(get_auth_context),
 ):
@@ -104,7 +104,7 @@ def get_db_cursor_with_auth(
         # Preserve explicit HTTP errors from route handlers
         raise
     except Exception as e:
-        logger.exception("Database error in get_db_cursor_with_auth: %s", e)
+        logger.exception("Database error in get_db_cursor: %s", e)
         if cursor:
             try:
                 cursor.close()
@@ -132,7 +132,7 @@ def get_db_cursor_with_auth(
                 pass
 
 
-def get_db_connection_with_auth(
+def get_db_connection(
     session_id: str = Depends(get_current_session),
     auth_context: AuthContext = Depends(get_auth_context),
 ):
