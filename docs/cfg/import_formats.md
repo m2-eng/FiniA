@@ -1,6 +1,6 @@
 # cfg/import_formats.yaml
 
-Purpose: define CSV-to-field mappings for transaction imports with support for **versioned formats**. Used by `AccountDataImporter` (CLI) and the `/api/transactions/import-formats` endpoint to validate headers, parse values, and map bank/platform exports into FiniA's transaction schema.
+Purpose: define CSV-to-field mappings for transaction imports with support for **versioned formats**. Used by `AccountDataImporter` and the `/api/transactions/import-formats` endpoint to validate headers, parse values, and map bank/platform exports into FiniA's transaction schema.
 
 ## Overview
 
@@ -318,7 +318,7 @@ formats:
    - `columns`: Mapping for all required fields
 3. Add additional versions as needed (e.g., `v2` for changed headers)
 4. Set `default` to preferred version
-5. Teste mit: `python src/main.py --import-account-data --user <db_user> --password <db_pass> --config cfg/config.yaml`
+5. Test with `POST /api/transactions/import-csv` after login (see [docs/api.md](../api.md)).
 
 ## Validation Behavior
 

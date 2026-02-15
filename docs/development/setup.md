@@ -112,17 +112,18 @@ database:
 
 **Option A: Full Application (API + Web UI)**
 ```bash
-python src/main.py --api --host 0.0.0.0 --port 8000
+python src/main.py
 ```
 
-**Option B: API Only**
+**Option B: Setup Database (First Time)**
 ```bash
-python src/main.py --api --host 127.0.0.1 --port 8000
-```
+curl -X POST http://127.0.0.1:8000/api/setup/database \
+  -H "Content-Type: application/json" \
+  -d '{"username":"root","password":"yourpassword","database_name":"finiaDB_root"}'
 
-**Option C: Setup Database (First Time)**
-```bash
-python src/main.py --setup --user root --password yourpassword
+curl -X POST http://127.0.0.1:8000/api/setup/init-data \
+  -H "Content-Type: application/json" \
+  -d '{"username":"root","password":"yourpassword","database_name":"finiaDB_root"}'
 ```
 
 **Access:**
@@ -289,29 +290,11 @@ docker-compose restart api
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/src/main.py",
-      "args": [
-        "--api",
-        "--host", "0.0.0.0",
-        "--port", "8000"
-      ],
       "console": "integratedTerminal",
       "justMyCode": false,
       "env": {
         "PYTHONUNBUFFERED": "1"
       }
-    },
-    {
-      "name": "FiniA Setup Database",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/main.py",
-      "args": [
-        "--setup",
-        "--user", "root",
-        "--password", "${input:dbPassword}"
-      ],
-      "console": "integratedTerminal",
-      "justMyCode": true
     },
     {
       "name": "Python: Current File",
@@ -320,14 +303,6 @@ docker-compose restart api
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": true
-    }
-  ],
-  "inputs": [
-    {
-      "id": "dbPassword",
-      "type": "promptString",
-      "description": "Enter MySQL root password",
-      "password": true
     }
   ]
 }
@@ -937,9 +912,7 @@ kill -9 <PID>
 ```
 
 **Or use different port:**
-```bash
-python src/main.py --api --port 8001
-```
+Update `cfg/config.yaml` (`api.port`) and restart the server.
 
 ---
 

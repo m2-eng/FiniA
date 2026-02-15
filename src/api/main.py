@@ -17,7 +17,7 @@ from pathlib import Path
 from contextlib import asynccontextmanager, suppress
 import logging
 
-from api.routers import transactions, theme, categories, year_overview, accounts, category_automation, planning, shares, settings, auth, docs
+from api.routers import transactions, theme, categories, year_overview, accounts, category_automation, planning, shares, settings, auth, docs, setup
 from api.dependencies import get_database_config
 from api.auth_context import set_auth_context
 from auth.session_store import SessionStore
@@ -71,6 +71,7 @@ app.include_router(planning.router, prefix="/api")
 app.include_router(shares.router, prefix="/api")
 app.include_router(settings.router, prefix="/api")
 app.include_router(docs.router, prefix="/api")
+app.include_router(setup.router, prefix="/api")
 
 @app.get("/api/health")
 def health_check():
@@ -128,7 +129,6 @@ async def startup_event(app: FastAPI):
     auth_config_with_secrets['auth']['jwt_secret'] = jwt_secret
     set_auth_context(app, session_store, pool_manager, rate_limiter, auth_config_with_secrets)
     
-    # finding: Log formatting and wording can be improved; consider adding more log context where useful.
     logger.info("Auth modules initialized")
     logger.info("Database config read from cfg/config.yaml")
     logger.info("All connections use memory-only session-based authentication")
@@ -163,15 +163,8 @@ async def shutdown_event(app: FastAPI): # finding: Not sure whether everything i
         for session_id in list(auth_context.pool_manager._pools.keys()):
             auth_context.pool_manager.close_pool(session_id)
         logger.info("All connection pools closed")
-    
-    # Close legacy database
-    from api.dependencies import get_database
-    try:
-        db = get_database()  #finding: The configuration is loaded into 'config', use single source of truth to avoid confusion.
-        db.close()
-        logger.info("Database connection closed")
-    except:
-        pass
+
+    # No legacy singleton database to close
 
 
     

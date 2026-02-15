@@ -11,19 +11,21 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 - Adjust database and import paths in `cfg/config.yaml` and `cfg/data.yaml`.
-- Create schema and seed data:
-```bash
-python src/main.py --setup --init-database --user <db_user> --password <db_pass> --config cfg/config.yaml
-```
 - Start API and web UI (login uses DB credentials, in-memory sessions):
 ```bash
-python src/main.py --api --host 127.0.0.1 --port 8000 --config cfg/config.yaml
+python src/main.py
 ```
   - Web UI: http://127.0.0.1:8000/
   - API docs: http://127.0.0.1:8000/api/docs
-- Trigger CSV import from paths defined in `cfg/data.yaml`:
+- Create schema and seed data via API:
 ```bash
-python src/main.py --import-account-data --user <db_user> --password <db_pass> --config cfg/config.yaml
+curl -X POST http://127.0.0.1:8000/api/setup/database \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<db_user>","password":"<db_pass>","database_name":"finiaDB_<username>"}'
+
+curl -X POST http://127.0.0.1:8000/api/setup/init-data \
+  -H "Content-Type: application/json" \
+  -d '{"username":"<db_user>","password":"<db_pass>","database_name":"finiaDB_<username>"}'
 ```
 
 ## Quickstart (Docker)
@@ -71,7 +73,7 @@ docker-compose up -d
 ## Project layout
 - `cfg/`: Configuration (DB, data paths, import formats)
 - `db/`: SQL dump for schema
-- `src/main.py`: CLI entry and API start
+- `src/main.py`: API entrypoint
 - `src/api/`: FastAPI routers and middleware
 - `src/services/` and `src/repositories/`: Business logic and data access
 - `src/web/`: Static frontend
@@ -79,7 +81,7 @@ docker-compose up -d
 
 ## Security
 - Do not commit passwords or secrets; use local `cfg/` files or environment variables.
-- Database operations require explicit `--user` and `--password` for setup/imports.
+- Database setup requires explicit credentials via `/api/setup`.
 
 ## License
 AGPL-3.0, see `LICENSE`.

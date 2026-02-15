@@ -375,7 +375,7 @@ async def import_transactions(
             if overall_inserted > 0:
                 cat_connection = None
                 try:
-                    cat_connection = pool_manager.get_connection(session_id) # finding: Another variant to get the connection.
+                    cat_connection = pool_manager.get_connection(session_id)
                     categorization_result = auto_categorize_entries(cursor, cat_connection)
                 except Exception as cat_error:
                     skipped_info.append(f"Automatic categorization failed: {cat_error}")
@@ -429,7 +429,7 @@ async def import_transactions(
 @router.post("/auto-categorize")
 @handle_db_errors("auto categorize transactions")
 async def auto_categorize_transactions(
-    request: AutoCategorizeRequest, # finding: Remove unused code
+    request: AutoCategorizeRequest,
     cursor = Depends(get_db_cursor_with_auth),
     connection = Depends(get_db_connection_with_auth)
 ):
@@ -482,7 +482,7 @@ async def import_csv_file(
     
     try:
         # Create importer instance for format validation
-        importer = AccountDataImporter(pool_manager, session_id) # finding: Check design. Is it correct to handover the pool_manager
+        importer = AccountDataImporter(pool_manager, session_id)
         
         # Create temporary file
         with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.csv') as temp_file:

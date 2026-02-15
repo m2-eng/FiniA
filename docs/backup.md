@@ -114,7 +114,7 @@ Periodically test restore procedures:
    ```bash
    docker-compose up -d
    # or
-   python src/main.py --api --config cfg/config.yaml
+   python src/main.py
    ```
 
 4. Verify user login and data access

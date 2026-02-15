@@ -7,7 +7,7 @@ Purpose: centralized configuration for database connection, API server, and auth
 ### database
 - `host`: MySQL/MariaDB server hostname or IP (e.g., `127.0.0.1` or `db` in Docker).
 - `port`: MySQL port (default `3306`).
-- `name`: fallback database name used only for `--setup` and `--init-database` CLI operations. **Not used by API login**; API creates user-specific databases via the pattern `finiaDB_<username>`.
+- `name`: fallback database name used by the `/api/setup` endpoints. **Not used by API login**; API creates user-specific databases via the pattern `finiaDB_<username>`.
 - `sql_file`: path to SQL dump for schema initialization (default `./db/finia_draft.sql`).
 - `init_data`: path to YAML seed data (default `./cfg/data.yaml`).
 
@@ -54,11 +54,24 @@ auth:
   rate_limit_window_minutes: 15
 ```
 
+### setup
+- `token`: optional shared secret for `/api/setup` endpoints.
+  If empty, no token is required. Can be overridden via `FINIA_SETUP_TOKEN`.
+- `allow_localhost`: allow `127.0.0.1` and `::1` without token (default `true`).
+
+Example:
+```yaml
+setup:
+  token: "changeme"
+  allow_localhost: true
+```
+
 ### Key design points
-- **No secrets in config**: DB credentials are passed via CLI (`--user`, `--password`) for setup/import; API users log in with their own DB credentials (in-memory sessions).
+- **No secrets in config**: DB credentials are passed via `/api/setup` for schema/data setup; API users log in with their own DB credentials (in-memory sessions).
 - **Per-user databases**: Each API user gets their own database (`finiaDB_<username>`), created on first login.
 - **Auth keys**: JWT signing keys are generated at server start and held in memory only; no static key material in config.
 - **Local development**: set `api.host: 127.0.0.1` to bind only to localhost; in Docker, use `0.0.0.0`.
+- **Setup protection**: set `setup.token` or `FINIA_SETUP_TOKEN` for `/api/setup` endpoints.
 
 ## Customization
 1. Adjust database `host`/`port` if running MariaDB on a non-standard address.

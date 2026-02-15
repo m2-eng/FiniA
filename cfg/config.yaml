@@ -1,7 +1,7 @@
 database:
   host: 127.0.0.1        # Localhost works even from Docker bridge (NAS loopback)
   port: 3306
-  name: <YOUR_DATABASE_NAME>  # Only used for --setup/--init-database (not for API login)
+  name: <YOUR_DATABASE_NAME>  # Used by /api/setup endpoints (not for API login)
                               # API login uses: database_prefix + username (see auth.database_prefix)
   sql_file: ./db/finia_draft.sql
   init_data: ./cfg/data.yaml
@@ -37,3 +37,9 @@ auth:
   # Rate Limiting
   max_login_attempts: 5
   rate_limit_window_minutes: 15
+
+setup:
+  # Optional protection for /api/setup endpoints
+  # token can be set via FINIA_SETUP_TOKEN (recommended for Docker)
+  token: ""
+  allow_localhost: true

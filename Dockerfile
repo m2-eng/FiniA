@@ -33,5 +33,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/docs').getcode() == 200" || exit 1
 
 # Default command: start the API server
-# User should override with environment variables for DB credentials
-CMD ["python3", "src/main.py", "--api", "--host", "0.0.0.0"]
+CMD ["python3", "src/main.py"]
