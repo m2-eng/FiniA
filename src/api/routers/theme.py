@@ -14,7 +14,7 @@ from fastapi import APIRouter
 from api.models import ColorPaletteResponse
 
 # Import color constants from central theme configuration
-from config.theme import (
+from config_theme import (
     BASE_BACKGROUND_COLOR,
     DETAIL_BACKGROUND_COLOR,
     BORDER_COLOR,
