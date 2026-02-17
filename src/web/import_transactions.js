@@ -483,7 +483,7 @@ function renderEntries() {
     
     const deleteButton = isFirstEntry
       ? '' // Kein Button für den ersten Eintrag
-      : `<button class="btn btn-danger" onclick="removeEntry(${originalIndex})">Löschen</button>`;
+      : `<button class="btn btn-danger btn-table" onclick="removeEntry(${originalIndex})">Löschen</button>`;
 
     tr.innerHTML = `
       <td><input class="input-sm" type="date" value="${toDateInputValue(entry.dateImport)}" readonly style="background-color: #f0f0f0; cursor: not-allowed;" title="Importdatum kann nicht geändert werden"></td>
