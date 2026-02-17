@@ -1,6 +1,55 @@
 # 📋 Review Status (main branch)
 
-## [#74](https://github.com/m2-eng/FiniA/issues/74)
+## [#75 - Frontend (JS + HTML)](https://github.com/m2-eng/FiniA/issues/75)
+
+### Backend (Python)
+- none
+
+### Frontend (JavaScript)
+- [src/web/accounts_management.js](../src/web/accounts_management.js)
+- [src/web/accounts.js](../src/web/accounts.js)
+- [src/web/app.js](../src/web/app.js)
+- [src/web/category_automation.js](../src/web/category_automation.js)
+- [src/web/import_transactions.js](../src/web/import_transactions.js)
+- [src/web/planning.js](../src/web/planning.js)
+- [src/web/settings.js](../src/web/settings.js)
+- [src/web/shares.js](../src/web/shares.js)
+- [src/web/table_config.js](../src/web/table_config.js)
+- [src/web/table_engine.js](../src/web/table_engine.js)
+- [src/web/utils.js](../src/web/utils.js)
+- [src/web/year_overview.js](../src/web/year_overview.js)
+
+### HTML
+- [src/web/accounts.html](../src/web/accounts.html)
+- [src/web/accounts_management.html](../src/web/accounts_management.html)
+- [src/web/categories.html](../src/web/categories.html)
+- [src/web/header.html](../src/web/header.html)
+- [src/web/help_modal.html](../src/web/help_modal.html)
+- [src/web/index.html](../src/web/index.html)
+- [src/web/login.html](../src/web/login.html)
+- [src/web/planning.html](../src/web/planning.html)
+- [src/web/settings.html](../src/web/settings.html)
+- [src/web/shares.html](../src/web/shares.html)
+- [src/web/top_nav.html](../src/web/top_nav.html)
+- [src/web/year_overview.html](../src/web/year_overview.html)
+
+### Others
+- [src/web/favicon.png](../src/web/favicon.png)
+- [src/web/style.css](../src/web/style.css)
+
+### New issues
+- [#125 - Help page design](https://github.com/m2-eng/FiniA/issues/125)
+- [#126 - Smaller change in the HTML- and JS-files](https://github.com/m2-eng/FiniA/issues/126)
+- [#127 - Account managment design](https://github.com/m2-eng/FiniA/issues/127)
+- [#128 - Duplicate top navigation implemented in both header.html and top_nav.html](https://github.com/m2-eng/FiniA/issues/128)
+- [#129 - Improve import page](https://github.com/m2-eng/FiniA/issues/129)
+- [#130 - Revise the css](https://github.com/m2-eng/FiniA/issues/130)
+- [#131 - Missing auth guard on some page scripts (authentication bypass risk)](https://github.com/m2-eng/FiniA/issues/131)
+
+### Updated issues
+- none
+
+## [#74 - Data Access & Import Pipelin](https://github.com/m2-eng/FiniA/issues/74)
 
 ### Backend (Python)
 - [src/Database.py](../src/Database.py)
@@ -16,7 +65,7 @@
 ### Frontend (JavaScript)
 - none
 
-### HTML Templates
+### HTML
 - none
 
 ### Others
@@ -43,7 +92,7 @@
 ### Frontend (JavaScript)
 - none
 
-### HTML Templates
+### HTML
 - none
 
 ### Others
@@ -80,7 +129,7 @@
 ### Frontend (JavaScript)
 - none
 
-### HTML Templates
+### HTML
 - none
 
 ### Others
@@ -106,7 +155,7 @@
 ### Frontend (JavaScript)
 - none
 
-### HTML Templates
+### HTML
 - none
 
 ### Others
@@ -143,7 +192,7 @@
 ### Frontend (JavaScript)
 - none
 
-### HTML Templates
+### HTML
 - none
 
 ### Others
@@ -176,7 +225,7 @@
 ### Frontend (JavaScript)
 - [year_overview.js](../src/web/year_overview.js)
 
-### HTML Templates
+### HTML
 - [year_overview.html](../src/web/year_overview.html)
 
 ### Others
@@ -196,7 +245,7 @@
 - static/js/app.js
 - static/js/components/Form.js
 
-### HTML Templates
+### HTML
 - templates/index.html
 - templates/dashboard.html
 

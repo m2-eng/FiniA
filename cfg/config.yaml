@@ -43,3 +43,7 @@ setup:
   # token can be set via FINIA_SETUP_TOKEN (recommended for Docker)
   token: ""
   allow_localhost: true
+
+import:
+  # Default batch size for CSV imports (can be overridden by import format mapping)
+  batch_size: 1000
