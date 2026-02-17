@@ -127,6 +127,11 @@ async def get_transactions(
     page_size: int = Query(20, ge=1, le=1000, description="Items per page (max 1000)"),
     search: Optional[str] = Query(None, description="Search in description, recipient, IBAN"),
     filter: Optional[str] = Query(None, description="Filter: 'unchecked', 'no_entries', 'uncategorized', or 'categorized_unchecked'"),
+    account_id: Optional[int] = Query(None, description="Filter by account ID"),
+    date_from: Optional[str] = Query(None, description="Filter by transaction date (YYYY-MM-DD) from"),
+    date_to: Optional[str] = Query(None, description="Filter by transaction date (YYYY-MM-DD) to"),
+    sort_by: Optional[str] = Query(None, description="Sort by: 'date', 'description', 'amount', 'account', 'entries'"),
+    sort_dir: Optional[str] = Query(None, description="Sort direction: 'asc' or 'desc'"),
     cursor = Depends(get_db_cursor)
 ):
     """
@@ -140,6 +145,9 @@ async def get_transactions(
         - 'no_entries': transactions without any entries
         - 'uncategorized': transactions with at least one entry without category
         - 'categorized_unchecked': transactions with entries that have category but are unchecked
+    - **account_id**: Optional account ID filter
+    - **date_from/date_to**: Optional date range filters (YYYY-MM-DD)
+    - **sort_by/sort_dir**: Optional sorting
     
     Note: When using search or filter, all matching transactions are loaded into memory for filtering,
     then paginated. For large datasets with complex filters, this may impact performance.
@@ -151,7 +159,12 @@ async def get_transactions(
         page=page, 
         page_size=page_size,
         search=search,
-        filter_type=filter
+        filter_type=filter,
+        account_id=account_id,
+        date_from=date_from,
+        date_to=date_to,
+        sort_by=sort_by,
+        sort_dir=sort_dir
     )
     
     return TransactionListResponse(

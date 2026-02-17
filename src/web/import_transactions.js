@@ -7,11 +7,12 @@ let detailsEntries = [];
 let allCategories = [];
 let importAccounts = [];
 let currentTransactionAmount = 0;
+const DEFAULT_PAGE_SIZE = 20;
 let currentSortColumn = null;
 let currentSortDirection = 'asc';
-let cachedTransactions = [];
 let lastDisplayedTransactions = [];
 let selectedTransactionIds = new Set();
+let currentPageSize = DEFAULT_PAGE_SIZE;
 
 
 async function loadCategories() {
@@ -51,42 +52,7 @@ function sortTransactions(column) {
     currentSortColumn = column;
     currentSortDirection = 'asc';
   }
-
-  const sorted = [...cachedTransactions].sort((a, b) => {
-    let valA, valB;
-    
-    switch(column) {
-      case 'date':
-        valA = new Date(a.dateValue);
-        valB = new Date(b.dateValue);
-        break;
-      case 'description':
-        valA = (a.description || '').toLowerCase();
-        valB = (b.description || '').toLowerCase();
-        break;
-      case 'amount':
-        valA = parseFloat(a.amount) || 0;
-        valB = parseFloat(b.amount) || 0;
-        break;
-      case 'account':
-        valA = (a.account_name || '').toLowerCase();
-        valB = (b.account_name || '').toLowerCase();
-        break;
-      case 'entries':
-        valA = a.entries.length;
-        valB = b.entries.length;
-        break;
-      default:
-        return 0;
-    }
-
-    if (valA < valB) return currentSortDirection === 'asc' ? -1 : 1;
-    if (valA > valB) return currentSortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
-
-  displayTransactions(sorted);
-  updateSortIndicators();
+  loadTransactions(1);
 }
 
 function updateSortIndicators() {
@@ -96,11 +62,11 @@ function updateSortIndicators() {
   
   if (currentSortColumn) {
     const columnMap = {
-      'date': 0,
-      'description': 1,
-      'amount': 2,
-      'account': 3,
-      'entries': 4
+      'date': 1,
+      'description': 2,
+      'amount': 3,
+      'account': 4,
+      'entries': 5
     };
     const columnIndex = columnMap[currentSortColumn];
     if (columnIndex !== undefined) {
@@ -125,6 +91,16 @@ async function loadTransactions(page = 1) {
   // Get search term from input only if a new search is being made
   const searchInput = document.getElementById('searchInput');
   const inputSearchTerm = searchInput ? searchInput.value : '';
+  const pageSizeSelect = document.getElementById('pageSizeSelect');
+  if (pageSizeSelect) {
+    setPageSize(pageSizeSelect.value);
+  }
+  const filterAccountSelect = document.getElementById('filterAccountSelect');
+  const accountId = filterAccountSelect && filterAccountSelect.value ? parseInt(filterAccountSelect.value, 10) : null;
+  const filterDateFrom = document.getElementById('filterDateFrom');
+  const filterDateTo = document.getElementById('filterDateTo');
+  const dateFromValue = filterDateFrom ? filterDateFrom.value : '';
+  const dateToValue = filterDateTo ? filterDateTo.value : '';
   
   // Only reset to page 1 if search term changed
   if (inputSearchTerm !== searchTerm) {
@@ -141,9 +117,16 @@ async function loadTransactions(page = 1) {
   if (errorMessage) errorMessage.style.display = 'none';
 
   try {
-    const params = new URLSearchParams({ page, page_size: 20 });
+    const params = new URLSearchParams({ page, page_size: currentPageSize });
     if (searchTerm) params.append('search', searchTerm);
     if (currentFilter && currentFilter !== 'all') params.append('filter', currentFilter);
+    if (accountId) params.append('account_id', accountId.toString());
+    if (dateFromValue) params.append('date_from', dateFromValue);
+    if (dateToValue) params.append('date_to', dateToValue);
+    if (currentSortColumn) {
+      params.append('sort_by', currentSortColumn);
+      params.append('sort_dir', currentSortDirection);
+    }
 
     const response = await authenticatedFetch(`${API_BASE}/transactions/?${params}`);
     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -153,6 +136,7 @@ async function loadTransactions(page = 1) {
     console.log(`DEBUG PAGINATION: total=${data.total}, page_size=${data.page_size}, totalPages=${totalPages}, transactions.length=${data.transactions.length}, searchTerm="${searchTerm}", filter="${currentFilter}"`);
     displayTransactions(data.transactions, true);
     displayPagination(data.page, totalPages);
+    updateSortIndicators();
 
     if (loadingIndicator) loadingIndicator.style.display = 'none';
     if (transactionsTable) transactionsTable.style.display = 'table';
@@ -173,15 +157,7 @@ function displayTransactions(transactions, isInitialLoad = false) {
   const tbody = document.getElementById('transactionsBody');
   if (!tbody) return;
   lastDisplayedTransactions = transactions || [];
-  
-  if (isInitialLoad) {
-    cachedTransactions = transactions;
-    if (currentSortColumn) {
-      sortTransactions(currentSortColumn);
-      return;
-    }
-  }
-  
+
   tbody.innerHTML = '';
 
   transactions.forEach(transaction => {
@@ -300,8 +276,8 @@ async function markSelectedChecked() {
   }
 }
 
-function displayPagination(currentPageNum, totalPages) {
-  const pagination = document.getElementById('pagination');
+function renderPagination(containerId, currentPageNum, totalPages) {
+  const pagination = document.getElementById(containerId);
   if (!pagination) return;
   pagination.innerHTML = '';
 
@@ -313,14 +289,45 @@ function displayPagination(currentPageNum, totalPages) {
 
   const pageInfo = document.createElement('span');
   pageInfo.textContent = `Seite ${currentPageNum} von ${totalPages}`;
-  pageInfo.style.padding = '8px 16px';
+  pageInfo.style.padding = '8px 12px';
   pagination.appendChild(pageInfo);
+
+  const pageSizeSelect = document.getElementById('pageSizeSelect');
+  if (pageSizeSelect) {
+    const pageSizeClone = pageSizeSelect.cloneNode(true);
+    pageSizeClone.id = `${containerId}-pageSizeSelect`;
+    pageSizeClone.style.display = 'block';
+    pageSizeClone.style.minWidth = '130px';
+    pageSizeClone.value = String(currentPageSize);
+    pageSizeClone.addEventListener('change', () => {
+      setPageSize(pageSizeClone.value);
+      loadTransactions(1);
+    });
+    pagination.appendChild(pageSizeClone);
+  }
 
   const nextBtn = document.createElement('button');
   nextBtn.textContent = 'Nächste →';
   nextBtn.disabled = currentPageNum === totalPages;
   nextBtn.onclick = () => loadTransactions(currentPageNum + 1);
   pagination.appendChild(nextBtn);
+}
+
+function displayPagination(currentPageNum, totalPages) {
+  renderPagination('paginationTop', currentPageNum, totalPages);
+  renderPagination('paginationBottom', currentPageNum, totalPages);
+}
+
+function setPageSize(value) {
+  const parsed = parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return;
+  currentPageSize = parsed;
+  const baseSelect = document.getElementById('pageSizeSelect');
+  if (baseSelect) baseSelect.value = String(parsed);
+  const topSelect = document.getElementById('paginationTop-pageSizeSelect');
+  if (topSelect) topSelect.value = String(parsed);
+  const bottomSelect = document.getElementById('paginationBottom-pageSizeSelect');
+  if (bottomSelect) bottomSelect.value = String(parsed);
 }
 
 function clearDetails() {
@@ -344,6 +351,13 @@ function clearDetails() {
 function resetSearch() {
   const input = document.getElementById('searchInput');
   if (input) input.value = '';
+  const filterAccountSelect = document.getElementById('filterAccountSelect');
+  if (filterAccountSelect) filterAccountSelect.value = '';
+  const filterDateFrom = document.getElementById('filterDateFrom');
+  if (filterDateFrom) filterDateFrom.value = '';
+  const filterDateTo = document.getElementById('filterDateTo');
+  if (filterDateTo) filterDateTo.value = '';
+  setPageSize(DEFAULT_PAGE_SIZE);
   setFilter('all');
   clearDetails();
 }
@@ -621,6 +635,17 @@ async function loadImportAccounts() {
         csvSelect.appendChild(option);
       });
     }
+
+    const filterSelect = document.getElementById('filterAccountSelect');
+    if (filterSelect) {
+      filterSelect.innerHTML = '<option value="">Alle Konten</option>';
+      importAccounts.forEach(account => {
+        const option = document.createElement('option');
+        option.value = account.id;
+        option.textContent = account.name;
+        filterSelect.appendChild(option);
+      });
+    }
   } catch (error) {
     console.error('Failed to load import accounts:', error);
     const select = document.getElementById('importAccountSelect');
@@ -630,6 +655,10 @@ async function loadImportAccounts() {
     const csvSelect = document.getElementById('csvAccountSelect');
     if (csvSelect) {
       csvSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
+    }
+    const filterSelect = document.getElementById('filterAccountSelect');
+    if (filterSelect) {
+      filterSelect.innerHTML = '<option value="">Fehler beim Laden</option>';
     }
   }
 }
@@ -775,6 +804,22 @@ window.addEventListener('DOMContentLoaded', async () => {
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {
     searchInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') loadTransactions(1); });
+  }
+  const filterAccountSelect = document.getElementById('filterAccountSelect');
+  if (filterAccountSelect) {
+    filterAccountSelect.addEventListener('change', () => loadTransactions(1));
+  }
+  const filterDateFrom = document.getElementById('filterDateFrom');
+  if (filterDateFrom) {
+    filterDateFrom.addEventListener('change', () => loadTransactions(1));
+  }
+  const filterDateTo = document.getElementById('filterDateTo');
+  if (filterDateTo) {
+    filterDateTo.addEventListener('change', () => loadTransactions(1));
+  }
+  const pageSizeSelect = document.getElementById('pageSizeSelect');
+  if (pageSizeSelect) {
+    pageSizeSelect.addEventListener('change', () => loadTransactions(1));
   }
   
   // Add keyboard navigation

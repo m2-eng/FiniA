@@ -133,7 +133,18 @@ class TransactionRepository(BaseRepository):
       """
       return self.get_all_transactions_paginated(page=1, page_size=1000000)['transactions']
 
-   def get_all_transactions_paginated(self, page: int = 1, page_size: int = 100, search: str = None, filter_type: str = None) -> dict:
+   def get_all_transactions_paginated(
+      self,
+      page: int = 1,
+      page_size: int = 100,
+      search: str = None,
+      filter_type: str = None,
+      account_id: int = None,
+      date_from: str = None,
+      date_to: str = None,
+      sort_by: str = None,
+      sort_dir: str = None
+   ) -> dict:
       """
       Retrieve paginated transactions with their accounting entries.
       
@@ -142,6 +153,11 @@ class TransactionRepository(BaseRepository):
          page_size: Number of records per page (max 1000)
          search: Optional search term for filtering
          filter_type: Optional filter ('unchecked', 'no_entries', 'uncategorized', 'categorized_unchecked')
+         account_id: Optional account ID filter
+         date_from: Optional date filter (YYYY-MM-DD) from
+         date_to: Optional date filter (YYYY-MM-DD) to
+         sort_by: Optional sort column ('date', 'description', 'amount', 'account', 'entries')
+         sort_dir: Optional sort direction ('asc' or 'desc')
 
       Returns:
          Dict with 'transactions' list, 'page', 'page_size', and 'total' count
@@ -191,6 +207,18 @@ class TransactionRepository(BaseRepository):
             SELECT 1 FROM tbl_accountingEntry ae 
             WHERE ae.transaction = t.id AND ae.category IS NOT NULL AND ae.checked = 0
          )""")
+
+      if account_id:
+         where_clauses.append("t.account = %s")
+         params.append(account_id)
+
+      if date_from:
+         where_clauses.append("t.dateValue >= %s")
+         params.append(date_from)
+
+      if date_to:
+         where_clauses.append("t.dateValue <= %s")
+         params.append(date_to)
       
       where_sql = " AND ".join(where_clauses) if where_clauses else "1=1"
       
@@ -199,6 +227,24 @@ class TransactionRepository(BaseRepository):
       self.cursor.execute(count_sql, params)
       total = self.cursor.fetchone()[0]
       
+      sort_map = {
+         "date": "t.dateValue",
+         "description": "t.description",
+         "amount": "t.amount",
+         "account": "a.name",
+         "entries": "entries_count"
+      }
+      sort_column = sort_map.get(sort_by)
+      sort_direction = "DESC" if (sort_dir or "").lower() != "asc" else "ASC"
+
+      if sort_column:
+         if sort_column == "t.dateValue":
+            order_by = f"{sort_column} {sort_direction}, t.dateImport {sort_direction}"
+         else:
+            order_by = f"{sort_column} {sort_direction}, t.dateValue DESC, t.dateImport DESC"
+      else:
+         order_by = "t.dateValue DESC, t.dateImport DESC"
+
       # Get paginated data with filters
       sql = f"""
          SELECT 
@@ -212,11 +258,17 @@ class TransactionRepository(BaseRepository):
             t.recipientApplicant,
             a.id as account_id,
             a.name as account_name,
-            a.iban_accountNumber
+            a.iban_accountNumber,
+            COALESCE(ec.entries_count, 0) as entries_count
          FROM tbl_transaction t
          JOIN tbl_account a ON t.account = a.id
+         LEFT JOIN (
+            SELECT transaction, COUNT(*) AS entries_count
+            FROM tbl_accountingEntry
+            GROUP BY transaction
+         ) ec ON ec.transaction = t.id
          WHERE {where_sql}
-         ORDER BY t.dateValue DESC, t.dateImport DESC
+         ORDER BY {order_by}
          LIMIT %s OFFSET %s
       """
       self.cursor.execute(sql, params + [page_size, offset])
