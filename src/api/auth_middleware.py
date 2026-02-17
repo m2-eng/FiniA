@@ -21,7 +21,7 @@ from auth.session_store import SessionNotFoundError, SessionExpiredError
 from api.auth_context import get_auth_context
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 async def get_current_session(
     request: Request,

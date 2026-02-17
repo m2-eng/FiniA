@@ -21,7 +21,7 @@ from urllib.request import urlopen
 from urllib.error import URLError
 import socket
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 class HealthChecker:
     def __init__(self, api_url="http://localhost:8000", db_host="localhost", db_port=3306):

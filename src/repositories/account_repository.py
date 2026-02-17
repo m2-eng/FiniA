@@ -13,7 +13,7 @@ from repositories.error_handling import wrap_repository_cursor
 from domain.account import Account
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 SQL_COLUMN_HEADER = (

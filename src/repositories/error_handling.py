@@ -18,7 +18,7 @@ import logging
 
 from mysql.connector.errors import Error as MySQLError, OperationalError, InterfaceError, DatabaseError
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def _build_repository_error_detail(

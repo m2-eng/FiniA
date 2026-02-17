@@ -23,7 +23,7 @@ from repositories.settings_repository import SettingsRepository
 # Suppress MySQL duplicate entry warnings
 warnings.filterwarnings("ignore", message=".*duplicate.*", category=UserWarning)
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 @dataclass

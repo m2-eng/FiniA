@@ -12,7 +12,7 @@ from mysql.connector import Error
 import threading
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 class Database:
    """Simple, robust MySQL connection with a global lock for serial execution."""

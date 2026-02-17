@@ -12,7 +12,7 @@ from mysql.connector import Error
 from Database import Database
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 class DatabaseCreator:
    """Create the database schema from an SQL dump using a provided Database instance."""

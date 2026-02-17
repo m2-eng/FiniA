@@ -12,7 +12,7 @@ from services.import_steps.base import ImportStep
 from repositories.planning_cycle_repository import PlanningCycleRepository
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 class PlanningCyclesStep(ImportStep):

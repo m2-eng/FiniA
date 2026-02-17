@@ -94,11 +94,12 @@ async def startup_event(app: FastAPI):
     auth_config = get_database_config('auth')
     db_config = get_database_config('database')
     
+    logger.info("FiniA %s", (Path(__file__).parent.parent.parent / "VERSION").read_text().strip())
+
     # MEMORY-ONLY: Generate fresh keys on every start (never stored on disk!)
     encryption_key = Fernet.generate_key().decode()
     jwt_secret = secrets.token_urlsafe(32)
     
-    logger.info("FiniA %s", (Path(__file__).parent.parent.parent / "VERSION").read_text().strip())
     logger.info("Auth keys generated in memory (never stored on disk)")
     logger.warning("All sessions will be invalidated on restart (by design)")
     

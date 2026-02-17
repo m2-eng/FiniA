@@ -12,7 +12,7 @@ from services.import_steps.base import ImportStep
 from repositories.category_repository import CategoryRepository
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 class CategoriesStep(ImportStep):

@@ -14,7 +14,7 @@ from repositories.account_repository import AccountRepository
 from repositories.account_import_repository import AccountImportRepository
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 class AccountsStep(ImportStep):

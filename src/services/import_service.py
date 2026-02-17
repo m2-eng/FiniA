@@ -17,7 +17,7 @@ from fastapi import HTTPException
 from config import get_config_section
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def _get_default_batch_size() -> int:
