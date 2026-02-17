@@ -55,41 +55,52 @@
             <h3>Kontoinformationen</h3>
           </div>
           <div class="details-section">
-            <div class="form-group">
-              <label for="accountName">Kontoname:</label>
-              <input type="text" id="accountName" class="input-sm" placeholder="Name des Kontos">
+            <!-- Zeile 1: Kontoname und Kontotyp -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="accountName">Kontoname:</label>
+                <input type="text" id="accountName" class="input-sm" placeholder="Name des Kontos">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="accountType">Kontotyp:</label>
+                <select id="accountType" class="input-sm">
+                  <option value="">-- Typ wählen --</option>
+                </select>
+              </div>
             </div>
-            <div class="form-group">
-              <label for="accountIban">IBAN:</label>
-              <input type="text" id="accountIban" class="input-sm" placeholder="IBAN">
+
+            <!-- Zeile 2: IBAN, BIC, Startbetrag -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="accountIban">IBAN:</label>
+                <input type="text" id="accountIban" class="input-sm" placeholder="IBAN">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="accountBic">BIC/Markt:</label>
+                <input type="text" id="accountBic" class="input-sm" placeholder="BIC oder Marktbezeichnung">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="startAmount">Startbetrag (€):</label>
+                <input type="number" id="startAmount" class="input-sm" step="0.01" placeholder="0.00 €">
+              </div>
             </div>
-            <div class="form-group">
-              <label for="accountBic">BIC/Markt:</label>
-              <input type="text" id="accountBic" class="input-sm" placeholder="BIC oder Marktbezeichnung">
-            </div>
-            <div class="form-group">
-              <label for="accountType">Kontotyp:</label>
-              <select id="accountType" class="input-sm">
-                <option value="">-- Typ wählen --</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="startAmount">Startbetrag:</label>
-              <input type="number" id="startAmount" class="input-sm" step="0.01" placeholder="0.00">
-            </div>
-            <div class="form-group">
-              <label for="startDate">Startdatum:</label>
-              <input type="date" id="startDate" class="input-sm">
-            </div>
-            <div class="form-group">
-              <label for="endDate">Enddatum:</label>
-              <input type="date" id="endDate" class="input-sm">
-            </div>
-            <div class="form-group">
-              <label for="clearingAccount">Verrechnungskonto:</label>
-              <select id="clearingAccount" class="input-sm">
-                <option value="">-- Keine Auswahl --</option>
-              </select>
+
+            <!-- Zeile 3: Startdatum, Enddatum, Verrechnungskonto -->
+            <div style="display: grid; grid-template-columns: 180px 180px 1fr; gap: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="startDate">Startdatum:</label>
+                <input type="date" id="startDate" class="input-sm">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="endDate">Enddatum:</label>
+                <input type="date" id="endDate" class="input-sm">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="clearingAccount">Verrechnungskonto:</label>
+                <select id="clearingAccount" class="input-sm">
+                  <option value="">-- Keine Auswahl --</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -98,15 +109,17 @@
             <h3>Import-Einstellungen</h3>
           </div>
           <div class="details-section">
-            <div class="form-group">
-              <label for="importFormat">Import-Format:</label>
-              <select id="importFormat" class="input-sm">
-                <option value="">-- Format wählen --</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="importPath">Import-Pfad:</label>
-              <input type="text" id="importPath" class="input-sm" placeholder="z.B. C:\Kontoexporte\Konto1">
+            <div style="display: grid; grid-template-columns: 4fr 1fr; gap: 12px;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="importPath">Import-Pfad:</label>
+                <input type="text" id="importPath" class="input-sm" placeholder="z.B. C:\Kontoexporte\Konto1">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label for="importFormat">Import-Format:</label>
+                <select id="importFormat" class="input-sm">
+                  <option value="">-- Format wählen --</option>
+                </select>
+              </div>
             </div>
           </div>
 
