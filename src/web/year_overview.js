@@ -1,8 +1,5 @@
 // Jahresübersicht page logic - refaktoriert mit TableEngine
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 // Monatliche Header-Definition
 const MONTH_HEADERS = [
   'Konto',

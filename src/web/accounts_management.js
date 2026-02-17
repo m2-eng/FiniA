@@ -12,9 +12,6 @@ let currentAccountData = null;
 
 // Hilfsfunktion: Bestimme ob ein Konto aktiv oder beendet ist
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 function getAccountStatus(account) {
   if (!account.dateEnd) {
     return { text: 'Aktiv', class: 'status-active', isActive: true };

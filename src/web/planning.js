@@ -13,9 +13,6 @@ let planningEntryCounts = {}; // Track entry count per planning
 
 // Initialize page
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 async function initPlanning() {
   // Load master data first, then plannings to ensure detail dropdowns are populated before selection
   await Promise.all([

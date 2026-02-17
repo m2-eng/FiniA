@@ -1,8 +1,5 @@
 // Zentrale Tabellen-Engine mit Retry-Logik und Fehlerbehandlung
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 class TableEngine {
   constructor(config) {
     this.config = config;

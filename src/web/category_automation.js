@@ -2,9 +2,6 @@
 
 // Use existing variables from settings.js if available, otherwise initialize
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 if (typeof allRules === 'undefined') window.allRules = [];
 if (typeof allAccounts === 'undefined') window.allAccounts = [];
 if (typeof allCategories === 'undefined') window.allCategories = [];

@@ -14,9 +14,6 @@ let lastDisplayedTransactions = [];
 let selectedTransactionIds = new Set();
 
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 async function loadCategories() {
   try {
     const response = await authenticatedFetch(`${API_BASE}/categories/list`);

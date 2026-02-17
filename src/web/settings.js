@@ -2,9 +2,6 @@
 
 // Global variables (shared with category_automation.js)
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 window.allCategories = [];
 let currentSettings = [];  // Array of {category_id, type}
 let importFormats = [];    // Array of {id, name, config}

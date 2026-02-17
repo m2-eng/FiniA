@@ -11,9 +11,6 @@ let currentTransactionsPage = 1;
 
 // Local formatDate as fallback (also defined in utils.js)
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 function formatDate(dateString) {
   if (!dateString) return '';
   const date = new Date(dateString);
