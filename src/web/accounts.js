@@ -1,8 +1,5 @@
 // Accounts page logic - wiederverwendet TableEngine
 
-// Auth-Check: User muss eingeloggt sein
-requireAuth();
-
 // Monatliche Header-Definition (wie in year_overview.js)
 const MONTH_HEADERS = [
   'Kategorie',

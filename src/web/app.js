@@ -1,6 +1,9 @@
 // Shared app utilities
 const API_BASE = '/api';
 
+// Central auth guard for all protected pages (login.html does not load app.js)
+requireAuth();
+
 // Theme Management
 function initTheme() {
   // Load saved theme or default to light
@@ -103,6 +106,7 @@ async function loadYearDropdown() {
 
 // Load shared header into placeholder
 async function loadTopNav(currentRoute) {
+  if (!requireAuth()) return;
   const headerContainer = document.getElementById('header-container');
   if (!headerContainer) return;
   try {
@@ -138,6 +142,7 @@ async function loadTopNav(currentRoute) {
 
 // Load help modal HTML and initialize
 async function loadHelpModal() {
+  if (!requireAuth()) return;
   try {
     const res = await fetch('help_modal.html', { cache: 'no-cache' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
