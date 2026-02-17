@@ -56,15 +56,36 @@
           <button class="filter-btn" data-filter="categorized_unchecked" onclick="setFilter('categorized_unchecked')">Kategorisiert, ungeprüft</button>
           <button class="filter-btn" data-filter="all" onclick="setFilter('all')">Alle Transaktionen</button>
         </div>
-        <div class="search-bar">
-          <input type="text" id="searchInput" class="input-sm" placeholder="Nach Beschreibung oder IBAN suchen...">
-          <button class="btn" onclick="loadTransactions()">Aktualisieren</button>
-          <button class="btn btn-secondary" onclick="resetSearch()">Zurücksetzen</button>
+        <div class="search-bar" style="flex-direction: column; align-items: stretch; gap: 8px;">
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <input type="text" id="searchInput" class="input-sm" placeholder="Nach Beschreibung oder IBAN suchen..." style="flex: 1; min-width: 240px;">
+            <button class="btn" onclick="loadTransactions()">Aktualisieren</button>
+            <button class="btn btn-secondary" onclick="resetSearch()">Zurücksetzen</button>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+            <select id="filterAccountSelect" class="input-sm" style="min-width: 180px;">
+              <option value="">Alle Konten</option>
+            </select>
+            <input type="date" id="filterDateFrom" class="input-sm" style="min-width: 150px;" title="Datum von" aria-label="Datum von">
+            <input type="date" id="filterDateTo" class="input-sm" style="min-width: 150px;" title="Datum bis" aria-label="Datum bis">
+          </div>
+        </div>
+        <select id="pageSizeSelect" class="page-size-select" style="display: none;">
+          <option value="10">10 pro Seite</option>
+          <option value="20" selected>20 pro Seite</option>
+          <option value="50">50 pro Seite</option>
+          <option value="100">100 pro Seite</option>
+          <option value="200">200 pro Seite</option>
+          <option value="500">500 pro Seite</option>
+          <option value="1000">1000 pro Seite</option>
+        </select>
+        <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 6px;">
           <button class="btn btn-secondary" onclick="markSelectedChecked()" id="bulkCheckButton" disabled>Ausgewählte als geprüft (<span id="selectedCount">0</span>)</button>
         </div>
         <div id="bulkStatus" class="details-meta" style="display:none; margin-bottom:6px;"></div>
         <div id="errorMessage" class="error" style="display: none;"></div>
         <div id="loadingIndicator" class="loading">Lade Transaktionen...</div>
+        <div class="pagination" id="paginationTop"></div>
         <table class="transactions-table" id="transactionsTable" style="display: none; table-layout: fixed;">
           <colgroup>
             <col style="width: 5%;">    <!-- Checkbox -->
@@ -86,7 +107,7 @@
           </thead>
           <tbody id="transactionsBody"></tbody>
         </table>
-        <div class="pagination" id="pagination"></div>
+        <div class="pagination" id="paginationBottom"></div>
       </div>
       <div class="detail-pane" style="margin-top: 12px;">
         <div id="detailsStatusBar" class="details-meta" style="display:none; padding: 8px 12px; border: 1px solid var(--color-border); border-radius: 6px; margin-bottom: 10px;"></div>
