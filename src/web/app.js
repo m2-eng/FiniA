@@ -106,7 +106,7 @@ async function loadTopNav(currentRoute) {
   const headerContainer = document.getElementById('header-container');
   if (!headerContainer) return;
   try {
-    const headerRes = await fetch('header.html', { cache: 'no-cache' });
+    const headerRes = await fetch('top_nav.html', { cache: 'no-cache' });
     if (!headerRes.ok) throw new Error(`HTTP ${headerRes.status}`);
     const headerHtml = await headerRes.text();
     headerContainer.innerHTML = headerHtml;
