@@ -30,6 +30,34 @@ from pathlib import Path
 
 logger = logging.getLogger("uvicorn.error")
 
+
+def get_cors_config() -> dict:
+    """
+    Load CORS configuration from config.yaml.
+    
+    Returns:
+        Dictionary with keys: origins, allow_credentials, allow_methods, allow_headers
+    """
+    config = get_database_config("api")
+    cors_config = config.get("cors", {})
+    
+    # Safe defaults (restrictive for production)
+    defaults = {
+        "origins": [
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:8000",
+        ],
+        "allow_credentials": True,
+        "allow_methods": ["GET", "POST", "PUT", "DELETE"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+    
+    # Merge with config.yaml values (config.yaml overrides defaults)
+    return {**defaults, **cors_config}
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await startup_event(app)
@@ -48,13 +76,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS middleware for frontend access
+# CORS middleware for frontend access (configured from config.yaml)
+cors_config = get_cors_config()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # finding: Configure appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"], # finding: Adjust methods as needed
-    allow_headers=["*"], # finding: Adjust headers as needed
+    allow_origins=cors_config["origins"],
+    allow_credentials=cors_config["allow_credentials"],
+    allow_methods=cors_config["allow_methods"],
+    allow_headers=cors_config["allow_headers"],
 )
 
 # Include routers
@@ -93,8 +122,16 @@ async def startup_event(app: FastAPI):
     config = get_database_config()
     auth_config = get_database_config('auth')
     db_config = get_database_config('database')
+    api_config = get_database_config('api')
     
     logger.info("FiniA %s", (Path(__file__).parent.parent.parent / "VERSION").read_text().strip())
+    
+    # Log CORS configuration
+    cors_origins = api_config.get('cors', {}).get('origins', [])
+    if cors_origins:
+        logger.info("CORS origins configured: %s", ', '.join(cors_origins))
+    else:
+        logger.info("CORS using default origins (localhost + 127.0.0.1)")
 
     # MEMORY-ONLY: Generate fresh keys on every start (never stored on disk!)
     encryption_key = Fernet.generate_key().decode()

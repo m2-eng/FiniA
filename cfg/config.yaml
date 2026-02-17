@@ -17,6 +17,21 @@ api:
   host: 0.0.0.0          # Bind to all interfaces in Docker
   port: 8000              # Default API port
   # Optional: log_level: info  # Uncomment to override default
+  
+  # CORS Configuration - Restrict origins for production security
+  cors:
+    origins:
+      - "http://localhost:8000"       # Local API
+      - "http://127.0.0.1:8000"
+    allow_credentials: true            # Allow Authorization headers and cookies
+    allow_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+    allow_headers:
+      - "Content-Type"
+      - "Authorization"
 
 auth:
   # Auth-Keys werden bei jedem Server-Start NEU generiert (Memory-Only)
