@@ -12,7 +12,7 @@ from services.import_steps.base import ImportStep
 from repositories.account_type_repository import AccountTypeRepository
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 class AccountTypesStep(ImportStep):

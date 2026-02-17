@@ -3,7 +3,7 @@ database:
   port: 3306
   name: <YOUR_DATABASE_NAME>  # Used by /api/setup endpoints (not for API login)
                               # API login uses: database_prefix + username (see auth.database_prefix)
-  sql_file: ./db/finia_draft.sql
+  sql_file: ./db/migrations/001_initial_schema.sql
   init_data: ./cfg/data.yaml
 
   net_read_timeout: 120  # MySQL net_read_timeout in seconds (for long-running queries)

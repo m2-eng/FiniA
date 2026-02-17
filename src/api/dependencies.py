@@ -19,7 +19,7 @@ from api.auth_context import AuthContext, get_auth_context
 from api.auth_middleware import get_current_session
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 _request_connection: ContextVar[object] = ContextVar("request_connection", default=None)

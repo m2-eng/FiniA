@@ -19,7 +19,7 @@ from services.import_steps.accounts import AccountsStep
 from services.import_steps.categories import CategoriesStep
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 class DataImporter:

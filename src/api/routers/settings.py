@@ -22,7 +22,7 @@ from repositories.account_type_repository import AccountTypeRepository
 from repositories.planning_cycle_repository import PlanningCycleRepository
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 

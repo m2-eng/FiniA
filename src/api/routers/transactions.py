@@ -32,7 +32,7 @@ import os
 from pathlib import Path
 import json
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 
 def auto_categorize_entries(cursor, connection) -> dict:

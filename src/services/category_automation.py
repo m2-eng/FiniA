@@ -23,7 +23,7 @@ import re
 from typing import Optional, Dict, List
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 def _evaluate_string_rule(tx_value: str, rule_value: str, rule_type: str, case_sensitive: bool) -> bool:
     """Evaluate string-based rules"""

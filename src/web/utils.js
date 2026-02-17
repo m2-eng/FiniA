@@ -39,6 +39,18 @@ function getAuthHeaders() {
  * Fetch-Wrapper mit automatischer Auth und Error-Handling
  */
 async function authenticatedFetch(url, options = {}) {
+  const migrationsReady = window.migrationsReady;
+  const urlString = typeof url === 'string' ? url : String(url);
+  const shouldWait = migrationsReady && !window._migrationBypass && !urlString.includes('/setup/migrations/');
+
+  if (shouldWait) {
+    try {
+      await migrationsReady;
+    } catch (error) {
+      console.error('Migration wait failed:', error);
+    }
+  }
+
   const token = localStorage.getItem('auth_token');
   
   if (!token) {

@@ -27,7 +27,7 @@ from uuid import uuid4
 from datetime import datetime
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("uvicorn.error")
 
 router = APIRouter(prefix="/category-automation", tags=["category-automation"])
 

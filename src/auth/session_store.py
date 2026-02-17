@@ -166,3 +166,28 @@ class SessionStore:
             "last_activity": session["last_activity"].isoformat(),
             "timeout_seconds": session["timeout_seconds"]
         }
+
+    def get_session_credentials(self, session_id: str) -> dict:
+        """
+        Returns decrypted credentials for a session.
+
+        Args:
+            session_id: Session ID
+
+        Returns:
+            Dict with username, password, database
+
+        Raises:
+            SessionNotFoundError: Session does not exist
+        """
+        if session_id not in self.sessions:
+            raise SessionNotFoundError(f"Session not found: {session_id}")
+
+        session = self.sessions[session_id]
+        decrypted_password = self.cipher.decrypt(session["encrypted_password"]).decode()
+
+        return {
+            "username": session["username"],
+            "password": decrypted_password,
+            "database": session["database"]
+        }

@@ -1,5 +1,7 @@
 cmd
 
+.github/copilot-instructions.md
+
 .ignore_docs/
 *.backup
 
