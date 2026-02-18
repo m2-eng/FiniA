@@ -19,7 +19,7 @@ sqlalchemy==2.0.23
 mysql-connector-python==8.2.0
 
 # Performance & Benchmarking
-pytest-benchmark==4.0.0
+pytest-benchmark==5.2.3
 
 # Reporting
 pytest-html==4.1.1
