@@ -2,7 +2,7 @@
 # Issue #32: Implementing a test bench
 
 # Core Testing
-pytest==7.4.3
+pytest==9.0.2
 pytest-asyncio==0.23.2
 pytest-timeout==2.2.0
 
