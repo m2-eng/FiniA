@@ -373,7 +373,7 @@ async function showTransactionDetails(transactionId) {
     document.querySelectorAll('#transactionsBody tr').forEach(tr => {
       if (tr.dataset.id === String(tx.id)) {
         tr.classList.add('selected');
-        // Scroll nur wenn nötig und ohne die ganze Seite zu bewegen
+        // Scroll only when necessary and without moving the whole page
         tr.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
       }
       else tr.classList.remove('selected');
@@ -482,7 +482,7 @@ function renderEntries() {
       : `<input class="input-sm ${cls}" type="number" step="0.01" value="${entry.amount}" onchange="updateEntry(${originalIndex}, 'amount', parseFloat(this.value) || 0)">`;
     
     const deleteButton = isFirstEntry
-      ? '' // Kein Button für den ersten Eintrag
+      ? '' // No button for the first entry
       : `<button class="btn btn-danger btn-table" onclick="removeEntry(${originalIndex})">Löschen</button>`;
 
     tr.innerHTML = `
@@ -842,14 +842,14 @@ function handleTransactionNavigation(direction) {
   let nextIndex = currentIndex;
   
   if (direction === 'next') {
-    // Nicht über Seiten hinweg springen - Limit auf aktuelle Seite
+    // Don't jump across pages - Limit to current page
     if (currentIndex < lastDisplayedTransactions.length - 1) {
       nextIndex = currentIndex + 1;
     } else {
       return; // Am Ende der Seite angekommen
     }
   } else if (direction === 'prev') {
-    // Nach oben navigieren
+    // Navigate up
     if (currentIndex > 0) {
       nextIndex = currentIndex - 1;
     } else {
@@ -865,7 +865,7 @@ function handleTransactionNavigation(direction) {
 
 async function loadImportFormats() {
   try {
-    // Formate sind im Backend definiert, wir laden sie über einen API-Endpunkt
+    // Formats are defined in the backend, we load them via an API endpoint
     const response = await authenticatedFetch(`${API_BASE}/transactions/import-formats`);
     
     if (!response.ok) {
@@ -887,7 +887,7 @@ async function loadImportFormats() {
     }
   } catch (error) {
     console.error('Failed to load import formats:', error);
-    // Fallback: Lade bekannte Formate statisch
+    // Fallback: Load known formats statically
     const select = document.getElementById('csvFormatSelect');
     if (select) {
       select.innerHTML = '<option value="">Format auswählen...</option>';
@@ -924,8 +924,8 @@ async function importSpecificCSV() {
     return;
   }
   
-  // Account ist nur erforderlich, wenn das Format keine Account-Spalte hat
-  // Für csv-loan ist es optional, da die Datei selbst Account-Informationen enthält
+  // Account is only required if the format has no account column
+  // For csv-loan it is optional, since the file itself contains account information
   
   // Confirm import
   const confirmMsg = accountId

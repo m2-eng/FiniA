@@ -1,6 +1,6 @@
-// Accounts page logic - wiederverwendet TableEngine
+// Accounts page logic - reuses TableEngine
 
-// Monatliche Header-Definition (wie in year_overview.js)
+// Monthly header definition (as in year_overview.js)
 const MONTH_HEADERS = [
   'Kategorie',
   'Januar',
@@ -18,14 +18,14 @@ const MONTH_HEADERS = [
   'Gesamt'
 ];
 
-// Globale Variable für synchronisierte Kategoriespalten-Breite
-let globalCategoryWidth = 150; // Standardwert
+// Global variable for synchronized category column width
+let globalCategoryWidth = 150; // Default value
 
-// Globale Variablen für Konten-Filterung
-let allAccounts = []; // Alle Konten mit allen Details
-let isFilterActive = false; // Status des Filters
+// Global variables for account filtering
+let allAccounts = []; // All accounts with all details
+let isFilterActive = true; // Filter status
 
-// Funktion zum Berechnen der optimalen Kategoriespalten-Breite über alle Tabellen
+// Function to calculate optimal category column width across all tables
 function calculateGlobalCategoryWidth(tableIds) {
   let maxCategoryLength = 0;
   
@@ -36,7 +36,7 @@ function calculateGlobalCategoryWidth(tableIds) {
     const tbody = table.querySelector('tbody');
     if (!tbody) return;
     
-    // Durchsuche alle Zeilen und finde längsten Text in erster Spalte
+    // Search all rows and find longest text in first column
     const rows = tbody.querySelectorAll('tr');
     rows.forEach(row => {
       const firstCell = row.querySelector('td:first-child');
@@ -47,12 +47,12 @@ function calculateGlobalCategoryWidth(tableIds) {
     });
   });
   
-  // Berechne Breite: ~8px pro Zeichen + 16px Padding
+  // Calculate width: ~8px per character + 16px padding
   const width = Math.max(150, Math.min(400, maxCategoryLength * 8 + 16));
   return width;
 }
 
-// Funktion zum Anwenden der globalen Kategoriespalten-Breite auf alle Tabellen
+// Function to apply global category column width to all tables
 function applyGlobalCategoryWidth(tableIds, width) {
   globalCategoryWidth = width;
   
@@ -69,7 +69,7 @@ function applyGlobalCategoryWidth(tableIds, width) {
   });
 }
 
-// Generische Tabellen-Render-Funktion (wiederverwendbar)
+// Generic table render function (reusable)
 function renderTableGeneric(tableId, rows, headers = null) {
   const table = document.getElementById(tableId);
   if (!table) return;
@@ -106,7 +106,7 @@ function renderTableGeneric(tableId, rows, headers = null) {
     tbody.appendChild(tr);
   });
 
-  // Summenzeile für Bilanz- und Kontostands-Tabelle hinzufügen
+  // Add sum row for balance and account balance tables
   if ((tableId === 'monthly-table' || tableId === 'balances-table') && rows.length > 0) {
     const sumRow = document.createElement('tr');
     sumRow.className = 'sum-row';
@@ -116,12 +116,12 @@ function renderTableGeneric(tableId, rows, headers = null) {
     headersToUse.forEach((key, index) => {
       const td = document.createElement('td');
       
-      // Erste Spalte: Label "Summe"
+      // First column: Label "Summe"
       if (index === 0) {
         td.textContent = 'Summe';
         td.style.fontWeight = 'bold';
       } else {
-        // Numerische Spalten: Summe berechnen
+        // Numeric columns: Calculate sum
         const sum = rows.reduce((acc, row) => {
           const val = row[key];
           return acc + (typeof val === 'number' ? val : 0);
@@ -138,7 +138,7 @@ function renderTableGeneric(tableId, rows, headers = null) {
   }
 }
 
-// Hilfsfunktion: Aktuell ausgewähltes Jahr
+// Helper function: Currently selected year
 function getSelectedYear() {
   const saved = localStorage.getItem('selectedYear');
   if (saved) return saved;
@@ -146,17 +146,17 @@ function getSelectedYear() {
   return selector?.value || new Date().getFullYear().toString();
 }
 
-// Hilfsfunktion: Aktuell ausgewähltes Konto
+// Helper function: Currently selected account
 function getSelectedAccount() {
   const selector = document.getElementById('account-selector');
   if (selector && selector.value) {
     return selector.value;
   }
-  // Fallback auf localStorage
+  // Fallback to localStorage
   return localStorage.getItem('selectedAccount') || '';
 }
 
-// Account-Dropdown laden
+// Load account dropdown
 async function loadAccountDropdown() {
   try {
     const response = await authenticatedFetch(`${API_BASE}/accounts/list`);
@@ -165,47 +165,48 @@ async function loadAccountDropdown() {
 
     if (!accountSelector || !data.accounts || data.accounts.length === 0) return;
 
-    // Speichere alle Konten für Filterung
+    // Store all accounts for filtering
     allAccounts = data.accounts;
 
-    // Render Dropdown initial
-    renderAccountDropdown(allAccounts);
+    // Render dropdown initially with filter, if active
+    const initialYear = isFilterActive ? getSelectedYear() : null;
+    renderAccountDropdown(allAccounts, initialYear);
     
   } catch (error) {
     console.error('Failed to load accounts:', error);
   }
 }
 
-// Hilfsfunktion: Prüft, ob ein Konto im gegebenen Jahr aktiv war
+// Helper function: Check if account was active in given year
 function isAccountActiveInYear(account, year) {
-  if (!account.dateStart) return true; // Kein Start-Datum = immer aktiv
+  if (!account.dateStart) return true; // No start date = always active
   
   const yearNum = parseInt(year);
   const startDate = new Date(account.dateStart);
   const startYear = startDate.getFullYear();
   
-  // Konto muss vor oder im Jahr starten
+  // Account must start before or in year
   if (startYear > yearNum) return false;
   
-  // Wenn kein End-Datum, ist Konto noch aktiv
+  // If no end date, account is still active
   if (!account.dateEnd) return true;
   
   const endDate = new Date(account.dateEnd);
   const endYear = endDate.getFullYear();
   
-  // Konto muss nach oder im Jahr enden
+  // Account must end after or in year
   return endYear >= yearNum;
 }
 
-// Account-Dropdown rendern (mit optionaler Filterung)
+// Render account dropdown (with optional filtering)
 function renderAccountDropdown(accounts, filterYear = null) {
   const accountSelector = document.getElementById('account-selector');
   if (!accountSelector) return;
   
-  // Aktuell ausgewähltes Konto merken
+  // Remember currently selected account
   const currentSelection = accountSelector.value;
   
-  // Filter anwenden, falls aktiv
+  // Apply filter if active
   let filteredAccounts = accounts;
   if (filterYear) {
     filteredAccounts = accounts.filter(acc => isAccountActiveInYear(acc, filterYear));
@@ -248,14 +249,14 @@ function renderAccountDropdown(accounts, filterYear = null) {
     accountSelector.appendChild(option);
   });
 
-  // Neue Auswahl nach dem Rendern
+  // New selection after rendering
   const newSelection = accountSelector.value;
   
-  // Wenn sich die Auswahl geändert hat (z.B. weil vorheriges Konto gefiltert wurde)
+  // If selection changed (e.g. because previous account was filtered)
   if (currentSelection && currentSelection !== newSelection) {
-    // localStorage aktualisieren
+    // Update localStorage
     localStorage.setItem('selectedAccount', newSelection);
-    // Tabellen aktualisieren
+    // Update tables
     const currentYear = getSelectedYear();
     if (currentYear) {
       engine.loadAllTables(currentYear, PAGE_TABLES, newSelection);
@@ -267,7 +268,7 @@ function renderAccountDropdown(accounts, filterYear = null) {
     localStorage.setItem('selectedAccount', accountNames[0]);
   }
   
-  // Add change event listener (nur einmalig)
+  // Add change event listener (only once)
   if (!accountSelector.dataset.listenerAdded) {
     accountSelector.dataset.listenerAdded = 'true';
     accountSelector.addEventListener('change', (e) => {
@@ -281,7 +282,7 @@ function renderAccountDropdown(accounts, filterYear = null) {
   }
 }
 
-// Filter-Button Toggle
+// Filter button toggle
 function toggleFilter() {
   isFilterActive = !isFilterActive;
   const filterBtn = document.getElementById('filter-toggle-btn');
@@ -291,48 +292,48 @@ function toggleFilter() {
     filterBtn.classList.add('active');
     filterIcon.textContent = '✓';
     filterBtn.title = 'Filter aktiv - Nur Konten für ausgewähltes Jahr';
-    // Filter anwenden
+    // Apply filter
     const selectedYear = getSelectedYear();
     renderAccountDropdown(allAccounts, selectedYear);
   } else {
     filterBtn.classList.remove('active');
     filterIcon.textContent = '✗';
     filterBtn.title = 'Filter für aktive Konten im ausgewählten Jahr';
-    // Alle Konten anzeigen
+    // Show all accounts
     renderAccountDropdown(allAccounts, null);
   }
 }
 
-// TableEngine initialisieren
+// Initialize TableEngine
 const engine = new TableEngine(TABLE_CONFIGS);
 
-// Tabellen-IDs für diese Seite
+// Table IDs for this page
 const PAGE_TABLES = ['income-table', 'expenses-table', 'summary-table'];
 
-// Initialisierung der Accounts-Seite
+// Initialize accounts page
 function initAccounts() {
   const initialYear = getSelectedYear();
   const initialAccount = getSelectedAccount();
   
   if (initialAccount) {
-    // Paralleles Laden für schnellere Darstellung
+    // Parallel loading for faster display
     engine.loadAllTables(initialYear, PAGE_TABLES, initialAccount);
   }
 
-  // Listen auf Jahr-Änderungen
+  // Listen to year changes
   window.addEventListener('yearChanged', (e) => {
     const nextYear = e.detail?.year;
     const currentAccount = getSelectedAccount();
     if (nextYear && currentAccount) {
       engine.loadAllTables(nextYear, PAGE_TABLES, currentAccount);
     }
-    // Bei aktivem Filter: Dropdown neu rendern
+    // With active filter: Re-render dropdown
     if (isFilterActive && nextYear) {
       renderAccountDropdown(allAccounts, nextYear);
     }
   });
 
-  // Listen auf Account-Änderungen
+  // Listen to account changes
   window.addEventListener('accountChanged', (e) => {
     const nextAccount = e.detail?.account;
     const currentYear = getSelectedYear();
@@ -341,7 +342,7 @@ function initAccounts() {
     }
   });
 
-  // Aktualisieren-Button für alle Tabellen
+  // Refresh button for all tables
   const refreshAllBtn = document.getElementById('refresh-all-btn');
   if (refreshAllBtn) {
     refreshAllBtn.addEventListener('click', () => {
@@ -353,10 +354,22 @@ function initAccounts() {
     });
   }
   
-  // Filter-Button Event-Listener
+  // Filter button event listener and set initial state
   const filterToggleBtn = document.getElementById('filter-toggle-btn');
-  if (filterToggleBtn) {
+  const filterIcon = document.getElementById('filter-icon');
+  if (filterToggleBtn && filterIcon) {
     filterToggleBtn.addEventListener('click', toggleFilter);
+    
+    // Set initial visual state
+    if (isFilterActive) {
+      filterToggleBtn.classList.add('active');
+      filterIcon.textContent = '✓';
+      filterToggleBtn.title = 'Filter aktiv - Nur Konten für ausgewähltes Jahr';
+    } else {
+      filterToggleBtn.classList.remove('active');
+      filterIcon.textContent = '✗';
+      filterToggleBtn.title = 'Filter für aktive Konten im ausgewählten Jahr';
+    }
   }
 }
 

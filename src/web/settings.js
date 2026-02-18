@@ -308,7 +308,7 @@ function renderImportFormatDetails(format) {
             <select id="import-format-version-select" class="input-sm" style="flex: 1;">
               ${versionOptions || '<option value="">-</option>'}
             </select>
-            <button class="btn btn-sm" id="rename-version-btn" title="Version umbenennen" style="padding: 6px 10px;">✏️</button>
+            <button class="btn btn-sm" id="rename-version-btn" title="Version umbenennen" style="padding: 6px 10px;">Umbenennen</button>
           </div>
         </div>
         <button class="btn btn-sm" id="add-version-btn" style="margin-top: 20px;">+ Version hinzufügen</button>
@@ -1262,34 +1262,34 @@ async function removeImportFormat(id) {
 }
 
 async function initializeImportFormats() {
-  console.log('🚀 Starte initializeImportFormats()...');
+  console.log('Starte initializeImportFormats()...');
   try {
     importFormats = await fetchImportFormats();
     renderImportFormatsTable();
 
     const addBtn = document.getElementById('add-import-format-btn');
     if (addBtn) {
-      console.log('✅ Add-Button gefunden, registriere Click-Handler');
+      console.log('Add-Button gefunden, registriere Click-Handler');
       addBtn.addEventListener('click', () => showImportFormatDialog());
     } else {
-      console.warn('⚠️ Add-Button nicht gefunden');
+      console.warn('Add-Button nicht gefunden');
     }
 
     const reloadBtn = document.getElementById('reload-import-formats-btn');
     if (reloadBtn) {
-      console.log('✅ Reload-Button gefunden, registriere Click-Handler');
+      console.log('Reload-Button gefunden, registriere Click-Handler');
       reloadBtn.addEventListener('click', async () => {
         importFormats = await fetchImportFormats();
         renderImportFormatsTable();
         showImportFormatsStatus('Formate neu geladen.');
       });
     } else {
-      console.warn('⚠️ Reload-Button nicht gefunden');
+      console.warn('Reload-Button nicht gefunden');
     }
 
     const fileInput = document.getElementById('import-format-file-input');
     if (fileInput) {
-      console.log('✅ Dateielement gefunden, registriere Change-Handler');
+      console.log('Dateielement gefunden, registriere Change-Handler');
       console.log('Dateielement Details:', {
         id: fileInput.id,
         type: fileInput.type,
@@ -1297,12 +1297,12 @@ async function initializeImportFormats() {
         display: window.getComputedStyle(fileInput).display
       });
       fileInput.addEventListener('change', (e) => {
-        console.log('📁 Change-Event ausgelöst für Dateielement');
+        console.log('Change-Event ausgelöst für Dateielement');
         handleImportFormatFileUpload(e);
-      });
-      console.log('✅ Change-Handler registriert');
+      });      
+      console.log('Change-Handler registriert');
     } else {
-      console.error('❌ Dateielement mit ID "import-format-file-input" nicht gefunden!');
+      console.error('Dateielement mit ID "import-format-file-input" nicht gefunden!');
     }
   } catch (err) {
     console.error('Import formats init failed:', err);
@@ -1311,22 +1311,22 @@ async function initializeImportFormats() {
 }
 
 async function handleImportFormatFileUpload(event) {
-  console.log('🎯 handleImportFormatFileUpload() wurde aufgerufen!');
+  console.log('handleImportFormatFileUpload() wurde aufgerufen!');
   
   const file = event.target.files[0];
   if (!file) {
-    console.warn('⚠️ Keine Datei ausgewählt');
+    console.warn('Keine Datei ausgewählt');
     return;
   }
 
-  console.log('📄 Datei ausgewählt:', {
+  console.log('Datei ausgewählt:', {
     name: file.name,
     size: file.size,
     type: file.type
   });
 
   try {
-    showImportFormatsStatus(`📤 Lade YAML-Datei hoch und parse mit Python-Parser...`);
+    showImportFormatsStatus(`Lade YAML-Datei hoch und parse mit Python-Parser...`);
     
     // Use Python's yaml parser on the backend for correct parsing
     const formData = new FormData();
@@ -1342,23 +1342,23 @@ async function handleImportFormatFileUpload(event) {
     
     if (!response.ok) {
       const errorMsg = result.detail || 'Unbekannter Fehler beim Upload';
-      console.error('❌ Backend-Fehler:', errorMsg);
-      showImportFormatsStatus(`❌ Fehler: ${errorMsg}`, true);
+      console.error('Backend-Fehler:', errorMsg);
+      showImportFormatsStatus(`Fehler: ${errorMsg}`, true);
       event.target.value = '';
       return;
     }
     
-    console.log('✅ Python YAML-Parser erfolgreich:', result);
+    console.log('Python YAML-Parser erfolgreich:', result);
     
     if (result.imported_count > 0) {
       showImportFormatsStatus(
-        `✅ ${result.imported_count}/${result.total_formats} Formate erfolgreich importiert!`
+        `${result.imported_count}/${result.total_formats} Formate erfolgreich importiert!`
       );
       
       if (result.errors && result.errors.length > 0) {
-        console.warn('⚠️ Fehler bei einigen Formaten:', result.errors);
+        console.warn('Fehler bei einigen Formaten:', result.errors);
         for (const error of result.errors) {
-          showImportFormatsStatus(`⚠️ ${error}`);
+          showImportFormatsStatus(`Fehler: ${error}`);
         }
       }
       
@@ -1368,15 +1368,15 @@ async function handleImportFormatFileUpload(event) {
       renderImportFormatsTable();
     } else {
       showImportFormatsStatus(
-        `⚠️ Keine Formate importiert. ${result.errors ? result.errors.join(', ') : ''}`,
+        `Keine Formate importiert. ${result.errors ? result.errors.join(', ') : ''}`,
         true
       );
     }
     
     event.target.value = '';
   } catch (err) {
-    console.error('❌ Upload-Fehler:', err);
-    showImportFormatsStatus(`❌ Fehler beim Upload: ${err.message}`, true);
+    console.error('Upload-Fehler:', err);
+    showImportFormatsStatus(`Fehler beim Upload: ${err.message}`, true);
     event.target.value = '';
   }
 }
@@ -1477,15 +1477,15 @@ async function initSettingsPage() {
 // ========================================
 
 async function fetchAccountTypes() {
-  console.log('📥 Fetching account types...');
+  console.log('Fetching account types...');
   try {
     const response = await authenticatedFetch('/api/settings/account-types');
     const data = await response.json();
-    console.log('✅ Received account types:', data);
+    console.log('Received account types:', data);
     accountTypes = data.account_types || [];
     return accountTypes;
   } catch (error) {
-    console.error('❌ Error fetching account types:', error);
+    console.error('Error fetching account types:', error);
     showAccountTypesStatus(`Fehler beim Laden: ${error.message}`, true);
     return [];
   }
@@ -1494,7 +1494,7 @@ async function fetchAccountTypes() {
 function renderAccountTypesTable() {
   const tbody = document.getElementById('account-types-tbody');
   if (!tbody) {
-    console.error('❌ account-types-tbody not found');
+    console.error('account-types-tbody not found');
     return;
   }
 
@@ -1540,7 +1540,7 @@ async function fetchPlanningCycles() {
     planningCycles = data.planning_cycles || [];
     return planningCycles;
   } catch (error) {
-    console.error('❌ Error fetching planning cycles:', error);
+    console.error('Error fetching planning cycles:', error);
     showPlanningCyclesStatus(`Fehler beim Laden: ${error.message}`, true);
     return [];
   }
@@ -1555,7 +1555,7 @@ function renderPlanningCyclesTable() {
     return;
   }
 
-  // Map für lesbare Einheiten
+  // Map for readable units
   const unitLabels = {
     'd': 'Tag(e)',
     'm': 'Monat(e)',
@@ -1843,7 +1843,7 @@ async function initializePlanningCycles() {
 }
 
 async function addAccountType(typeName) {
-  console.log(`➕ Adding account type: ${typeName}`);
+  console.log(`Adding account type: ${typeName}`);
   const response = await authenticatedFetch('/api/settings/account-types', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1859,7 +1859,7 @@ async function addAccountType(typeName) {
 }
 
 async function updateAccountType(typeId, typeName) {
-  console.log(`✏️ Updating account type ${typeId}: ${typeName}`);
+  console.log(`Updating account type ${typeId}: ${typeName}`);
   const response = await authenticatedFetch(`/api/settings/account-types/${typeId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -1875,7 +1875,7 @@ async function updateAccountType(typeId, typeName) {
 }
 
 async function deleteAccountTypeAPI(typeId) {
-  console.log(`🗑️ Deleting account type ${typeId}`);
+  console.log(`Deleting account type ${typeId}`);
   const response = await authenticatedFetch(`/api/settings/account-types/${typeId}`, {
     method: 'DELETE'
   });
@@ -1970,15 +1970,15 @@ async function deleteAccountType(typeId, typeName) {
 }
 
 async function handleAccountTypeFileUpload(event) {
-  console.log('🎯 handleAccountTypeFileUpload() wurde aufgerufen!');
+  console.log('handleAccountTypeFileUpload() wurde aufgerufen!');
   
   const file = event.target.files[0];
   if (!file) {
-    console.warn('⚠️ Keine Datei ausgewählt');
+    console.warn('Keine Datei ausgewählt');
     return;
   }
 
-  console.log('📄 Datei ausgewählt:', {
+  console.log('Datei ausgewählt:', {
     name: file.name,
     size: file.size,
     type: file.type
@@ -1986,10 +1986,10 @@ async function handleAccountTypeFileUpload(event) {
 
   try {
     const content = await file.text();
-    console.log('📥 Dateiinhalt gelesen, starte YAML-Parsing...', {fileSize: content.length});
+    console.log('Dateiinhalt gelesen, starte YAML-Parsing...', {fileSize: content.length});
     
     const parsed = parseYAML(content);
-    console.log('✅ YAML erfolgreich geparst:', parsed);
+    console.log('YAML erfolgreich geparst:', parsed);
     
     if (!parsed || !parsed.accountType) {
       showAccountTypesStatus('YAML-Datei enthält keinen "accountType"-Abschnitt.', true);
@@ -1997,7 +1997,7 @@ async function handleAccountTypeFileUpload(event) {
     }
 
     const accountTypeData = parsed.accountType;
-    console.log('📊 Account Type Daten:', accountTypeData);
+    console.log('Account Type Daten:', accountTypeData);
     
     if (!Array.isArray(accountTypeData)) {
       showAccountTypesStatus('YAML-Format ungültig. Erwartet: Array von Kontotypen.', true);
@@ -2005,7 +2005,7 @@ async function handleAccountTypeFileUpload(event) {
       return;
     }
     
-    console.log(`📝 ${accountTypeData.length} Kontotypen gefunden`);
+    console.log(`${accountTypeData.length} Kontotypen gefunden`);
     
     let created = 0;
     let skipped = 0;
@@ -2042,14 +2042,14 @@ async function handleAccountTypeFileUpload(event) {
     // Reset file input
     event.target.value = '';
   } catch (error) {
-    console.error('❌ Fehler beim Verarbeiten:', error);
+    console.error('Fehler beim Verarbeiten:', error);
     showAccountTypesStatus(`Fehler beim Import: ${error.message}`, true);
     event.target.value = '';
   }
 }
 
 async function initializeAccountTypes() {
-  console.log('🚀 Initializing account types tab...');
+  console.log('Initializing account types tab...');
   
   try {
     await fetchAccountTypes();
@@ -2059,13 +2059,13 @@ async function initializeAccountTypes() {
     const reloadBtn = document.getElementById('reload-account-types-btn');
     const fileInput = document.getElementById('account-type-file-input');
     
-    console.log('🔍 Button-Suche:', { addBtn: !!addBtn, reloadBtn: !!reloadBtn, fileInput: !!fileInput });
+    console.log('Button-Suche:', { addBtn: !!addBtn, reloadBtn: !!reloadBtn, fileInput: !!fileInput });
     
     if (addBtn) {
       addBtn.addEventListener('click', showAddAccountTypeDialog);
-      console.log('✅ Add-Button Event-Listener hinzugefügt');
+      console.log('Add-Button Event-Listener hinzugefügt');
     } else {
-      console.error('❌ add-account-type-btn nicht gefunden!');
+      console.error('add-account-type-btn nicht gefunden!');
     }
     
     if (reloadBtn) {
@@ -2074,21 +2074,21 @@ async function initializeAccountTypes() {
         renderAccountTypesTable();
         showAccountTypesStatus('Kontotypen neu geladen.');
       });
-      console.log('✅ Reload-Button Event-Listener hinzugefügt');
+      console.log('Reload-Button Event-Listener hinzugefügt');
     } else {
-      console.error('❌ reload-account-types-btn nicht gefunden!');
+      console.error('reload-account-types-btn nicht gefunden!');
     }
     
     if (fileInput) {
       fileInput.addEventListener('change', handleAccountTypeFileUpload);
-      console.log('✅ File-Input Event-Listener hinzugefügt');
+      console.log('File-Input Event-Listener hinzugefügt');
     } else {
-      console.error('❌ account-type-file-input nicht gefunden!');
+      console.error('account-type-file-input nicht gefunden!');
     }
     
-    console.log('✅ Account Types Tab initialisiert');
+    console.log('Account Types Tab initialisiert');
   } catch (error) {
-    console.error('❌ Fehler bei der Initialisierung:', error);
+    console.error('Fehler bei der Initialisierung:', error);
     showAccountTypesStatus(`Initialisierungsfehler: ${error.message}`, true);
   }
 }
