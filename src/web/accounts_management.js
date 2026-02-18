@@ -10,14 +10,14 @@ let currentSortDirection = 'asc';
 let cachedAccounts = [];
 let currentAccountData = null;
 
-// Hilfsfunktion: Bestimme ob ein Konto aktiv oder beendet ist
+// Helper function: Determine if an account is active or ended
 
 function getAccountStatus(account) {
   if (!account.dateEnd) {
     return { text: 'Aktiv', class: 'status-active', isActive: true };
   }
   
-  // Vergleiche aktuelles Datum mit Enddatum
+  // Compare current date with end date
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   
@@ -25,10 +25,10 @@ function getAccountStatus(account) {
   endDate.setHours(0, 0, 0, 0);
   
   if (today >= endDate) {
-    // Aktuelles Datum ist gleich oder nach Enddatum → Beendet
+    // Current date is equal to or after end date → Ended
     return { text: 'Beendet', class: 'status-inactive', isActive: false };
   } else {
-    // Enddatum liegt in der Zukunft → Aktiv
+    // End date is in the future → Active
     return { text: 'Aktiv', class: 'status-active', isActive: true };
   }
 }

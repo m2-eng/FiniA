@@ -6,8 +6,8 @@ requireAuth();
 
 // Theme Management
 function initTheme() {
-  // Load saved theme or default to light
-  const savedTheme = localStorage.getItem('theme') || 'light';
+  // Load saved theme or default to dark
+  const savedTheme = localStorage.getItem('theme') || 'dark';
   applyTheme(savedTheme);
   updateThemeIcon(savedTheme);
 }
@@ -22,7 +22,7 @@ function applyTheme(theme) {
 }
 
 function toggleTheme() {
-  const currentTheme = localStorage.getItem('theme') || 'light';
+  const currentTheme = localStorage.getItem('theme') || 'dark';
   const newTheme = currentTheme === 'light' ? 'dark' : 'light';
   applyTheme(newTheme);
   updateThemeIcon(newTheme);

@@ -34,7 +34,7 @@ async function refreshAll() {
 
   try {
     await initPlanning();
-    // Nach dem Neu-Laden werden Details und Einträge durch loadPlannings/selectPlanning aktualisiert
+    // After reloading, details and entries are updated by loadPlannings/selectPlanning
     alert('Daten neu geladen.');
   } catch (error) {
     console.error('Fehler beim Neuladen:', error);
@@ -222,9 +222,9 @@ function isPlanningActive(planning) {
   const now = new Date();
   const end = planning.dateEnd ? new Date(planning.dateEnd) : null;
 
-  // Inaktiv: nur wenn Ende in der Vergangenheit liegt
+  // Inactive: only if end is in the past
   if (end && end < now) return false;
-  // Aktiv: wenn kein Ende definiert oder Ende in der Zukunft
+  // Active: if no end defined or end in the future
   return true;
 }
 

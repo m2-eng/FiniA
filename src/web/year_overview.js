@@ -1,6 +1,6 @@
-// Jahresübersicht page logic - refaktoriert mit TableEngine
+// Year overview page logic - refactored with TableEngine
 
-// Monatliche Header-Definition
+// Monthly header definition
 const MONTH_HEADERS = [
   'Konto',
   'Januar',
@@ -18,7 +18,7 @@ const MONTH_HEADERS = [
   'Jahresbilanz'
 ];
 
-// Kontostand Header-Definition (mit umbenannter letzter Spalte)
+// Account balance header definition (with renamed last column)
 const BALANCES_HEADERS = [
   'Konto',
   'Januar',
@@ -54,7 +54,7 @@ const SECURITIES_HEADERS = [
   'Dividende'
 ];
 
-// Vermögen Monatsende Header-Definition
+// Assets end of month header definition
 const ASSETS_HEADERS = [
   'Vermögen Ende des Monats',
   'Januar',
@@ -155,7 +155,7 @@ function renderTableRowsGeneric(rows, document, tbody, headersToUse) {
   return renderedRows;
 }
 
-// Hilfsfunktion: Aktuell ausgewähltes Jahr
+// Helper function: Currently selected year
 function getSelectedYear() {
   const saved = localStorage.getItem('selectedYear');
   if (saved) return saved;
@@ -166,10 +166,10 @@ function getSelectedYear() {
 // TableEngine initialisieren
 const engine = new TableEngine(TABLE_CONFIGS);
 
-// Tabellen-IDs für diese Seite
+// Table IDs for this page
 const PAGE_TABLES = ['balances-table', 'monthly-table', 'investments-table', 'loans-table', 'securities-table', 'assets-table']; // assets-table must be last
 
-// Initialisierung der Jahresübersicht
+// Initialize year overview
 function initYearOverview() {
   const initialYear = getSelectedYear();
   engine.loadAllTables(initialYear, PAGE_TABLES);

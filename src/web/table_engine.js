@@ -1,4 +1,4 @@
-// Zentrale Tabellen-Engine mit Retry-Logik und Fehlerbehandlung
+// Central table engine with retry logic and error handling
 
 class TableEngine {
   constructor(config) {
@@ -76,10 +76,10 @@ class TableEngine {
     try {
       let url = `${API_BASE}${config.endpoint}?year=${year}`;
       
-      // Spezialbehandlung für aggregierte Konten
+      // Special handling for aggregated accounts
       if (config.requiresAccount && account) {
         if (account === '__ALL_GIRO__') {
-          // Verwende spezielle All-Giro-Endpoints
+          // Use special All-Giro endpoints
           const allGiroEndpoints = {
             '/accounts/income': '/accounts/all-giro/income',
             '/accounts/expenses': '/accounts/all-giro/expenses',
@@ -90,7 +90,7 @@ class TableEngine {
             url = `${API_BASE}${newEndpoint}?year=${year}`;
           }
         } else if (account === '__ALL_LOANS__') {
-          // Verwende spezielle All-Loans-Endpoints
+          // Use special All-Loans endpoints
           const allLoansEndpoints = {
             '/accounts/income': '/accounts/all-loans/income',
             '/accounts/expenses': '/accounts/all-loans/expenses',
@@ -101,7 +101,7 @@ class TableEngine {
             url = `${API_BASE}${newEndpoint}?year=${year}`;
           }
         } else if (account === '__ALL_ACCOUNTS__') {
-          // Verwende spezielle All-Accounts-Endpoints (Giro + Darlehen)
+          // Use special All-Accounts endpoints (Giro + Loans)
           const allAccountsEndpoints = {
             '/accounts/income': '/accounts/all-accounts/income',
             '/accounts/expenses': '/accounts/all-accounts/expenses',
@@ -127,7 +127,7 @@ class TableEngine {
         this.setFeedback(tableId, '');
       }
       
-      // Render-Funktion muss global verfügbar sein
+      // Render function must be globally available
       if (typeof renderTableGeneric === 'function') {
         renderTableGeneric(tableId, rows);
       } else {
@@ -147,8 +147,8 @@ class TableEngine {
       tableIds.map(id => this.loadTable(id, year, account))
     );
     
-    // Nach dem Laden aller Tabellen: Synchronisiere Kategoriespalten-Breite
-    // (nur für accounts.js relevante Tabellen)
+    // After loading all tables: Synchronize category column width
+    // (only relevant for accounts.js tables)
     if (typeof calculateGlobalCategoryWidth === 'function' && 
         typeof applyGlobalCategoryWidth === 'function') {
       const width = calculateGlobalCategoryWidth(tableIds);

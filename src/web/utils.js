@@ -66,7 +66,7 @@ async function authenticatedFetch(url, options = {}) {
   
   const response = await fetch(url, { ...options, headers });
   
-  // Bei 401 → Session abgelaufen → Login
+  // On 401 → Session expired → Login
   if (response.status === 401) {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('username');

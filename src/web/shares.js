@@ -262,7 +262,7 @@ async function loadShares(page = 1) {
     tbody.innerHTML = '';
     
     if (data.shares && data.shares.length > 0) {
-      // Summen berechnen
+      // Calculate sums
       let sumPortfolioValue = 0;
       let sumInvestments = 0;
       let sumProceeds = 0;
@@ -299,7 +299,7 @@ async function loadShares(page = 1) {
         tbody.appendChild(row);
       });
       
-      // Summen-Zeile hinzufügen
+      // Add sum row
       const sumRow = document.createElement('tr');
       const sumSaldoClass = sumNet < 0 ? 'amount-negative' : (sumNet > 0 ? 'amount-positive' : '');
       sumRow.style.borderTop = '2px solid var(--border-color)';

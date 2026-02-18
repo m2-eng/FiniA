@@ -1,4 +1,4 @@
-// Zentrale Tabellen-Konfiguration - wiederverwendbar für alle Seiten
+// Central table configuration - reusable for all pages
 const TABLE_CONFIGS = {
   'assets-table': {
     endpoint: '/year-overview/assets-month-end',
