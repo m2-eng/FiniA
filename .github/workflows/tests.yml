@@ -63,20 +63,18 @@ jobs:
         run: |
           cat > .env.test << EOF
           # Test Environment Configuration
-          DB_USER=finia_test
-          DB_PASSWORD=test_password
-          DB_HOST=127.0.0.1
-          DB_PORT=3306
-          DB_NAME=finia_test
+          DB_TEST_USER=finia_test
+          DB_TEST_PASSWORD=test_password
+          DB_TEST_HOST=127.0.0.1
+          DB_TEST_PORT=3306
+          DB_TEST_NAME=finia_test
           
           # API Configuration
-          API_HOST=127.0.0.1
-          API_PORT=8000
-          API_BASE_URL=http://127.0.0.1:8000
+          TEST_API_BASE_URL=http://127.0.0.1:8000
+          TEST_API_TIMEOUT=30
           
           # Test User Configuration
-          TEST_USER_USERNAME=testuser
-          TEST_USER_PASSWORD=TestPassword123!
+          FINIA_TEST_USER=local_test
           
           # Performance Timeouts
           CRITICAL_TIMEOUT_MS=2000
@@ -85,7 +83,7 @@ jobs:
       
       - name: Run Schema & Integrity Tests
         run: |
-          pytest tests/integration/test_db_schema.py tests/integration/test_data_integrity.py -v --tb=short
+          pytest tests/integration/test_schema_validation.py tests/integration/test_data_integrity.py -v --tb=short
       
       - name: Start FiniA API Server
         run: |
@@ -124,7 +122,7 @@ jobs:
         continue-on-error: true
       
       - name: Upload Test Reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-reports

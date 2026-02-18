@@ -60,26 +60,22 @@ jobs:
       - name: Create .env.test file
         run: |
           cat > .env.test << EOF
-          DB_USER=finia_test
-          DB_PASSWORD=test_password
-          DB_HOST=127.0.0.1
-          DB_PORT=3306
-          DB_NAME=finia_test
-          API_HOST=127.0.0.1
-          API_PORT=8000
-          API_BASE_URL=http://127.0.0.1:8000
-          TEST_USER_USERNAME=testuser
-          TEST_USER_PASSWORD=TestPassword123!
-          CRITICAL_TIMEOUT_MS=2000
-          WARNING_TIMEOUT_MS=1000
+          DB_TEST_USER=finia_test
+          DB_TEST_PASSWORD=test_password
+          DB_TEST_HOST=127.0.0.1
+          DB_TEST_PORT=3306
+          DB_TEST_NAME=finia_test
+          TEST_API_BASE_URL=http://127.0.0.1:8000
+          TEST_API_TIMEOUT=30
+          FINIA_TEST_USER=local_test
           EOF
       
       - name: Run Quick Tests (Schema + Integrity only)
         run: |
-          pytest tests/integration/test_db_schema.py tests/integration/test_data_integrity.py -v --tb=short
+          pytest tests/integration/test_schema_validation.py tests/integration/test_data_integrity.py -v --tb=short
       
       - name: Upload Quick Test Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: quick-test-report
