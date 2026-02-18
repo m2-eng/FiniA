@@ -11,7 +11,7 @@ faker==21.0.0
 factory-boy==3.3.0
 
 # HTTP Requests
-requests==2.31.0
+requests==2.32.5
 httpx==0.25.2
 
 # Database
