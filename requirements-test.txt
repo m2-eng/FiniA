@@ -16,7 +16,7 @@ httpx==0.25.2
 
 # Database
 sqlalchemy==2.0.23
-mysql-connector-python==8.2.0
+mysql-connector-python==9.6.0
 
 # Performance & Benchmarking
 pytest-benchmark==4.0.0
