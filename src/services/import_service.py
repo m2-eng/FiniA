@@ -121,6 +121,7 @@ def import_csv_with_optional_account(
     encoding = mapping.get("encoding", "utf-8")
     decimal_sep = mapping.get("decimal", ".")
     date_format = mapping.get("date_format")
+    header_skip = mapping.get("header_skip", 0)
     columns = mapping.get("columns", {})
     
     has_account_column = columns.get("account") is not None
@@ -157,7 +158,7 @@ def import_csv_with_optional_account(
 
     # Read and process CSV using centralized utilities
     try:
-        for row in read_csv_rows(csv_path, delimiter=delimiter, encoding=encoding):
+        for row in read_csv_rows(csv_path, delimiter=delimiter, encoding=encoding, header_skip=header_skip):
             total += 1
             try:
                 # Determine account ID for this row

@@ -5,6 +5,7 @@
 window.allCategories = [];
 let currentSettings = [];  // Array of {category_id, type}
 let importFormats = [];    // Array of {id, name, config}
+let selectedImportFormatId = null;
 let accountTypes = [];     // Array of {id, type, dateImport}
 let planningCycles = [];   // Array of {id, cycle, periodValue, periodUnit, dateImport}
 
@@ -248,56 +249,732 @@ function renderTable() {
   });
 }
 
+function getImportFormatDefault(config) {
+  if (!config) return '-';
+  if (config.default) return String(config.default);
+  const configDefault = config.config && config.config.default;
+  if (configDefault) return String(configDefault);
+  return '-';
+}
+
+function getImportFormatVersions(config) {
+  if (!config) return [];
+  const versionsFromVersions = Array.isArray(config.versions) ? config.versions : null;
+  if (versionsFromVersions) return versionsFromVersions.map(v => String(v));
+
+  const versionKeys = Object.keys(config).filter(key => key !== 'default' && key !== 'config');
+  if (versionKeys.length > 0) return versionKeys;
+
+  const nestedConfig = config.config || null;
+  if (!nestedConfig) return [];
+  return Object.keys(nestedConfig).filter(key => key !== 'default');
+}
+
+function renderImportFormatDetails(format) {
+  const container = document.getElementById('import-format-details');
+  if (!container) return;
+
+  if (!format) {
+    container.innerHTML = '<div class="details-meta">Wählen Sie ein Format, um Details anzuzeigen.</div>';
+    return;
+  }
+
+  const defaultVersion = getImportFormatDefault(format.config);
+  const versions = getImportFormatVersions(format.config);
+
+  const versionOptions = versions
+    .map(v => `<option value="${v}">${v}</option>`)
+    .join('');
+
+  const selectedVersion = versions.length > 0 ? versions[0] : '';
+  const configObject = getImportFormatConfigObject(format.config, selectedVersion);
+
+  container.innerHTML = `
+    <div class="details-header" style="margin-bottom: 12px;">
+      <div>
+        <h2 style="margin: 0;">${format.name}</h2>
+        <div class="details-meta">Standardversion: ${defaultVersion}</div>
+      </div>
+      <div class="details-actions">
+        <button class="btn btn-danger" data-action="delete">Format löschen</button>
+      </div>
+    </div>
+
+    <div class="details-section">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+        <div style="flex: 1;">
+          <label for="import-format-version-select">Version auswählen</label>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <select id="import-format-version-select" class="input-sm" style="flex: 1;">
+              ${versionOptions || '<option value="">-</option>'}
+            </select>
+            <button class="btn btn-sm" id="rename-version-btn" title="Version umbenennen" style="padding: 6px 10px;">✏️</button>
+          </div>
+        </div>
+        <button class="btn btn-sm" id="add-version-btn" style="margin-top: 20px;">+ Version hinzufügen</button>
+      </div>
+    </div>
+
+    <div class="details-section">
+      <div class="details-meta" style="margin-bottom: 12px;">Konfiguration</div>
+      <form id="import-format-config-form">
+        <div id="import-format-config" class="import-format-config"></div>
+        <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <button type="submit" class="btn btn-sm" id="save-version-btn">Speichern</button>
+          <button type="button" class="btn btn-sm btn-danger" id="delete-version-btn">Version löschen</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  const configContainer = document.getElementById('import-format-config');
+  if (configContainer) {
+    renderImportFormatConfigForm(configContainer, configObject, format, selectedVersion);
+  }
+
+  const select = document.getElementById('import-format-version-select');
+  if (select) {
+    select.value = selectedVersion;
+    select.addEventListener('change', (e) => {
+      const newVersion = e.target.value;
+      const configContainer = container.querySelector('#import-format-config');
+      if (configContainer) {
+        const updatedConfig = getImportFormatConfigObject(format.config, newVersion);
+        renderImportFormatConfigForm(configContainer, updatedConfig, format, newVersion);
+      }
+    });
+  }
+
+  const deleteBtn = container.querySelector('button[data-action="delete"]');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', () => removeImportFormat(format.id));
+  }
+
+  const addVersionBtn = container.querySelector('#add-version-btn');
+  if (addVersionBtn) {
+    addVersionBtn.addEventListener('click', () => showAddVersionDialog(format));
+  }
+
+  const renameVersionBtn = container.querySelector('#rename-version-btn');
+  if (renameVersionBtn) {
+    renameVersionBtn.addEventListener('click', () => {
+      const versionSelect = container.querySelector('#import-format-version-select');
+      const currentVersion = versionSelect?.value;
+      if (!currentVersion) {
+        showImportFormatsStatus('Bitte wählen Sie eine Version aus.', true);
+        return;
+      }
+      showRenameVersionDialog(format, currentVersion);
+    });
+  }
+
+  const saveVersionBtn = container.querySelector('#save-version-btn');
+  if (saveVersionBtn) {
+    const form = container.querySelector('#import-format-config-form');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const version = document.getElementById('import-format-version-select')?.value;
+        if (!version) {
+          showImportFormatsStatus('Bitte wählen Sie eine Version aus.', true);
+          return;
+        }
+        saveImportFormatVersion(format.id, version, generateConfigFromForm(form));
+      });
+    }
+  }
+
+  const deleteVersionBtn = container.querySelector('#delete-version-btn');
+  if (deleteVersionBtn) {
+    deleteVersionBtn.addEventListener('click', () => {
+      const version = document.getElementById('import-format-version-select')?.value;
+      if (!version) {
+        showImportFormatsStatus('Bitte wählen Sie eine Version aus.', true);
+        return;
+      }
+      deleteImportFormatVersion(format.id, version);
+    });
+  }
+}
+
+function getImportFormatConfigObject(config, version) {
+  if (!config) return null;
+  let versionConfig = null;
+
+  if (version && config[version]) {
+    versionConfig = config[version];
+  } else if (version && config.config && config.config[version]) {
+    versionConfig = config.config[version];
+  }
+
+  if (!versionConfig && config.config && typeof config.config === 'object') {
+    versionConfig = config.config;
+  }
+
+  if (!versionConfig && typeof config === 'object') {
+    versionConfig = config;
+  }
+
+  return versionConfig;
+}
+
+function renderImportFormatConfig(container, value) {
+  container.innerHTML = '';
+
+  const node = buildImportFormatConfigNode(value);
+  if (node) {
+    container.appendChild(node);
+  } else {
+    container.textContent = '-';
+  }
+}
+
+function buildImportFormatConfigNode(value) {
+  if (value === null || value === undefined) {
+    return document.createTextNode('-');
+  }
+
+  if (Array.isArray(value)) {
+    const list = document.createElement('ul');
+    list.className = 'config-list';
+    value.forEach(item => {
+      const itemNode = buildImportFormatConfigNode(item);
+      const li = document.createElement('li');
+      if (itemNode) li.appendChild(itemNode);
+      list.appendChild(li);
+    });
+    return list;
+  }
+
+  if (typeof value === 'object') {
+    const list = document.createElement('dl');
+    list.className = 'config-list';
+    Object.entries(value).forEach(([key, val]) => {
+      const dt = document.createElement('dt');
+      dt.textContent = key;
+      const dd = document.createElement('dd');
+      const child = buildImportFormatConfigNode(val);
+      if (child) dd.appendChild(child);
+      list.appendChild(dt);
+      list.appendChild(dd);
+    });
+    return list;
+  }
+
+  const text = document.createElement('span');
+  text.textContent = String(value);
+  return text;
+}
+
+function renderImportFormatConfigForm(container, configObject, format, selectedVersion) {
+  container.innerHTML = '';
+
+  if (!configObject || typeof configObject !== 'object') {
+    container.innerHTML = '<div class="details-meta">Ungültige Konfiguration.</div>';
+    return;
+  }
+
+  const form = document.createElement('div');
+
+  // Helper function to generate field name and label
+  const toLabel = (key) => {
+    const map = {
+      'encoding': 'Encoding',
+      'delimiter': 'Delimiter',
+      'decimal': 'Dezimal',
+      'date_format': 'Datumsformat',
+      'header_skip': 'Header Zeilen überspringen'
+    };
+    return map[key] || key.replace(/_/g, ' ');
+  };
+
+  // Standard fields (corrected according to YAML structure)
+  const standardFields = ['encoding', 'delimiter', 'decimal', 'date_format', 'header_skip'];
+  const columnsObj = configObject.columns || {};
+  const headerArray = configObject.header || [];
+
+  // Render standard fields in one row
+  const standardFieldsRow = document.createElement('div');
+  standardFieldsRow.style.display = 'grid';
+  standardFieldsRow.style.gridTemplateColumns = 'repeat(5, 1fr)';
+  standardFieldsRow.style.gap = '8px';
+  standardFieldsRow.style.marginBottom = '20px';
+
+  standardFields.forEach(fieldKey => {
+    const value = configObject[fieldKey] || '';
+    const label = toLabel(fieldKey);
+    
+    const fieldGroup = document.createElement('div');
+    fieldGroup.style.display = 'flex';
+    fieldGroup.style.flexDirection = 'column';
+    fieldGroup.style.gap = '4px';
+    
+    const labelEl = document.createElement('label');
+    labelEl.textContent = label;
+    labelEl.style.fontSize = '0.85em';
+    labelEl.style.fontWeight = '500';
+    labelEl.style.color = 'var(--color-text-secondary)';
+    
+    const inputEl = document.createElement('input');
+    inputEl.type = fieldKey === 'header_skip' ? 'number' : 'text';
+    inputEl.className = 'input-sm';
+    inputEl.name = fieldKey;
+    inputEl.value = String(value).replace(/"/g, '&quot;');
+    inputEl.style.padding = '6px 8px';
+    inputEl.style.fontSize = '0.9em';
+    if (fieldKey === 'header_skip') inputEl.min = '0';
+    
+    fieldGroup.appendChild(labelEl);
+    fieldGroup.appendChild(inputEl);
+    standardFieldsRow.appendChild(fieldGroup);
+  });
+
+  form.appendChild(standardFieldsRow);
+
+  // Header Array section (optional)
+  const headerSection = document.createElement('div');
+  headerSection.style.marginTop = '16px';
+  headerSection.style.marginBottom = '20px';
+
+  const headerTitleEl = document.createElement('div');
+  headerTitleEl.className = 'details-meta';
+  headerTitleEl.innerText = 'CSV-Spalten (Header) - Optional';
+  headerTitleEl.style.margin = '0 0 8px 0';
+
+  const headerDescEl = document.createElement('div');
+  headerDescEl.style.fontSize = '0.85em';
+  headerDescEl.style.color = 'var(--color-text-secondary)';
+  headerDescEl.style.marginBottom = '8px';
+  headerDescEl.innerText = 'CSV-Spaltennamen in Reihenfolge eingeben (durch Pipe | trennen)';
+
+  const headerInputEl = document.createElement('input');
+  headerInputEl.type = 'text';
+  headerInputEl.className = 'input-sm';
+  headerInputEl.name = 'header';
+  headerInputEl.value = Array.isArray(headerArray) ? headerArray.join(' | ') : '';
+  headerInputEl.placeholder = 'z.B. Datum | Betrag | Beschreibung | IBAN';
+  headerInputEl.style.width = '100%';
+  headerInputEl.style.padding = '6px 8px';
+  headerInputEl.style.marginBottom = '4px';
+
+  headerSection.appendChild(headerTitleEl);
+  headerSection.appendChild(headerDescEl);
+  headerSection.appendChild(headerInputEl);
+  form.appendChild(headerSection);
+
+  // Column Mapping section
+  const columnsSection = document.createElement('div');
+  columnsSection.style.marginTop = '12px';
+
+  const columnsTitleEl = document.createElement('div');
+  columnsTitleEl.className = 'details-meta';
+  columnsTitleEl.innerText = 'Spalten-Zuordnung (Column Mapping)';
+  columnsTitleEl.style.margin = '0 0 12px 0';
+  columnsSection.appendChild(columnsTitleEl);
+
+  // Column mapping table
+  const table = document.createElement('table');
+  table.style.width = '100%';
+  table.style.borderCollapse = 'collapse';
+  table.style.marginBottom = '12px';
+
+  const thead = document.createElement('thead');
+  thead.innerHTML = `
+    <tr style="border-bottom: 2px solid var(--color-border); background-color: var(--color-bg-detail);">
+      <th style="text-align: left; padding: 8px; font-weight: 600; font-size: 0.9em; width: 120px;">Feld</th>
+      <th style="text-align: left; padding: 8px; font-weight: 600; font-size: 0.9em; width: 150px;">Strategie</th>
+      <th style="text-align: left; padding: 8px; font-weight: 600; font-size: 0.9em; flex: 1;">Konfiguration</th>
+    </tr>
+  `;
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  tbody.id = 'columns-mapping-body';
+
+  // Known column keys from typical import format structures
+  const knownColumns = ['dateValue', 'dateCreation', 'amount', 'description', 'recipientApplicant', 'iban', 'bic', 'account'];
+  
+  knownColumns.forEach(colKey => {
+    const colConfig = columnsObj[colKey] || null;
+    addColumnMappingRow(tbody, colKey, colConfig);
+  });
+
+  table.appendChild(tbody);
+  columnsSection.appendChild(table);
+  form.appendChild(columnsSection);
+
+  container.appendChild(form);
+}
+
+function addColumnMappingRow(tbody, columnKey, columnConfig) {
+  const row = document.createElement('tr');
+  row.style.borderBottom = '1px solid var(--color-border)';
+  row.style.backgroundColor = 'var(--color-bg-base)';
+  row.dataset.columnKey = columnKey;
+
+  // Determine strategy
+  let strategy = 'null';
+  let configData = null;
+  
+  if (columnConfig === null) {
+    strategy = 'null';
+  } else if (typeof columnConfig === 'object') {
+    if (columnConfig.name) {
+      strategy = 'name';
+      configData = columnConfig.name;
+    } else if (columnConfig.join) {
+      strategy = 'join';
+      configData = columnConfig;
+    } else if (columnConfig.sources) {
+      strategy = 'regex';
+      configData = columnConfig;
+    }
+  }
+
+  row.innerHTML = `
+    <td style="padding: 8px; font-weight: 500;">${columnKey}</td>
+    <td style="padding: 8px; width: 150px;">
+      <select class="input-sm column-strategy" data-column="${columnKey}" style="width: 100%; padding: 4px 6px; font-size: 0.9em; box-sizing: border-box;">
+        <option value="null" ${strategy === 'null' ? 'selected' : ''}>Nicht verwendet</option>
+        <option value="name" ${strategy === 'name' ? 'selected' : ''}>Name</option>
+        <option value="join" ${strategy === 'join' ? 'selected' : ''}>Join</option>
+        <option value="regex" ${strategy === 'regex' ? 'selected' : ''}>Regex</option>
+      </select>
+    </td>
+    <td style="padding: 8px;" data-config-cell="true">
+      <div id="config-${columnKey}" class="column-config-container"></div>
+    </td>
+  `;
+
+  // Update config display when strategy changes
+  const strategySelect = row.querySelector('.column-strategy');
+  
+  strategySelect.addEventListener('change', (e) => {
+    const newStrategy = e.target.value;
+    renderColumnConfigUI(row, columnKey, newStrategy, null);
+  });
+
+  // Initial render
+  renderColumnConfigUI(row, columnKey, strategy, configData);
+
+  tbody.appendChild(row);
+}
+
+function renderColumnConfigUI(row, columnKey, strategy, configData) {
+  const configContainer = row.querySelector(`#config-${columnKey}`);
+  if (!configContainer) return;
+
+  configContainer.innerHTML = '';
+  configContainer.style.display = 'flex';
+  configContainer.style.flexDirection = 'column';
+  configContainer.style.gap = '4px';
+
+  if (strategy === 'null') {
+    const note = document.createElement('div');
+    note.style.fontSize = '0.85em';
+    note.style.color = 'var(--color-text-secondary)';
+    note.innerText = 'Dieses Feld wird nicht importiert';
+    configContainer.appendChild(note);
+  } 
+  else if (strategy === 'name') {
+    // Simple name: just one column
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'input-sm column-config-name';
+    input.placeholder = 'z.B. Buchungstag, Betrag, IBAN...';
+    input.value = configData || '';
+    configContainer.appendChild(input);
+  } 
+  else if (strategy === 'join') {
+    // Join: multiple columns + separator
+    const colsInput = document.createElement('input');
+    colsInput.type = 'text';
+    colsInput.className = 'input-sm column-config-join-cols';
+    colsInput.placeholder = 'Spalten (mit | trennen): Feld1 | Feld2 | Feld3';
+    colsInput.value = (configData && Array.isArray(configData.join)) ? configData.join.join(' | ') : '';
+    colsInput.style.marginBottom = '4px';
+
+    const sepInput = document.createElement('input');
+    sepInput.type = 'text';
+    sepInput.className = 'input-sm column-config-join-sep';
+    sepInput.placeholder = 'Trennzeichen (z.B. " | ")';
+    sepInput.value = (configData && configData.separator) ? configData.separator : ' | ';
+
+    configContainer.appendChild(colsInput);
+    configContainer.appendChild(sepInput);
+  } 
+  else if (strategy === 'regex') {
+    // Regex: multiple sources with regex patterns
+    const sourcesContainer = document.createElement('div');
+    sourcesContainer.id = `regex-sources-${columnKey}`;
+    sourcesContainer.style.display = 'flex';
+    sourcesContainer.style.flexDirection = 'column';
+    sourcesContainer.style.gap = '8px';
+
+    const sources = (configData && configData.sources) ? configData.sources : [];
+    
+    sources.forEach((source, idx) => {
+      const sourceDiv = document.createElement('div');
+      sourceDiv.style.padding = '8px';
+      sourceDiv.style.backgroundColor = 'rgba(0,0,0,0.02)';
+      sourceDiv.style.borderRadius = '3px';
+      sourceDiv.style.display = 'grid';
+      sourceDiv.style.gridTemplateColumns = '1fr 1fr 30px';
+      sourceDiv.style.gap = '4px';
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'input-sm column-config-regex-name';
+      nameInput.placeholder = 'Feld-Name';
+      nameInput.value = source.name || '';
+
+      const regexInput = document.createElement('input');
+      regexInput.type = 'text';
+      regexInput.className = 'input-sm column-config-regex-pattern';
+      regexInput.placeholder = 'Regex-Pattern';
+      regexInput.value = source.regex || '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'action-btn delete';
+      removeBtn.style.padding = '4px 6px';
+      removeBtn.innerText = 'X';
+      removeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        sourceDiv.remove();
+      });
+
+      sourceDiv.appendChild(nameInput);
+      sourceDiv.appendChild(regexInput);
+      sourceDiv.appendChild(removeBtn);
+      sourcesContainer.appendChild(sourceDiv);
+    });
+
+    const addSourceBtn = document.createElement('button');
+    addSourceBtn.type = 'button';
+    addSourceBtn.className = 'btn btn-sm';
+    addSourceBtn.style.alignSelf = 'flex-start';
+    addSourceBtn.innerText = '+ Regex hinzufügen';
+    addSourceBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const newSourceDiv = document.createElement('div');
+      newSourceDiv.style.padding = '8px';
+      newSourceDiv.style.backgroundColor = 'rgba(0,0,0,0.02)';
+      newSourceDiv.style.borderRadius = '3px';
+      newSourceDiv.style.display = 'grid';
+      newSourceDiv.style.gridTemplateColumns = '1fr 1fr 30px';
+      newSourceDiv.style.gap = '4px';
+
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'input-sm column-config-regex-name';
+      nameInput.placeholder = 'Feld-Name';
+
+      const regexInput = document.createElement('input');
+      regexInput.type = 'text';
+      regexInput.className = 'input-sm column-config-regex-pattern';
+      regexInput.placeholder = 'Regex-Pattern';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'action-btn delete';
+      removeBtn.style.padding = '4px 6px';
+      removeBtn.innerText = 'X';
+      removeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        newSourceDiv.remove();
+      });
+
+      newSourceDiv.appendChild(nameInput);
+      newSourceDiv.appendChild(regexInput);
+      newSourceDiv.appendChild(removeBtn);
+      sourcesContainer.insertBefore(newSourceDiv, addSourceBtn);
+    });
+
+    configContainer.appendChild(sourcesContainer);
+    configContainer.appendChild(addSourceBtn);
+  }
+}
+
+function generateConfigFromForm(form) {
+  const config = {};
+  
+  // Standard fields (encoding, delimiter, decimal, date_format, header_skip)
+  const standardFields = ['encoding', 'delimiter', 'decimal', 'date_format', 'header_skip'];
+  standardFields.forEach(fieldKey => {
+    const input = form.querySelector(`input[name="${fieldKey}"]`);
+    if (input && input.value) {
+      config[fieldKey] = fieldKey === 'header_skip' ? parseInt(input.value) || 0 : input.value;
+    }
+  });
+
+  // Header array (CSV column names)
+  const headerInput = form.querySelector('input[name="header"]');
+  if (headerInput && headerInput.value.trim()) {
+    config.header = headerInput.value
+      .split('|')
+      .map(h => h.trim())
+      .filter(h => h.length > 0);
+  }
+
+  // Column mappings
+  const columns = {};
+  const columnRows = form.querySelectorAll('tr[data-column-key]');
+  
+  columnRows.forEach(row => {
+    const columnKey = row.dataset.columnKey;
+    const strategySelect = row.querySelector('.column-strategy');
+    const strategy = strategySelect ? strategySelect.value : 'null';
+    const configContainer = row.querySelector(`#config-${columnKey}`);
+
+    if (strategy === 'null') {
+      // Don't include this column in the config
+      return;
+    } 
+    else if (strategy === 'name') {
+      // Simple name mapping
+      const nameInput = configContainer.querySelector('.column-config-name');
+      if (nameInput && nameInput.value) {
+        columns[columnKey] = {
+          name: nameInput.value
+        };
+      }
+    } 
+    else if (strategy === 'join') {
+      // Join mapping with separator
+      const colsInput = configContainer.querySelector('.column-config-join-cols');
+      const sepInput = configContainer.querySelector('.column-config-join-sep');
+      
+      if (colsInput && colsInput.value) {
+        const joinFields = colsInput.value
+          .split('|')
+          .map(f => f.trim())
+          .filter(f => f.length > 0);
+        
+        columns[columnKey] = {
+          join: joinFields,
+          separator: sepInput ? sepInput.value : ' '
+        };
+      }
+    } 
+    else if (strategy === 'regex') {
+      // Regex pattern mapping with sources
+      const sourceContainers = configContainer.querySelectorAll('[class*="column-config-regex"]');
+      const sources = [];
+      
+      const regexInputs = configContainer.querySelectorAll('.column-config-regex-name');
+      regexInputs.forEach((nameInput, idx) => {
+        const patternInput = configContainer.querySelectorAll('.column-config-regex-pattern')[idx];
+        if (nameInput && nameInput.value && patternInput && patternInput.value) {
+          sources.push({
+            name: nameInput.value,
+            regex: patternInput.value
+          });
+        }
+      });
+
+      if (sources.length > 0) {
+        columns[columnKey] = {
+          sources: sources
+        };
+      }
+    }
+  });
+
+  if (Object.keys(columns).length > 0) {
+    config.columns = columns;
+  }
+
+  return config;
+}
+
+async function saveImportFormatVersion(formatId, version, configObject) {
+  const format = importFormats.find(f => f.id === formatId);
+  if (!format) {
+    showImportFormatsStatus('Format nicht mehr aufrufbar.', true);
+    return;
+  }
+
+  try {
+    const updatedConfig = { ...format.config };
+    updatedConfig[version] = configObject;
+
+    const updated = await updateImportFormat(formatId, format.name, updatedConfig);
+    const idx = importFormats.findIndex(f => f.id === formatId);
+    if (idx >= 0) {
+      importFormats[idx] = updated;
+      selectedImportFormatId = formatId;
+      renderImportFormatsTable();
+      showImportFormatsStatus(`Version "${version}" gespeichert.`);
+    }
+  } catch (err) {
+    console.error('Save version failed:', err);
+    showImportFormatsStatus(`Fehler beim Speichern: ${err.message}`, true);
+  }
+}
+
 function renderImportFormatsTable() {
   const tbody = document.getElementById('import-formats-tbody');
   if (!tbody) return;
   tbody.innerHTML = '';
 
   if (importFormats.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Keine Formate konfiguriert.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="2" style="text-align: center;">Keine Formate konfiguriert.</td></tr>';
+    renderImportFormatDetails(null);
     return;
   }
 
   importFormats.forEach(format => {
     const tr = document.createElement('tr');
     const nameTd = document.createElement('td');
-    const configTd = document.createElement('td');
     const actionsTd = document.createElement('td');
 
     nameTd.style.textAlign = 'left';
     nameTd.textContent = format.name;
 
-    configTd.style.textAlign = 'left';
-    configTd.style.whiteSpace = 'pre-wrap';
-    configTd.style.fontFamily = 'ui-monospace, SFMono-Regular, Menlo, monospace';
-    configTd.textContent = JSON.stringify(format.config, null, 2);
-
     actionsTd.style.textAlign = 'center';
     actionsTd.innerHTML = `
-      <button class="action-btn" data-action="edit" data-id="${format.id}">Bearbeiten</button>
       <button class="action-btn delete" data-action="delete" data-id="${format.id}">Löschen</button>
     `;
 
+    tr.dataset.id = String(format.id);
+    tr.style.cursor = 'pointer';
+
     tr.appendChild(nameTd);
-    tr.appendChild(configTd);
     tr.appendChild(actionsTd);
     tbody.appendChild(tr);
   });
 
-  tbody.querySelectorAll('button[data-action="edit"]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = parseInt(btn.getAttribute('data-id'), 10);
-      const format = importFormats.find(f => f.id === id);
-      if (format) showImportFormatDialog(format);
-    });
-  });
-
   tbody.querySelectorAll('button[data-action="delete"]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
       const id = parseInt(btn.getAttribute('data-id'), 10);
       removeImportFormat(id);
     });
   });
+
+  tbody.querySelectorAll('tr').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = parseInt(row.dataset.id, 10);
+      if (!Number.isNaN(id)) {
+        selectedImportFormatId = id;
+        const selected = importFormats.find(f => f.id === id);
+        renderImportFormatDetails(selected || null);
+        tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected-row'));
+        row.classList.add('selected-row');
+      }
+    });
+  });
+
+  if (selectedImportFormatId === null && importFormats.length > 0) {
+    selectedImportFormatId = importFormats[0].id;
+  }
+  const current = importFormats.find(f => f.id === selectedImportFormatId) || importFormats[0];
+  renderImportFormatDetails(current || null);
+  if (current) {
+    const activeRow = tbody.querySelector(`tr[data-id="${current.id}"]`);
+    if (activeRow) activeRow.classList.add('selected-row');
+  }
 }
 
 function showImportFormatDialog(format = null) {
@@ -342,6 +1019,229 @@ function showImportFormatDialog(format = null) {
   });
 }
 
+function showAddVersionDialog(format) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'add-version-modal';
+  modal.style.display = 'flex';
+  modal.innerHTML = `
+    <div class="modal-content" style="min-width: 40vw; max-width: 90vw;">
+      <div class="modal-header">
+        <h3>Neue Version hinzufügen</h3>
+        <button class="btn-ghost" onclick="this.closest('.modal').remove()" aria-label="Schließen" style="color: white; font-size: 1.5em; background: none; border: none; cursor: pointer;">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="add-version-form">
+          <div class="form-group">
+            <label for="new-version-name">Versionsnummer</label>
+            <input type="text" id="new-version-name" class="input-sm" required placeholder="z.B. v2.0">
+          </div>
+          <hr style="border: none; border-top: 1px solid var(--color-border); margin: 16px 0;">
+          <div class="details-meta" style="margin-bottom: 12px;">Konfiguration</div>
+          <div id="new-version-config-container"></div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="document.getElementById('add-version-modal').remove()">Abbrechen</button>
+        <button type="button" class="btn" id="add-version-save-btn">Hinzufügen</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Handle click outside modal to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  // Get a template config from the first version
+  const versions = getImportFormatVersions(format.config);
+  const templateVersion = versions.length > 0 ? versions[0] : null;
+  const templateConfig = templateVersion 
+    ? getImportFormatConfigObject(format.config, templateVersion)
+    : { encoding: 'utf-8', delimiter: ';', decimal: ',', date_format: '%d.%m.%Y', columns: {} };
+
+  const configContainer = modal.querySelector('#new-version-config-container');
+  renderImportFormatConfigForm(configContainer, templateConfig, format, 'new');
+
+  // Handle save
+  const saveBtn = modal.querySelector('#add-version-save-btn');
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      const form = modal.querySelector('#add-version-form');
+      const versionInput = modal.querySelector('#new-version-name');
+      const newVersion = versionInput?.value?.trim();
+
+      if (!newVersion) {
+        showImportFormatsStatus('Versionsnummer ist erforderlich.', true);
+        return;
+      }
+
+      try {
+        const currentFormat = importFormats.find(f => f.id === format.id);
+        if (!currentFormat) {
+          showImportFormatsStatus('Format nicht mehr aufrufbar.', true);
+          return;
+        }
+
+        const versions = getImportFormatVersions(currentFormat.config);
+        if (versions.includes(newVersion)) {
+          showImportFormatsStatus(`Version "${newVersion}" existiert bereits.`, true);
+          return;
+        }
+
+        const configObj = generateConfigFromForm(form);
+        const updatedConfig = { ...currentFormat.config };
+        updatedConfig[newVersion] = configObj;
+
+        const updated = await updateImportFormat(currentFormat.id, currentFormat.name, updatedConfig);
+        const idx = importFormats.findIndex(f => f.id === currentFormat.id);
+        if (idx >= 0) {
+          importFormats[idx] = updated;
+          selectedImportFormatId = currentFormat.id;
+          renderImportFormatsTable();
+          showImportFormatsStatus(`Version "${newVersion}" hinzugefügt.`);
+          modal.remove();
+        }
+      } catch (err) {
+        console.error('Add version failed:', err);
+        showImportFormatsStatus(`Fehler beim Hinzufügen: ${err.message}`, true);
+      }
+    });
+  }
+}
+
+
+function showRenameVersionDialog(format, currentVersion) {
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.style.display = 'flex';
+  modal.innerHTML = `
+    <div class="modal-content" style="min-width: 30vw; max-width: 60vw;">
+      <div class="modal-header">
+        <h3>Version umbenennen</h3>
+        <button class="btn-ghost" onclick="this.closest('.modal').remove()" aria-label="Schließen" style="color: white; font-size: 1.5em; background: none; border: none; cursor: pointer;">×</button>
+      </div>
+      <div class="modal-body">
+        <form id="rename-version-form">
+          <div class="form-group">
+            <label for="rename-version-old">Aktuelle Version</label>
+            <input type="text" id="rename-version-old" class="input-sm" value="${currentVersion}" readonly style="background-color: var(--color-bg-detail); cursor: not-allowed;">
+          </div>
+          <div class="form-group">
+            <label for="rename-version-new">Neue Versionsnummer</label>
+            <input type="text" id="rename-version-new" class="input-sm" required placeholder="z.B. v2.1" value="${currentVersion}">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Abbrechen</button>
+        <button type="button" class="btn" id="rename-version-save-btn">Umbenennen</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Handle click outside modal to close
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.remove();
+  });
+
+  // Handle save
+  const saveBtn = modal.querySelector('#rename-version-save-btn');
+  const newVersionInput = modal.querySelector('#rename-version-new');
+  
+  if (saveBtn) {
+    saveBtn.addEventListener('click', async () => {
+      const newVersion = newVersionInput?.value?.trim();
+      
+      if (!newVersion) {
+        alert('Bitte geben Sie eine neue Versionsnummer ein.');
+        return;
+      }
+
+      if (newVersion === currentVersion) {
+        alert('Die neue Versionsnummer ist gleich wie die aktuelle.');
+        return;
+      }
+
+      const currentFormat = importFormats.find(f => f.id === format.id);
+      if (!currentFormat) {
+        showImportFormatsStatus('Format nicht mehr aufrufbar.', true);
+        modal.remove();
+        return;
+      }
+
+      const versions = getImportFormatVersions(currentFormat.config);
+      if (versions.includes(newVersion)) {
+        alert(`Version "${newVersion}" existiert bereits.`);
+        return;
+      }
+
+      try {
+        const updatedConfig = { ...currentFormat.config };
+        
+        // Copy the configuration from old version to new version
+        updatedConfig[newVersion] = updatedConfig[currentVersion];
+        
+        // Update default version if it was the renamed version
+        if (updatedConfig.default === currentVersion) {
+          updatedConfig.default = newVersion;
+        }
+        
+        // Delete old version
+        delete updatedConfig[currentVersion];
+
+        const updated = await updateImportFormat(currentFormat.id, currentFormat.name, updatedConfig);
+        const idx = importFormats.findIndex(f => f.id === currentFormat.id);
+        if (idx >= 0) {
+          importFormats[idx] = updated;
+          selectedImportFormatId = currentFormat.id;
+          renderImportFormatsTable();
+          showImportFormatsStatus(`Version "${currentVersion}" → "${newVersion}" umbenannt.`);
+          modal.remove();
+        }
+      } catch (err) {
+        console.error('Rename version failed:', err);
+        showImportFormatsStatus(`Fehler beim Umbenennen: ${err.message}`, true);
+      }
+    });
+  }
+}
+
+
+async function deleteImportFormatVersion(formatId, version) {
+  const format = importFormats.find(f => f.id === formatId);
+  if (!format) return;
+
+  const versions = getImportFormatVersions(format.config);
+  if (versions.length <= 1) {
+    showImportFormatsStatus('Das Format muss mindestens eine Version haben.', true);
+    return;
+  }
+
+  if (!confirm(`Version "${version}" wirklich löschen?`)) return;
+
+  try {
+    const updatedConfig = { ...format.config };
+    delete updatedConfig[version];
+
+    const updated = await updateImportFormat(formatId, format.name, updatedConfig);
+    const idx = importFormats.findIndex(f => f.id === formatId);
+    if (idx >= 0) {
+      importFormats[idx] = updated;
+      selectedImportFormatId = formatId;
+      renderImportFormatsTable();
+      showImportFormatsStatus(`Version "${version}" gelöscht.`);
+    }
+  } catch (err) {
+    console.error('Delete version failed:', err);
+    showImportFormatsStatus(`Fehler beim Löschen: ${err.message}`, true);
+  }
+}
+
 async function removeImportFormat(id) {
   const format = importFormats.find(f => f.id === id);
   if (!format) return;
@@ -351,6 +1251,9 @@ async function removeImportFormat(id) {
     await deleteImportFormat(id);
     importFormats = importFormats.filter(f => f.id !== id);
     showImportFormatsStatus('Format gelöscht.');
+    if (selectedImportFormatId === id) {
+      selectedImportFormatId = null;
+    }
     renderImportFormatsTable();
   } catch (err) {
     console.error('Delete failed:', err);

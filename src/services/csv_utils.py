@@ -61,7 +61,8 @@ def detect_csv_encoding(csv_path: Path, preferred_encoding: str = "utf-8") -> st
 def read_csv_rows(
     csv_path: Path,
     delimiter: str = ";",
-    encoding: str = "utf-8"
+    encoding: str = "utf-8",
+    header_skip: int = 0
 ) -> Iterator[dict]:
     """
     Reads the CSV file and returns normalized rows.
@@ -74,6 +75,7 @@ def read_csv_rows(
         csv_path: Path to the CSV file
         delimiter: CSV delimiter
         encoding: Preferred encoding
+        header_skip: Number of rows to skip before the header row (default: 0)
     
     Yields:
         Dict with column names as keys and cell values as values
@@ -85,6 +87,10 @@ def read_csv_rows(
     detected_encoding = detect_csv_encoding(csv_path, encoding)
     
     with open(csv_path, "r", encoding=detected_encoding, newline="") as handle:
+        # Skip rows before the header if specified
+        for _ in range(header_skip):
+            handle.readline()
+        
         reader = csv.DictReader(handle, delimiter=delimiter)
         
         if reader.fieldnames is None:

@@ -3,7 +3,7 @@
    If this file is missing, style.css provides the dark theme fallback. */
 
 :root {
-  /* Dark Theme */
+  /* Dark Theme (Default)*/
   --color-bg-base: #1e1e1e;
   --color-bg-detail: #2d2d2d;
   --color-text: #e0e0e0;
@@ -24,7 +24,18 @@
   --color-danger: #dc3545;
   --color-danger-hover: #c82333;
   --color-danger-soft: rgba(220, 53, 69, 0.12);
+  --color-status-info: #17a2b8;
+  --color-status-info-hover: #138496;
+  --color-status-success-bg: #d4edda;
+  --color-status-success-text: #155724;
+  --color-status-success-border: #c3e6cb;
+  --color-status-failure-bg: #f8d7da;
+  --color-status-failure-text: #721c24;
+  --color-status-failure-border: #f5c6cb;
   --color-overlay: rgba(0, 0, 0, 0.55);
+  --color-automation-row-selected: rgba(0, 0, 0, 0.06);
+  --color-automation-condition-bg: rgba(0, 0, 0, 0.02);
+  --color-automation-logic-bg: rgba(0, 123, 255, 0.05);
   --color-focus-ring: rgba(0, 120, 212, 0.2);
   --shadow-elevated: 0 20px 60px rgba(0, 0, 0, 0.35);
   --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.25);
@@ -38,8 +49,8 @@
   --button-font-size-sm: 12px;
 }
 
-[data-theme="dark"] {
-  /* Light Theme (Default) */
+[data-theme="light"] {
+  /* Light Theme */
   --color-bg-base: #ffffff;
   --color-bg-detail: #f7f7f7;
   --color-text: #111111;
@@ -60,7 +71,18 @@
   --color-danger: #dc3545;
   --color-danger-hover: #b71c1c;
   --color-danger-soft: rgba(220, 53, 69, 0.12);
+  --color-status-info: #17a2b8;
+  --color-status-info-hover: #138496;
+  --color-status-success-bg: #d4edda;
+  --color-status-success-text: #155724;
+  --color-status-success-border: #c3e6cb;
+  --color-status-failure-bg: #f8d7da;
+  --color-status-failure-text: #721c24;
+  --color-status-failure-border: #f5c6cb;
   --color-overlay: rgba(0, 0, 0, 0.4);
+  --color-automation-row-selected: rgba(0, 0, 0, 0.06);
+  --color-automation-condition-bg: rgba(0, 0, 0, 0.02);
+  --color-automation-logic-bg: rgba(0, 123, 255, 0.05);
   --color-focus-ring: rgba(0, 120, 212, 0.2);
   --shadow-elevated: 0 20px 60px rgba(0, 0, 0, 0.2);
   --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.2);
