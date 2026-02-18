@@ -1,0 +1,37 @@
+# Test Dependencies for FiniA Test Suite
+# Issue #32: Implementing a test bench
+
+# Core Testing
+pytest==7.4.3
+pytest-asyncio==0.23.2
+pytest-timeout==2.2.0
+
+# Test Data Generation
+faker==21.0.0
+factory-boy==3.3.0
+
+# HTTP Requests
+requests==2.31.0
+httpx==0.25.2
+
+# Database
+sqlalchemy==2.0.23
+mysql-connector-python==8.2.0
+
+# Performance & Benchmarking
+pytest-benchmark==4.0.0
+
+# Reporting
+pytest-html==4.1.1
+pytest-json-report==1.5.0
+
+# Parallel Execution (optional, can be enabled in pytest.ini)
+pytest-xdist==3.5.0
+
+# Code Coverage (optional)
+pytest-cov==4.1.0
+
+# Additional utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
+timestamps==0.0.6

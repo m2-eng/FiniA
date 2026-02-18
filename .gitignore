@@ -9,6 +9,14 @@ cmd
 /.venv/
 **/__pycache__/
 
+# Test environment and reports
+.env.test
+reports/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
 start.ps1
 
 # Docker Compose environment-specific overrides (user configuration)

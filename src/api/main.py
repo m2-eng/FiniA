@@ -170,19 +170,36 @@ async def startup_event(app: FastAPI):
     logger.info("Database config read from cfg/config.yaml")
     logger.info("All connections use memory-only session-based authentication")
     
-    # Start background session cleanup task
+    # Start background session cleanup task (includes connection pool cleanup)
     app.state.session_cleanup_task = asyncio.create_task(
-        session_cleanup_task(session_store)
+        session_cleanup_task(session_store, pool_manager)
     )
 
 
-async def session_cleanup_task(session_store: SessionStore):
-    """Background task to clean up expired sessions"""
+async def session_cleanup_task(session_store: SessionStore, pool_manager: ConnectionPoolManager):
+    """Background task to clean up expired sessions and their connection pools"""
     while True:
         await asyncio.sleep(300)  # Run every 5 minutes
-        cleaned = session_store.cleanup_expired_sessions()
-        if cleaned > 0:
-            logger.info("Cleaned up %s expired session(s)", cleaned)
+        
+        # Get expired session IDs before cleanup
+        expired_session_ids = session_store.get_expired_session_ids()
+        
+        # Clean up expired sessions
+        cleaned_sessions = session_store.cleanup_expired_sessions()
+        
+        # Clean up connection pools for expired sessions
+        cleaned_pools = 0
+        for session_id in expired_session_ids:
+            if pool_manager.has_pool(session_id):
+                pool_manager.close_pool(session_id)
+                cleaned_pools += 1
+        
+        if cleaned_sessions > 0 or cleaned_pools > 0:
+            logger.info(
+                "Cleaned up %s expired session(s) and %s connection pool(s)", 
+                cleaned_sessions, 
+                cleaned_pools
+            )
 
 
 async def shutdown_event(app: FastAPI):

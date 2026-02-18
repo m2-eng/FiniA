@@ -1,0 +1,39 @@
+# Test Users Configuration for FiniA
+# This file defines available test users for the test suite
+# Users can be selected via environment variable: TEST_USER
+
+test_users:
+  local_test:
+    username: "tester"
+    password: "uq2;&#Q9&3S4"
+    description: "Local development test user"
+    type: "test"
+    permissions: ["read", "write", "delete"]
+    skip_teardown: false
+
+  ci_runner:
+    username: "tester"
+    password: "uq2;&#Q9&3S4"
+    description: "CI/CD pipeline test user (GitHub Actions)"
+    type: "ci"
+    permissions: ["read", "write", "delete"]
+    skip_teardown: false
+
+  performance_test:
+    username: "tester"
+    password: "uq2;&#Q9&3S4"
+    description: "Dedicated user for performance benchmarking"
+    type: "performance"
+    permissions: ["read", "write"]
+    skip_teardown: true  # Keep data for repeated benchmarking
+
+# Default test user if not specified
+default_user: local_test
+
+# Test database configuration
+database:
+  test_db_prefix: "finia_test_"
+  cleanup_after_tests: true
+  isolation_level: "READ_UNCOMMITTED"  # Fastest for testing
+  create_indices: true
+  run_migrations: true

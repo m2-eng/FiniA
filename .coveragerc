@@ -1,0 +1,96 @@
+# Coverage Configuration
+# Used by pytest-cov and coverage.py
+
+[run]
+# Source code to measure
+source = src
+
+# Omit these files/patterns from coverage
+omit =
+    */tests/*
+    */test_*.py
+    */__pycache__/*
+    */.venv/*
+    */venv/*
+    */migrations/*
+    */scripts/*
+    src/main.py
+    src/config_theme.py
+    setup.py
+
+# Enable branch coverage
+branch = True
+
+# Measure coverage during test execution
+parallel = False
+
+[report]
+# Show missing lines in coverage report
+show_missing = True
+
+# Precision for coverage percentage
+precision = 2
+
+# Skip covered files in report
+skip_covered = False
+
+# Skip empty files
+skip_empty = True
+
+# Fail if coverage is below this threshold
+fail_under = 75.0
+
+# Sort by coverage percentage
+sort = Cover
+
+# Exclude lines with these patterns
+exclude_lines =
+    # Standard pragmas
+    pragma: no cover
+    
+    # Don't complain about missing debug code
+    def __repr__
+    def __str__
+    
+    # Don't complain if tests don't hit defensive assertion code
+    raise AssertionError
+    raise NotImplementedError
+    
+    # Don't complain if non-runnable code isn't run
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
+    
+    # Don't complain about abstract methods
+    @abstract
+    @abstractmethod
+    
+    # Don't complain about protocol methods
+    @runtime_checkable
+    \.\.\.
+    
+    # Don't complain about pass statements
+    pass
+
+[html]
+# Directory for HTML report
+directory = reports/coverage
+
+# Title for HTML report
+title = FiniA Code Coverage Report
+
+[xml]
+# XML output file
+output = reports/coverage.xml
+
+[json]
+# JSON output file
+output = reports/coverage.json
+pretty_print = True
+show_contexts = True
+
+[paths]
+# Map different paths to same source (for CI/CD)
+source =
+    src/
+    */site-packages/
