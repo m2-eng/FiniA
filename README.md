@@ -1,5 +1,10 @@
 # FiniA
 
+[![Tests](https://github.com/m2-eng/FiniA/actions/workflows/tests.yml/badge.svg)](https://github.com/m2-eng/FiniA/actions/workflows/tests.yml)
+[![Performance](https://github.com/m2-eng/FiniA/actions/workflows/performance.yml/badge.svg)](https://github.com/m2-eng/FiniA/actions/workflows/performance.yml)
+[![codecov](https://codecov.io/gh/m2-eng/FiniA/branch/main/graph/badge.svg)](https://codecov.io/gh/m2-eng/FiniA)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL%203.0-blue.svg)](LICENSE)
+
 FiniA is a lightweight personal finance assistant with a FastAPI backend, web UI, and CSV import with duplicate detection.
 
 ## Quickstart (local)

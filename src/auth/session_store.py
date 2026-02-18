@@ -107,6 +107,26 @@ class SessionStore:
             
             del self.sessions[session_id]
     
+    def get_expired_session_ids(self) -> list:
+        """
+        Returns list of expired session IDs without deleting them.
+        
+        Useful for cleanup tasks that need to know which sessions 
+        will be deleted before actually deleting them.
+        
+        Returns:
+            List of expired session IDs
+        """
+        expired = []
+        now = datetime.now()
+        
+        for session_id, session in self.sessions.items():
+            timeout = timedelta(seconds=session["timeout_seconds"])
+            if now - session["last_activity"] > timeout:
+                expired.append(session_id)
+        
+        return expired
+    
     def cleanup_expired_sessions(self) -> int: # review note: The call wass review but not the content of this function.
         """
         Removes expired sessions.
@@ -116,13 +136,7 @@ class SessionStore:
         Returns:
             Number of deleted sessions
         """
-        expired = []
-        now = datetime.now()
-        
-        for session_id, session in self.sessions.items():
-            timeout = timedelta(seconds=session["timeout_seconds"])
-            if now - session["last_activity"] > timeout:
-                expired.append(session_id)
+        expired = self.get_expired_session_ids()
         
         for session_id in expired:
             self.delete_session(session_id)
