@@ -7,7 +7,7 @@ pytest-asyncio==0.23.2
 pytest-timeout==2.2.0
 
 # Test Data Generation
-faker==21.0.0
+faker==40.4.0
 factory-boy==3.3.0
 
 # HTTP Requests
