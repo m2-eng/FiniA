@@ -4,24 +4,24 @@
 
 test_users:
   local_test:
-    username: "tester"
-    password: "uq2;&#Q9&3S4"
+    username: "test"
+    password: "password"
     description: "Local development test user"
     type: "test"
     permissions: ["read", "write", "delete"]
     skip_teardown: false
 
   ci_runner:
-    username: "tester"
-    password: "uq2;&#Q9&3S4"
+    username: "test"
+    password: "password"
     description: "CI/CD pipeline test user (GitHub Actions)"
     type: "ci"
     permissions: ["read", "write", "delete"]
     skip_teardown: false
 
   performance_test:
-    username: "tester"
-    password: "uq2;&#Q9&3S4"
+    username: "test"
+    password: "password"
     description: "Dedicated user for performance benchmarking"
     type: "performance"
     permissions: ["read", "write"]

@@ -75,6 +75,15 @@ docker-compose up -d
 - [Development Setup Guide](docs/development/setup.md) – Local Python environment, Docker development, VS Code configuration, debugging (backend/frontend), code quality, Git workflow, common tasks
 - [Database Schema Reference](docs/database/schema.md) – 15 tables, 6 views, ERD, key relationships, data integrity constraints
 
+## Versioning
+
+This project follows [Semantic Versioning 2.0](https://semver.org/) (`MAJOR.MINOR.PATCH`):
+- **0.1.0-beta.1** (current) – Beta release, not production-ready
+- **0.1.0** – Planned stable release
+- **1.0.0** – Planned for production-ready version
+
+See [CHANGELOG.md](CHANGELOG.md) for release history and [GitHub Releases](https://github.com/m2-eng/FiniA/releases) for download links and checksums.
+
 ## Project layout
 - `cfg/`: Configuration (DB, data paths, import formats)
 - `db/`: SQL dump for schema
