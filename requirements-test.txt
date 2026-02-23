@@ -26,7 +26,7 @@ pytest-html==4.1.1
 pytest-json-report==1.5.0
 
 # Parallel Execution (optional, can be enabled in pytest.ini)
-pytest-xdist==3.5.0
+pytest-xdist==3.8.0
 
 # Code Coverage (optional)
 pytest-cov==4.1.0
