@@ -43,10 +43,10 @@ auth:
   
   # Session-Einstellungen
   session_timeout_seconds: 3600  # 1 Stunde Inaktivität
-  pool_size: 10  # Connections pro User-Session (für parallele Requests)
+  pool_size: 2  # Connections pro User-Session (für parallele Requests)
   
   # Username → Database Pattern
-  username_prefix: "finia_"
+  username_prefix: ""
   database_prefix: "finiaDB_"
   
   # Rate Limiting

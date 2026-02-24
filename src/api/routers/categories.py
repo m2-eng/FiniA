@@ -10,13 +10,50 @@
 Categories API Router
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from repositories.category_repository import CategoryRepository
-from api.dependencies import get_db_cursor, get_db_connection
-from api.models import CategoryCreateRequest, CategoryUpdateRequest
+from fastapi import APIRouter, Depends, Query, HTTPException, UploadFile, File, status
+from api.dependencies import get_db_cursor, get_db_connection, get_pool_manager
 from api.error_handling import handle_db_errors, safe_commit, safe_rollback
+from api.auth_middleware import get_current_session
+from api.models import CategoryCreateRequest, CategoryUpdateRequest
+from services.import_service import ImportService
+from services.import_steps.categories import CategoriesStep
+import yaml
+
+from repositories.category_repository import CategoryRepository
 
 router = APIRouter(prefix="/categories", tags=["categories"])
+
+@router.post("/import-yaml")
+@handle_db_errors("import categories from YAML")
+async def import_categories_from_yaml(
+  file: UploadFile = File(...),
+  pool_manager = Depends(get_pool_manager),
+  session_id: str = Depends(get_current_session)
+):
+    """Import categories from YAML file using categories syntax."""
+    if not file:
+        raise HTTPException(status_code=400, detail="No file provided.")
+
+    try:
+        content = await file.read()
+        data = yaml.safe_load(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML file: {e}")
+
+    if not isinstance(data, dict) or "categories" not in data:
+        raise HTTPException(status_code=400, detail="YAML file does not contain a 'categories' section.")
+
+    if not isinstance(data.get("categories"), list):
+        raise HTTPException(status_code=400, detail="'categories' must be a list.")
+
+    steps = [CategoriesStep()]
+    service = ImportService(pool_manager, session_id, steps)
+    success = service.run(data)
+
+    count = len(data.get("categories", []))
+    if success:
+        return {"status": "success", "message": f"Categories YAML file successfully imported."}
+    return {"status": "warning", "message": "Import completed with warnings."}
 
 
 @router.get("/")

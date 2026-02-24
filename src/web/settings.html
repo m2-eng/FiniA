@@ -579,6 +579,7 @@
   <script src="app.js?v=10"></script>
   <script src="settings.js?v=11"></script>
   <script src="category_automation.js?v=10"></script>
+  <script src="categories.js?v=10"></script>
   <script>
     // Tab switching functionality
     let automationInitialized = false;
@@ -603,6 +604,9 @@
         if (!categoriesInitialized) {
           categoriesInitialized = true;
           loadCategoriesContent();
+          if (typeof initializeCategories === 'function') {
+            initializeCategories();
+          }
         }
       } else if (tabName === 'accounts-management') {
         document.getElementById('tab-accounts-management').classList.add('active');

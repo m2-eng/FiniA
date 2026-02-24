@@ -8,7 +8,7 @@
 #
 import logging
 
-from repositories.error_handling import wrap_repository_cursor
+from repositories.base import BaseRepository
 
 from domain.account import Account
 
@@ -84,11 +84,7 @@ SQL_VALUES_SUMMARY = _build_monthly_values("t.dateValue", "ae.amount", "<= %s")
 SQL_VALUES_SUMMARY_PLANNING = _build_monthly_values("pe.dateValue", "p.amount", "> %s")
 
 
-class AccountRepository:
-
-    def __init__(self, cursor):
-        """Initialize with database cursor"""
-        self.cursor = wrap_repository_cursor(cursor, operation_prefix=type(self).__name__)
+class AccountRepository(BaseRepository):
 
     def _month_params(self, today, count: int = 12) -> list:
         return [today] * count
