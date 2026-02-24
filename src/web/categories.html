@@ -296,15 +296,16 @@
       <div class="action-section">
         <button class="btn" id="refreshCategories">Aktualisieren</button>
         <button class="btn" id="addCategoryBtn">+ Neue Kategorie</button>
+        <label for="category-file-input" class="btn" style="margin: 0; cursor: pointer;">
+          YAML-Datei importieren
+        </label>
+        <input type="file" id="category-file-input" accept=".yaml,.yml" style="display: none;">
       </div>
     </div>
-
     <div id="catError" class="error" style="display:none"></div>
     <div id="catSuccess" class="success" style="display:none"></div>
-
     <div id="categoriesTable" class="category-tree"></div>
   </div>
-
   <!-- Modal for Add/Edit Category -->
   <div id="categoryModal" class="modal">
     <div class="modal-content">
