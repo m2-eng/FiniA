@@ -3,7 +3,6 @@
 // ========================================
 // Category Management
 // ========================================
-
 async function initializeCategories() {
   try {
     const fileInput = document.getElementById('category-file-input');
@@ -14,6 +13,57 @@ async function initializeCategories() {
   } catch (error) {
     console.error('Categories init failed', error);
     showStatus(`Initialization error: ${error.message}`, true);
+  }
+}
+
+async function loadCategoriesContent() {
+  try {
+    const response = await fetch('categories.html');
+    const html = await response.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Extract main container content
+    const container = doc.querySelector('.container');
+    if (container) {
+      document.getElementById('categoriesContainer').innerHTML = container.innerHTML;
+    }
+
+    // Extract and append modals (categoryModal) to body
+    const modal = doc.getElementById('categoryModal');
+    if (modal && !document.getElementById('categoryModal')) {
+      document.body.appendChild(modal.cloneNode(true));
+    }
+
+    // Inject inline styles from categories.html
+    const headStyles = doc.querySelectorAll('style');
+    headStyles.forEach((styleTag, idx) => {
+      const s = document.createElement('style');
+      s.textContent = styleTag.textContent;
+      s.setAttribute('data-origin', `categories-inline-${idx}`);
+      document.head.appendChild(s);
+    });
+
+    // Execute scripts (inline and external)
+    const scripts = doc.querySelectorAll('script');
+    scripts.forEach(scr => {
+    // Avoid reloading app.js to prevent API_BASE redeclaration
+    if (scr.src && scr.src.includes('app.js')) return;
+    const s = document.createElement('script');
+    if (scr.src) {
+      s.src = scr.src;
+      s.onload = () => {
+        if (typeof initCategoriesPage === 'function') initCategoriesPage();
+        };
+      } else {
+        s.textContent = scr.textContent;
+      }
+      document.body.appendChild(s);
+    });
+    // Fallback: call init if already available
+    if (typeof initCategoriesPage === 'function') initCategoriesPage();
+  } catch (error) {
+    console.error('Error loading categories:', error);
   }
 }
 

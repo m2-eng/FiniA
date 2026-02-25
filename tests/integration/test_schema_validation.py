@@ -224,7 +224,7 @@ class TestDatabaseConstraints:
         db_cursor.execute("SELECT type FROM tbl_accountType")
         types = [row[0] for row in db_cursor.fetchall()]
         
-        expected_types = ['Girokonto', 'Wertpapierdepot', 'Darlehen', 'Krypto', 'Investment-Plattform']
+        expected_types = ['Girokonto', 'Wertpapierdepot', 'Darlehen', 'Krypto', 'Investmentplattform']
         for expected in expected_types:
             assert expected in types, f"Missing account type: {expected}"
         

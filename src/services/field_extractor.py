@@ -43,7 +43,7 @@ def extract_field_value(row: dict[str, Any], mapping: Any) -> str:
         '2024-01-01 | 100.00'
         
         >>> row = {"Details": "IBAN: DE12345678"}
-        >>> extract_field_value(row, {"sources": [{"name": "Details", "regex": r"IBAN:\s*(\w+)"}]})
+        >>> extract_field_value(row, {"sources": [{"name": "Details", "regex": r"..."}]})
         'DE12345678'
     """
     if mapping is None:
