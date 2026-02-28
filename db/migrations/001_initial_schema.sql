@@ -93,7 +93,7 @@ INSERT INTO `tbl_accountType` (`id`, `dateImport`, `type`) VALUES
   (2, NOW(), 'Wertpapierdepot'),
   (3, NOW(), 'Darlehen'),
   (4, NOW(), 'Krypto'),
-  (5, NOW(), 'Investment-Plattform')
+  (5, NOW(), 'Investmentplattform')
 ON DUPLICATE KEY UPDATE `type` = VALUES(`type`);
 
 --

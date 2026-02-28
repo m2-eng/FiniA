@@ -175,7 +175,7 @@ class TestAccountTypesAPI:
         
         # Verify expected types exist
         type_names = [t['type'] for t in types]
-        expected_types = ['Girokonto', 'Wertpapierdepot', 'Darlehen', 'Krypto', 'Investment-Plattform']
+        expected_types = ['Girokonto', 'Wertpapierdepot', 'Darlehen', 'Krypto', 'Investmentplattform']
         
         for expected in expected_types:
             assert expected in type_names, f"Missing account type: {expected}"

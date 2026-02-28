@@ -11,12 +11,16 @@ Settings API Router
 Handles global/user settings storage.
 """
 
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from api.dependencies import get_db_cursor, get_db_connection, get_pool_manager
+from api.error_handling import handle_db_errors, safe_commit, safe_rollback
+from api.auth_middleware import get_current_session
+from services.import_service import ImportService
+from services.import_steps.planning_cycles import PlanningCyclesStep
 import json
 import logging
 import yaml
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from api.dependencies import get_db_cursor, get_db_connection
-from api.error_handling import handle_db_errors, safe_commit, safe_rollback
+
 from repositories.settings_repository import SettingsRepository
 from repositories.account_type_repository import AccountTypeRepository
 from repositories.planning_cycle_repository import PlanningCycleRepository
@@ -578,6 +582,37 @@ async def delete_account_type(
 # ========================================
 # Planning Cycles Endpoints
 # ========================================
+@router.post("/planning-cycles/import-yaml")
+@handle_db_errors("import planning cycles from YAML")
+async def import_planning_cycles_from_yaml(
+  file: UploadFile = File(...),
+  pool_manager = Depends(get_pool_manager),
+  session_id: str = Depends(get_current_session)
+):
+    """Import planning cycles from YAML file using planning cycles syntax."""
+    if not file:
+        raise HTTPException(status_code=400, detail="No file provided.")
+
+    try:
+        content = await file.read()
+        data = yaml.safe_load(content)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid YAML file: {e}")
+
+    if not isinstance(data, dict) or "planningCycle" not in data:
+        raise HTTPException(status_code=400, detail="YAML file does not contain a 'planningCycle' section.")
+
+    if not isinstance(data.get("planningCycle"), list):
+        raise HTTPException(status_code=400, detail="'planningCycle' must be a list.")
+
+    steps = [PlanningCyclesStep()]
+    service = ImportService(pool_manager, session_id, steps)
+    success = service.run(data)
+
+    if success:
+        return {"status": "success", "message": f"Planning cycles YAML file successfully imported."}
+    return {"status": "warning", "message": "Import completed with warnings."}
+
 
 @router.get("/planning-cycles")
 @handle_db_errors("fetch planning cycles")

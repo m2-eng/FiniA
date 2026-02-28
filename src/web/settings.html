@@ -573,13 +573,16 @@
       </div>
     </div>
   </div>
-  <script src="utils.js?v=10"></script>
-  <script src="help_documents.js?v=10"></script>
-  <script src="help.js?v=10"></script>
-  <script src="app.js?v=10"></script>
-  <script src="settings.js?v=11"></script>
-  <script src="category_automation.js?v=10"></script>
-  <script src="categories.js?v=10"></script>
+
+  <script src="utils.js"></script>
+  <script src="app.js"></script>
+  <script src="settings.js"></script>
+  <script src="import_formats.js"></script>
+  <script src="category_automation.js"></script>
+  <script src="categories.js"></script>
+  <script src="planning_cycles.js"></script>
+  <script src="account_types.js"></script>
+
   <script>
     // Tab switching functionality
     let automationInitialized = false;
@@ -603,10 +606,11 @@
         document.querySelector('.tab-button:nth-child(2)').classList.add('active');
         if (!categoriesInitialized) {
           categoriesInitialized = true;
-          loadCategoriesContent();
-          if (typeof initializeCategories === 'function') {
-            initializeCategories();
-          }
+          loadCategoriesContent().then(() => {
+            if (typeof initializeCategories === 'function') {
+              initializeCategories();
+            }
+          });
         }
       } else if (tabName === 'accounts-management') {
         document.getElementById('tab-accounts-management').classList.add('active');
@@ -650,57 +654,6 @@
           automationInitialized = true;
           initializeCategoryAutomation();
         }
-      }
-    }
-
-    async function loadCategoriesContent() {
-      try {
-        const response = await fetch('categories.html');
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-
-        // Extract main container content
-        const container = doc.querySelector('.container');
-        if (container) {
-          document.getElementById('categoriesContainer').innerHTML = container.innerHTML;
-        }
-
-        // Extract and append modals (categoryModal) to body
-        const modal = doc.getElementById('categoryModal');
-        if (modal && !document.getElementById('categoryModal')) {
-          document.body.appendChild(modal.cloneNode(true));
-        }
-
-        // Inject inline styles from categories.html
-        const headStyles = doc.querySelectorAll('style');
-        headStyles.forEach((styleTag, idx) => {
-          const s = document.createElement('style');
-          s.textContent = styleTag.textContent;
-          s.setAttribute('data-origin', `categories-inline-${idx}`);
-          document.head.appendChild(s);
-        });
-
-        // Execute scripts (inline and external)
-        const scripts = doc.querySelectorAll('script');
-        scripts.forEach(scr => {
-          // Avoid reloading app.js to prevent API_BASE redeclaration
-          if (scr.src && scr.src.includes('app.js')) return;
-          const s = document.createElement('script');
-          if (scr.src) {
-            s.src = scr.src;
-            s.onload = () => {
-              if (typeof initCategoriesPage === 'function') initCategoriesPage();
-            };
-          } else {
-            s.textContent = scr.textContent;
-          }
-          document.body.appendChild(s);
-        });
-        // Fallback: call init if already available
-        if (typeof initCategoriesPage === 'function') initCategoriesPage();
-      } catch (error) {
-        console.error('Error loading categories:', error);
       }
     }
 

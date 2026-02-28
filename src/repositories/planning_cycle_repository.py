@@ -77,12 +77,12 @@ class PlanningCycleRepository(BaseRepository):
       self.cursor.execute(sql, (cycle_name, period_value, period_unit, now))
       return self.cursor.lastrowid
 
-   def insert_ignore(self, cycle_id: int, cycle_name: str, period_value: float = 1.0, period_unit: str = "m") -> None:
+   def insert_ignore(self, cycle_name: str, period_value: float = 1.0, period_unit: str = "m") -> None:
       sql = """
-         INSERT IGNORE INTO tbl_planningCycle (id, cycle, periodValue, periodUnit, dateImport)
-         VALUES (%s, %s, %s, %s, NOW())
+         INSERT IGNORE INTO tbl_planningCycle (cycle, periodValue, periodUnit, dateImport)
+         VALUES (%s, %s, %s, NOW())
       """
-      self.cursor.execute(sql, (cycle_id, cycle_name, period_value, period_unit))
+      self.cursor.execute(sql, (cycle_name, period_value, period_unit))
 
    def update(self, cycle_id: int, cycle_name: str, period_value: float, period_unit: str):
       """Update planning cycle."""
