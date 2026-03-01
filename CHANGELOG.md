@@ -17,6 +17,11 @@ Complete documentation available in `docs/`:
 
 ## [Unreleased]
 
+## [0.1.0-beta.3] - 2026-03-01
+
+**Fixed bugs:**
+- Missing migration folder in the Docker Container
+
 ## [0.1.0-beta.2] - 2026-03-01
 
 **Improvments:**
@@ -182,6 +187,7 @@ Updated key dependencies to latest stable versions:
 
 ## Links
 
-[Unreleased]: https://github.com/m2-eng/FiniA/compare/v0.1.0-beta.2...HEAD
+[Unreleased]: https://github.com/m2-eng/FiniA/compare/v0.1.0-beta.3...HEAD
+[0.1.0-beta.3]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.1
