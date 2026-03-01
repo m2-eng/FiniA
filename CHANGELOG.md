@@ -17,6 +17,17 @@ Complete documentation available in `docs/`:
 
 ## [Unreleased]
 
+## [0.1.0-beta.2] - 2026-03-01
+
+**Improvments:**
+- Add missing category import
+
+**Fixed bugs:**
+- Test errors and warnings due to renaming
+- Too many function parameter in insert_ignore of the planning cycle repository
+- Loading the categories file/methods
+
+
 ## [0.1.0-beta.1] - 2026-02-18
 
 ### ✨ Added
@@ -171,5 +182,6 @@ Updated key dependencies to latest stable versions:
 
 ## Links
 
-[Unreleased]: https://github.com/m2-eng/FiniA/compare/v0.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/m2-eng/FiniA/compare/v0.1.0-beta.2...HEAD
+[0.1.0-beta.2]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.1

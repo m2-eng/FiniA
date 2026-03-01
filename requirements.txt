@@ -1,4 +1,4 @@
-# FiniA v0.1.0-beta.1 Dependencies
+# FiniA Dependencies
 # Python 3.10+ required
 
 # Database

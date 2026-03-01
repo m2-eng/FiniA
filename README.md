@@ -78,7 +78,7 @@ docker-compose up -d
 ## Versioning
 
 This project follows [Semantic Versioning 2.0](https://semver.org/) (`MAJOR.MINOR.PATCH`):
-- **0.1.0-beta.1** (current) – Beta release, not production-ready
+- **0.1.0-beta.1** – Beta release, not production-ready
 - **0.1.0** – Planned stable release
 - **1.0.0** – Planned for production-ready version
 

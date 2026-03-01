@@ -1,6 +1,6 @@
 # SHA256 Checksum Verification
 
-## v0.1.0-beta.1 Release (2026-02-04)
+## Release
 
 Use these checksums to verify the integrity of downloaded release files.
 
