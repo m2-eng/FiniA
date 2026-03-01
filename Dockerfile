@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # This prevents overwriting config and allows live updates
 COPY VERSION ./VERSION
 COPY src/ ./src/
+COPY db/migrations ./db/migrations/
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
