@@ -318,6 +318,39 @@ async def create_share_history(
             pass
 
 
+@router.put("/shares/history/{history_id}")
+@handle_db_errors("Failed to update history")
+async def update_share_history(
+    history_id: int,
+    isin: str = Form(...),
+    date: str = Form(...),
+    amount: float = Form(...),
+    checked: bool = Form(False),
+    connection=Depends(get_db_connection)
+):
+    """Update an existing share history entry."""
+    cursor = connection.cursor(buffered=True)
+    try:
+        share_repo = ShareRepository(cursor)
+        history_repo = ShareHistoryRepository(cursor)
+
+        share = share_repo.get_share_by_isin_wkn(isin, None)
+        if not share:
+            return {"status": "error", "message": f"Share with ISIN {isin} not found"}
+
+        history_repo.update_history(history_id, share['id'], amount, date, checked)
+        safe_commit(connection)
+        return {"status": "success"}
+    except Exception:
+        safe_rollback(connection, "update share history")
+        raise
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+
+
 @router.put("/shares/history/{history_id}/checked")
 @handle_db_errors("Failed to mark history checked")
 async def set_share_history_checked(
