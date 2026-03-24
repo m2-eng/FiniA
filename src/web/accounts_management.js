@@ -9,6 +9,7 @@ let currentSortColumn = null;
 let currentSortDirection = 'asc';
 let cachedAccounts = [];
 let currentAccountData = null;
+let isCreateMode = false;
 
 // Helper function: Determine if an account is active or ended
 
@@ -227,9 +228,11 @@ function displayPagination(currentPageNum, totalPages) {
 function clearDetails() {
   selectedAccountId = null;
   currentAccountData = null;
+  isCreateMode = false;
   const detailsPanel = document.getElementById('detailsPanel');
   if (detailsPanel) detailsPanel.style.display = 'none';
   resetForm();
+  updateDetailsToolbar();
   document.querySelectorAll('#accountsBody tr.selected').forEach(tr => tr.classList.remove('selected'));
 }
 
@@ -248,6 +251,7 @@ async function showAccountDetails(accountId) {
     
     selectedAccountId = account.id;
     currentAccountData = account;
+    isCreateMode = false;
 
     document.querySelectorAll('#accountsBody tr').forEach(tr => {
       if (tr.dataset.id === String(account.id)) tr.classList.add('selected');
@@ -273,10 +277,41 @@ async function showAccountDetails(accountId) {
 
     const detailsPanel = document.getElementById('detailsPanel');
     detailsPanel.style.display = 'block';
+    updateDetailsToolbar();
   } catch (error) {
     console.error('Error loading account details:', error);
     alert(`Fehler beim Laden der Kontoinformationen: ${error.message}`);
   }
+}
+
+function updateDetailsToolbar() {
+  const deleteButton = document.getElementById('deleteButton');
+  if (!deleteButton) {
+    return;
+  }
+
+  if (isCreateMode) {
+    deleteButton.style.display = 'none';
+  } else {
+    deleteButton.style.display = '';
+  }
+}
+
+async function startNewAccount() {
+  selectedAccountId = null;
+  currentAccountData = null;
+  isCreateMode = true;
+
+  document.querySelectorAll('#accountsBody tr.selected').forEach(tr => tr.classList.remove('selected'));
+  resetForm();
+  await loadClearingAccounts(null);
+
+  const detailsPanel = document.getElementById('detailsPanel');
+  if (detailsPanel) {
+    detailsPanel.style.display = 'block';
+  }
+
+  updateDetailsToolbar();
 }
 
 async function loadClearingAccounts(excludeId) {
@@ -313,10 +348,7 @@ function resetForm() {
 }
 
 async function saveAccount() {
-  if (!selectedAccountId) {
-    alert('Kein Konto ausgewählt.');
-    return;
-  }
+  const isNewAccount = isCreateMode || !selectedAccountId;
 
   const saveButton = document.getElementById('saveButton');
   const originalText = saveButton.textContent;
@@ -337,8 +369,8 @@ async function saveAccount() {
       importPath: document.getElementById('importPath').value
     };
 
-    const response = await authenticatedFetch(`${API_BASE}/accounts/${selectedAccountId}`, {
-      method: 'PUT',
+    const response = await authenticatedFetch(isNewAccount ? `${API_BASE}/accounts/` : `${API_BASE}/accounts/${selectedAccountId}`, {
+      method: isNewAccount ? 'POST' : 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(accountData)
     });
@@ -348,10 +380,16 @@ async function saveAccount() {
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
 
-    const updatedAccount = await response.json();
-    currentAccountData = updatedAccount;
+    const savedAccount = await response.json();
+    currentAccountData = savedAccount;
+    isCreateMode = false;
+
     await loadAccounts(currentPage);
-    alert('Konto erfolgreich gespeichert!');
+    if (savedAccount && savedAccount.id) {
+      await showAccountDetails(savedAccount.id);
+    }
+
+    alert(isNewAccount ? 'Konto erfolgreich angelegt!' : 'Konto erfolgreich gespeichert!');
   } catch (error) {
     console.error('Error saving account:', error);
     alert(`Fehler beim Speichern: ${error.message}`);
@@ -434,6 +472,7 @@ async function handleAccountsYamlUpload(event) {
 async function initAccountsManagement() {
   await loadAccountTypes();
   await loadImportFormats();
+  updateDetailsToolbar();
   
   const searchInput = document.getElementById('searchInput');
   if (searchInput) {

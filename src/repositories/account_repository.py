@@ -897,6 +897,43 @@ class AccountRepository(BaseRepository):
         
         self.cursor.execute(import_query, (account_id,))
         return self.cursor.fetchone()
+
+    def create_account(self,
+                       name: str,
+                       iban: str,
+                       bic: str,
+                       account_type: int,
+                       start_amount: float,
+                       date_start: str,
+                       date_end: str,
+                       clearing_account: int):
+        insert_query = """
+            INSERT INTO tbl_account (
+                dateImport,
+                name,
+                iban_accountNumber,
+                bic_market,
+                startAmount,
+                dateStart,
+                dateEnd,
+                type,
+                clearingAccount
+            )
+            VALUES (NOW(), %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+
+        self.cursor.execute(insert_query, (
+            name,
+            iban,
+            bic,
+            start_amount,
+            date_start if date_start else None,
+            date_end if date_end else None,
+            account_type,
+            clearing_account
+        ))
+
+        return self.cursor.lastrowid
     
     def update_account(self, 
                        name: str, 

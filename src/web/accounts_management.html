@@ -16,13 +16,14 @@
     <div class="content-split">
       <!-- Left Pane: Account List -->
       <div class="list-pane">
-        <div class="search-bar">
+        <div class="search-bar account-search-bar">
           <input type="text" id="searchInput" class="input-sm" placeholder="Nach Kontoname oder IBAN suchen...">
           <button class="btn" onclick="loadAccounts()">Aktualisieren</button>
           <button class="btn btn-secondary" onclick="resetSearch()">Zurücksetzen</button>
           <label for="accounts-yaml-file-input" class="btn" style="margin: 0; cursor: pointer;">
             YAML importieren
           </label>
+          <button class="btn" onclick="startNewAccount()">Neues Konto</button>
           <input type="file" id="accounts-yaml-file-input" accept=".yaml,.yml" style="display: none;">
         </div>
         <div id="errorMessage" class="error" style="display: none;"></div>
