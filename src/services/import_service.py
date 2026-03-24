@@ -175,10 +175,10 @@ def import_csv_with_optional_account(
                             try:
                                 with UnitOfWork(connection) as uow:
                                     account_repo = AccountRepository(uow)
-                                    account = account_repo.find_by_name(account_name)
-                                    
-                                    if account:
-                                        account_cache[account_name] = account.id
+                                    account_id = account_repo.get_id_by_name(account_name)
+
+                                    if account_id:
+                                        account_cache[account_name] = account_id
                                     else:
                                         # Account not found - use default if available, otherwise skip
                                         if default_account_id:
