@@ -214,9 +214,17 @@ async def update_category(
         if not category:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
         
-        # Use existing values if not provided
-        new_name = request.name if request.name is not None else category['name']
-        new_parent_id = request.parent_id if request.parent_id is not None else category['parent_id']
+        # Distinguish omitted fields from explicitly provided null values.
+        # This allows removing a parent by sending "parent_id": null.
+        fields_set = set()
+        if hasattr(request, "model_fields_set"):
+            fields_set = set(request.model_fields_set)
+        elif hasattr(request, "__fields_set__"):
+            fields_set = set(request.__fields_set__)
+
+        # Use existing values only for truly omitted fields
+        new_name = request.name if "name" in fields_set else category['name']
+        new_parent_id = request.parent_id if "parent_id" in fields_set else category['parent_id']
         
         # Check if parent exists (if parent_id is being set to something)
         if new_parent_id and new_parent_id != category['parent_id']:
