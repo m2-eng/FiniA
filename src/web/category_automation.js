@@ -11,6 +11,15 @@ let selectedRules = new Set();
 let sortColumn = null;
 let sortDirection = 'asc';
 let automationAccountsLoading = false;
+const NO_ACCOUNTS_SENTINEL = -1;
+
+function isNoAccountsSelection(accounts) {
+  return Array.isArray(accounts) && accounts.length === 1 && accounts[0] === NO_ACCOUNTS_SENTINEL;
+}
+
+function isAllAccountsSelection(accounts) {
+  return !Array.isArray(accounts) || accounts.length === 0;
+}
 
 async function ensureAccountsLoaded() {
   if (Array.isArray(allAccounts) && allAccounts.length > 0) return allAccounts;
@@ -132,8 +141,10 @@ function renderRulesTable() {
     // Accounts
     const accountsCell = row.insertCell();
     accountsCell.style.textAlign = 'center';
-    if (!rule.accounts || rule.accounts.length === 0) {
+    if (isAllAccountsSelection(rule.accounts)) {
       accountsCell.textContent = 'Alle';
+    } else if (isNoAccountsSelection(rule.accounts)) {
+      accountsCell.textContent = 'Keine';
     } else {
       accountsCell.textContent = `${rule.accounts.length} Konto(en)`;
     }
@@ -278,7 +289,7 @@ async function displayRuleDetails(ruleId) {
       <span>Konten (Mehrfachauswahl möglich)</span>
       <div class="account-select-box">
         <label>
-          <input type="checkbox" id="account-all" ${!rule.accounts || rule.accounts.length === 0 ? 'checked' : ''} onchange="toggleAllAccounts()"> 
+          <input type="checkbox" id="account-all"> 
           <strong>Alle Konten</strong>
         </label>
         <hr style="margin: 4px 0;">
@@ -323,6 +334,18 @@ async function displayRuleDetails(ruleId) {
       <button class="btn-small delete" onclick="deleteRule('${rule.id}')">Löschen</button>
     </div>
   `;
+
+  // Persisted semantics:
+  // - [] => all accounts
+  // - [-1] => no accounts
+  if (isAllAccountsSelection(rule.accounts)) {
+    document.querySelectorAll('.account-checkbox').forEach(cb => {
+      cb.checked = true;
+    });
+  }
+
+  // Wire up master-checkbox ↔ individual-checkbox bidirectional sync
+  setupAccountCheckboxListeners();
 }
 
 function renderConditionRow(condition, index) {
@@ -448,13 +471,51 @@ function removeCondition(index) {
   displayRuleDetails(selectedRuleId);
 }
 
+function updateMasterCheckbox() {
+  const allCheckbox = document.getElementById('account-all');
+  const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+  if (!allCheckbox || accountCheckboxes.length === 0) return;
+
+  const total = accountCheckboxes.length;
+  const checked = Array.from(accountCheckboxes).filter(cb => cb.checked).length;
+
+  if (checked === 0) {
+    allCheckbox.checked = false;
+    allCheckbox.indeterminate = false;
+  } else if (checked === total) {
+    allCheckbox.checked = true;
+    allCheckbox.indeterminate = false;
+  } else {
+    allCheckbox.checked = false;
+    allCheckbox.indeterminate = true;
+  }
+}
+
 function toggleAllAccounts() {
   const allCheckbox = document.getElementById('account-all');
   const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-  
-  if (allCheckbox.checked) {
-    accountCheckboxes.forEach(cb => cb.checked = false);
-  }
+  if (!allCheckbox) return;
+
+  // The browser has already toggled allCheckbox.checked before this handler runs.
+  // Use its new value directly as the desired state for all individual checkboxes.
+  const shouldCheckAll = allCheckbox.checked;
+  allCheckbox.indeterminate = false;
+  accountCheckboxes.forEach(cb => { cb.checked = shouldCheckAll; });
+}
+
+function setupAccountCheckboxListeners() {
+  const allCheckbox = document.getElementById('account-all');
+  const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+  if (!allCheckbox) return;
+
+  allCheckbox.addEventListener('change', toggleAllAccounts);
+
+  accountCheckboxes.forEach(cb => {
+    cb.addEventListener('change', updateMasterCheckbox);
+  });
+
+  // Set initial master state based on current selection
+  updateMasterCheckbox();
 }
 
 // ================== Save Rule ==================
@@ -471,11 +532,21 @@ async function saveCurrentRule() {
   rule.conditionLogic = document.getElementById('editLogic').value;
   
   // Collect account IDs
-  const allAccountsChecked = document.getElementById('account-all').checked;
-  if (allAccountsChecked) {
+  // "Alle Konten" means: master is fully checked and no indeterminate state,
+  // which only happens when all individual boxes are checked too.
+  // The canonical source of truth is always the individual checkboxes.
+  const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+  const checkedBoxes = Array.from(accountCheckboxes).filter(cb => cb.checked);
+  const allChecked = accountCheckboxes.length > 0 && checkedBoxes.length === accountCheckboxes.length;
+
+  if (allChecked) {
+    // Empty list keeps existing backend semantics: applies to all accounts
     rule.accounts = [];
+  } else if (checkedBoxes.length === 0) {
+    // Explicitly persist "no accounts selected"
+    rule.accounts = [NO_ACCOUNTS_SENTINEL];
   } else {
-    rule.accounts = Array.from(document.querySelectorAll('.account-checkbox:checked')).map(cb => parseInt(cb.value));
+    rule.accounts = checkedBoxes.map(cb => parseInt(cb.value));
   }
   
   // Collect conditions
