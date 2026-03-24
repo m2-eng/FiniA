@@ -423,21 +423,100 @@ function interpretLogic(logic, conditions) {
   return interpretation;
 }
 
+function syncRuleDraftFromDetails(rule) {
+  if (!rule) return;
+
+  const descriptionInput = document.getElementById('editDescription');
+  const categorySelect = document.getElementById('editCategory');
+  const activeCheckbox = document.getElementById('editActive');
+  const logicInput = document.getElementById('editLogic');
+
+  if (descriptionInput) {
+    rule.name = descriptionInput.value;
+    rule.description = descriptionInput.value;
+  }
+
+  if (categorySelect) {
+    rule.category = parseInt(categorySelect.value);
+  }
+
+  if (activeCheckbox) {
+    rule.enabled = activeCheckbox.checked;
+  }
+
+  if (logicInput) {
+    rule.conditionLogic = logicInput.value;
+  }
+
+  const accountCheckboxes = document.querySelectorAll('.account-checkbox');
+  if (accountCheckboxes.length > 0) {
+    const checkedBoxes = Array.from(accountCheckboxes).filter(cb => cb.checked);
+    const allChecked = checkedBoxes.length === accountCheckboxes.length;
+
+    if (allChecked) {
+      rule.accounts = [];
+    } else if (checkedBoxes.length === 0) {
+      rule.accounts = [NO_ACCOUNTS_SENTINEL];
+    } else {
+      rule.accounts = checkedBoxes.map(cb => parseInt(cb.value));
+    }
+  }
+
+  const conditionRows = document.querySelectorAll('.condition-row');
+  if (conditionRows.length > 0) {
+    rule.conditions = Array.from(conditionRows).map((row, idx) => {
+      const columnName = row.querySelector('.cond-column').value;
+      const type = row.querySelector('.cond-type').value;
+      const condition = {
+        id: idx + 1,
+        columnName,
+        type
+      };
+
+      if (type === 'amountRange') {
+        const minAmount = parseFloat(row.querySelector('.cond-min').value);
+        const maxAmount = parseFloat(row.querySelector('.cond-max').value);
+        condition.minAmount = Number.isNaN(minAmount) ? null : minAmount;
+        condition.maxAmount = Number.isNaN(maxAmount) ? null : maxAmount;
+      } else {
+        condition.value = row.querySelector('.cond-value').value;
+        condition.caseSensitive = row.querySelector('.cond-case').checked;
+      }
+
+      return condition;
+    });
+  }
+}
+
 function onConditionTypeChange(index) {
   const rule = allRules.find(r => r.id === selectedRuleId);
   if (!rule) return;
+
+  syncRuleDraftFromDetails(rule);
   
-  const row = document.querySelector(`.condition-row[data-index="${index}"]`);
-  const typeSelect = row.querySelector('.cond-type');
-  const newType = typeSelect.value;
+  const newType = rule.conditions[index]?.type;
+  if (!newType) return;
   
-  rule.conditions[index].type = newType;
+  if (newType === 'amountRange') {
+    delete rule.conditions[index].value;
+    delete rule.conditions[index].caseSensitive;
+    rule.conditions[index].minAmount = rule.conditions[index].minAmount ?? null;
+    rule.conditions[index].maxAmount = rule.conditions[index].maxAmount ?? null;
+  } else {
+    rule.conditions[index].value = rule.conditions[index].value || '';
+    rule.conditions[index].caseSensitive = Boolean(rule.conditions[index].caseSensitive);
+    delete rule.conditions[index].minAmount;
+    delete rule.conditions[index].maxAmount;
+  }
+
   displayRuleDetails(selectedRuleId);
 }
 
 function addCondition() {
   const rule = allRules.find(r => r.id === selectedRuleId);
   if (!rule) return;
+
+  syncRuleDraftFromDetails(rule);
   
   rule.conditions.push({
     id: rule.conditions.length + 1,
@@ -456,6 +535,8 @@ function removeCondition(index) {
     alert('Eine Regel muss mindestens eine Bedingung haben!');
     return;
   }
+
+  syncRuleDraftFromDetails(rule);
   
   rule.conditions.splice(index, 1);
   
@@ -523,54 +604,8 @@ function setupAccountCheckboxListeners() {
 async function saveCurrentRule() {
   const rule = allRules.find(r => r.id === selectedRuleId);
   if (!rule) return;
-  
-  // Collect data from form
-  rule.name = document.getElementById('editDescription').value; // name = description for simplicity
-  rule.description = document.getElementById('editDescription').value;
-  rule.category = parseInt(document.getElementById('editCategory').value);
-  rule.enabled = document.getElementById('editActive').checked;
-  rule.conditionLogic = document.getElementById('editLogic').value;
-  
-  // Collect account IDs
-  // "Alle Konten" means: master is fully checked and no indeterminate state,
-  // which only happens when all individual boxes are checked too.
-  // The canonical source of truth is always the individual checkboxes.
-  const accountCheckboxes = document.querySelectorAll('.account-checkbox');
-  const checkedBoxes = Array.from(accountCheckboxes).filter(cb => cb.checked);
-  const allChecked = accountCheckboxes.length > 0 && checkedBoxes.length === accountCheckboxes.length;
 
-  if (allChecked) {
-    // Empty list keeps existing backend semantics: applies to all accounts
-    rule.accounts = [];
-  } else if (checkedBoxes.length === 0) {
-    // Explicitly persist "no accounts selected"
-    rule.accounts = [NO_ACCOUNTS_SENTINEL];
-  } else {
-    rule.accounts = checkedBoxes.map(cb => parseInt(cb.value));
-  }
-  
-  // Collect conditions
-  const conditionRows = document.querySelectorAll('.condition-row');
-  rule.conditions = Array.from(conditionRows).map((row, idx) => {
-    const columnName = row.querySelector('.cond-column').value;
-    const type = row.querySelector('.cond-type').value;
-    
-    const condition = { 
-      id: idx + 1,
-      columnName, 
-      type 
-    };
-    
-    if (type === 'amountRange') {
-      condition.minAmount = parseFloat(row.querySelector('.cond-min').value) || null;
-      condition.maxAmount = parseFloat(row.querySelector('.cond-max').value) || null;
-    } else {
-      condition.value = row.querySelector('.cond-value').value;
-      condition.caseSensitive = row.querySelector('.cond-case').checked;
-    }
-    
-    return condition;
-  });
+  syncRuleDraftFromDetails(rule);
   
   // Validation
   if (!rule.name || !rule.description) {
