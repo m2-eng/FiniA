@@ -17,6 +17,11 @@ Complete documentation available in `docs/`:
 
 ## [Unreleased]
 
+## [0.1.0-beta.4] - 2026-03-24
+
+**Fixed bugs:**
+- The missing skip functionality during transaction import was missing. Fixed it.
+
 ## [0.1.0-beta.3] - 2026-03-01
 
 **Fixed bugs:**
@@ -169,6 +174,7 @@ Updated key dependencies to latest stable versions:
 - Category automation rules may require manual review
 - Performance not optimized for large datasets (100k+ transactions)
 - Web UI uses in-memory sessions (not persistent across restarts)
+- Several missing features (which would make life easier; see open issues)
 
 ### ⚠️ Important Notes
 
@@ -188,6 +194,7 @@ Updated key dependencies to latest stable versions:
 ## Links
 
 [Unreleased]: https://github.com/m2-eng/FiniA/compare/v0.1.0-beta.3...HEAD
+[0.1.0-beta.4]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.2
 [0.1.0-beta.1]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.1
