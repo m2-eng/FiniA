@@ -432,6 +432,7 @@ class AccountDataImporter:
       encoding = mapping.get("encoding", "utf-8")
       decimal_sep = mapping.get("decimal", ".")
       date_format = mapping.get("date_format")
+      header_skip = mapping.get("header_skip", 0)
       columns = mapping.get("columns", {})
 
       inserted = 0
@@ -464,7 +465,7 @@ class AccountDataImporter:
          # Validate CSV headers before processing
          # Peek at first row to get fieldnames for validation
          first_pass = True
-         for row in read_csv_rows(csv_path, delimiter=delimiter, encoding=encoding):
+         for row in read_csv_rows(csv_path, delimiter=delimiter, encoding=encoding, header_skip=header_skip):
             if first_pass:
                # Get fieldnames from first iteration
                # (read_csv_rows already normalized them)
