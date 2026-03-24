@@ -230,6 +230,7 @@ function renderImportFormatDetails(format) {
     .join('');
 
   const selectedVersion = versions.length > 0 ? versions[0] : '';
+  const selectedDefaultVersion = versions.includes(defaultVersion) ? defaultVersion : selectedVersion;
   const configObject = getImportFormatConfigObject(format.config, selectedVersion);
 
   container.innerHTML = `
@@ -255,6 +256,15 @@ function renderImportFormatDetails(format) {
           </div>
         </div>
         <button class="btn btn-sm" id="add-version-btn" style="margin-top: 20px;">+ Version hinzufügen</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+        <div style="flex: 1;">
+          <label for="import-format-default-version-select">Standardversion</label>
+          <select id="import-format-default-version-select" class="input-sm" style="width: 100%;">
+            ${versionOptions || '<option value="">-</option>'}
+          </select>
+        </div>
+        <button class="btn btn-sm" id="save-default-version-btn" style="margin-top: 20px;">Standard speichern</button>
       </div>
     </div>
 
@@ -285,6 +295,23 @@ function renderImportFormatDetails(format) {
         const updatedConfig = getImportFormatConfigObject(format.config, newVersion);
         renderImportFormatConfigForm(configContainer, updatedConfig, format, newVersion);
       }
+    });
+  }
+
+  const defaultSelect = document.getElementById('import-format-default-version-select');
+  if (defaultSelect) {
+    defaultSelect.value = selectedDefaultVersion;
+  }
+
+  const saveDefaultBtn = container.querySelector('#save-default-version-btn');
+  if (saveDefaultBtn) {
+    saveDefaultBtn.addEventListener('click', () => {
+      const newDefault = defaultSelect?.value;
+      if (!newDefault) {
+        showImportFormatsStatus('Bitte wählen Sie eine Standardversion aus.', true);
+        return;
+      }
+      updateImportFormatDefaultVersion(format.id, newDefault);
     });
   }
 
@@ -696,6 +723,18 @@ async function deleteImportFormatVersion(formatId, version) {
     const updatedConfig = { ...format.config };
     delete updatedConfig[version];
 
+    const remainingVersions = getImportFormatVersions(updatedConfig);
+    if (remainingVersions.length > 0) {
+      if (updatedConfig.default === version) {
+        updatedConfig.default = remainingVersions[0];
+      }
+      if (updatedConfig.config && typeof updatedConfig.config === 'object' && !Array.isArray(updatedConfig.config)) {
+        if (updatedConfig.config.default === version) {
+          updatedConfig.config = { ...updatedConfig.config, default: remainingVersions[0] };
+        }
+      }
+    }
+
     const updated = await updateImportFormat(formatId, format.name, updatedConfig);
     const idx = importFormats.findIndex(f => f.id === formatId);
     if (idx >= 0) {
@@ -707,5 +746,48 @@ async function deleteImportFormatVersion(formatId, version) {
   } catch (err) {
     console.error('Delete version failed:', err);
     showImportFormatsStatus(`Fehler beim Löschen: ${err.message}`, true);
+  }
+}
+
+async function updateImportFormatDefaultVersion(formatId, defaultVersion) {
+  const format = importFormats.find(f => f.id === formatId);
+  if (!format) {
+    showImportFormatsStatus('Format nicht mehr aufrufbar.', true);
+    return;
+  }
+
+  const versions = getImportFormatVersions(format.config);
+  if (!versions.includes(defaultVersion)) {
+    showImportFormatsStatus('Ungültige Standardversion ausgewählt.', true);
+    return;
+  }
+
+  try {
+    const updatedConfig = { ...format.config };
+
+    if (updatedConfig.config && typeof updatedConfig.config === 'object' && !Array.isArray(updatedConfig.config)) {
+      if (Object.prototype.hasOwnProperty.call(updatedConfig.config, 'default')) {
+        updatedConfig.config = { ...updatedConfig.config, default: defaultVersion };
+      }
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(updatedConfig, 'default') &&
+        !(updatedConfig.config && Object.prototype.hasOwnProperty.call(updatedConfig.config, 'default'))) {
+      updatedConfig.default = defaultVersion;
+    } else if (Object.prototype.hasOwnProperty.call(updatedConfig, 'default')) {
+      updatedConfig.default = defaultVersion;
+    }
+
+    const updated = await updateImportFormat(formatId, format.name, updatedConfig);
+    const idx = importFormats.findIndex(f => f.id === formatId);
+    if (idx >= 0) {
+      importFormats[idx] = updated;
+      selectedImportFormatId = formatId;
+      renderImportFormatsTable();
+      showImportFormatsStatus(`Standardversion auf "${defaultVersion}" gesetzt.`);
+    }
+  } catch (err) {
+    console.error('Update default version failed:', err);
+    showImportFormatsStatus(`Fehler beim Setzen der Standardversion: ${err.message}`, true);
   }
 }
