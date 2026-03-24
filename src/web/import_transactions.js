@@ -665,6 +665,8 @@ async function loadImportAccounts() {
 
 async function startImport() {
   const select = document.getElementById('importAccountSelect');
+  const formatSelect = document.getElementById('csvFormatSelect');
+  const csvAccountSelect = document.getElementById('csvAccountSelect');
   const button = document.getElementById('importButton');
   const statusDiv = document.getElementById('importStatus');
   
@@ -674,6 +676,55 @@ async function startImport() {
   const accountName = accountId 
     ? importAccounts.find(a => a.id === accountId)?.name || 'Unbekannt'
     : 'Alle Konten';
+
+  const format = formatSelect ? formatSelect.value : '';
+  const fallbackAccountId = csvAccountSelect && csvAccountSelect.value ? parseInt(csvAccountSelect.value, 10) : null;
+  const localImportAccountId = accountId || fallbackAccountId;
+
+  const hasFormatForLocalImport = Boolean(format);
+  const hasFolderPickerApi = typeof window.showDirectoryPicker === 'function';
+  const isSecureBrowserContext = window.isSecureContext === true;
+  const canUseBrowserFolderImport = hasFormatForLocalImport && hasFolderPickerApi && isSecureBrowserContext;
+
+  if (!canUseBrowserFolderImport) {
+    const reasons = [];
+    if (!hasFormatForLocalImport) {
+      reasons.push('Kein Import-Format ausgewählt');
+    }
+    if (!hasFolderPickerApi) {
+      reasons.push('Browser unterstützt keinen Ordnerzugriff (showDirectoryPicker)');
+    }
+    if (!isSecureBrowserContext) {
+      reasons.push('Seite läuft nicht in einem sicheren Kontext (HTTPS oder localhost erforderlich)');
+    }
+
+    statusDiv.style.display = 'block';
+    statusDiv.style.color = 'var(--color-text-base)';
+    statusDiv.style.whiteSpace = 'pre-wrap';
+    statusDiv.textContent = `Lokaler Browser-Import nicht aktiv: ${reasons.join('; ')}.\nEs wird der serverseitige Import über hinterlegte Pfade verwendet.`;
+  }
+
+  if (canUseBrowserFolderImport) {
+    const localConfirmMsg = localImportAccountId
+      ? `Lokalen Ordner im Browser freigeben und für Konto "${accountName}" mit Format "${format}" importieren?`
+      : `Lokalen Ordner im Browser freigeben und mit Format "${format}" importieren?`;
+
+    if (confirm(localConfirmMsg)) {
+      button.disabled = true;
+      button.textContent = 'Import läuft...';
+      statusDiv.style.display = 'block';
+      statusDiv.style.color = 'var(--color-text-base)';
+      statusDiv.style.whiteSpace = 'pre-wrap';
+
+      try {
+        await importCsvFromLocalFolder(localImportAccountId, format, statusDiv);
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Import starten';
+      }
+      return;
+    }
+  }
   
   // Confirm import
   const confirmMsg = accountId
@@ -742,6 +793,85 @@ async function startImport() {
   } finally {
     button.disabled = false;
     button.textContent = 'Import starten';
+  }
+}
+
+async function importCsvFromLocalFolder(accountId, format, statusDiv) {
+  if (window.isSecureContext !== true) {
+    throw new Error('Lokaler Ordnerzugriff erfordert einen sicheren Kontext (HTTPS oder localhost).');
+  }
+
+  if (typeof window.showDirectoryPicker !== 'function') {
+    throw new Error('Dieser Browser unterstützt keinen lokalen Ordnerzugriff. Bitte Chrome oder Edge verwenden.');
+  }
+
+  if (!format) {
+    throw new Error('Bitte wählen Sie ein Import-Format aus.');
+  }
+
+  const selectedDirectoryHandle = await window.showDirectoryPicker({ mode: 'read' });
+  const selectedDirectoryName = selectedDirectoryHandle?.name || '(unbekannt)';
+
+  const csvFiles = [];
+  for await (const entry of selectedDirectoryHandle.values()) {
+    if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.csv')) {
+      const file = await entry.getFile();
+      csvFiles.push(file);
+    }
+  }
+
+  if (csvFiles.length === 0) {
+    throw new Error('Im freigegebenen Ordner wurden keine CSV-Dateien gefunden.');
+  }
+
+  csvFiles.sort((a, b) => a.name.localeCompare(b.name, 'de'));
+
+  statusDiv.textContent = `Freigegebener Ordner: ${selectedDirectoryName}\nGefundene CSV-Dateien: ${csvFiles.length}`;
+
+  let successCount = 0;
+  let failCount = 0;
+  const messages = [];
+
+  for (let i = 0; i < csvFiles.length; i++) {
+    const file = csvFiles[i];
+    statusDiv.textContent = `Freigegebener Ordner: ${selectedDirectoryName}\nImportiere ${i + 1}/${csvFiles.length}: ${file.name} ...`;
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('format', format);
+      if (accountId) {
+        formData.append('account_id', accountId.toString());
+      }
+
+      const response = await authenticatedFetch(`${API_BASE}/transactions/import-csv`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      successCount += 1;
+      const inserted = result.inserted !== undefined ? result.inserted : '?';
+      const total = result.total !== undefined ? result.total : '?';
+      messages.push(`✓ ${file.name}: ${inserted}/${total}`);
+    } catch (fileError) {
+      failCount += 1;
+      messages.push(`✗ ${file.name}: ${fileError.message}`);
+    }
+  }
+
+  statusDiv.style.color = failCount > 0 ? 'var(--color-text-base)' : 'var(--color-amount-positive)';
+  statusDiv.textContent = `Ordner-Import abgeschlossen: ${successCount} erfolgreich, ${failCount} fehlgeschlagen.\n${messages.join('\n')}`;
+
+  if (successCount > 0) {
+    setTimeout(() => {
+      loadTransactions(1);
+    }, 800);
   }
 }
 
@@ -995,3 +1125,5 @@ async function importSpecificCSV() {
     button.textContent = 'CSV importieren';
   }
 }
+
+

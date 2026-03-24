@@ -8,6 +8,7 @@
 #
 import csv
 import logging
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -135,6 +136,26 @@ class AccountDataImporter:
          logger.warning("Applied legacy config repairs (old JavaScript parser format detected)")
       
       return config
+
+   @staticmethod
+   def _is_windows_absolute_path(path_str: str) -> bool:
+      """Return True if the path string is an absolute Windows drive or UNC path."""
+      if not path_str:
+         return False
+      # Drive absolute path, e.g. C:\folder\file.csv or C:/folder/file.csv
+      if re.match(r"^[a-zA-Z]:[\\/]", path_str):
+         return True
+      # UNC path, e.g. \\nas\share\folder
+      return path_str.startswith("\\\\")
+
+   def _resolve_import_path(self, path_str: str, project_root: Path) -> Path:
+      """Resolve configured import path with cross-platform absolute path handling."""
+      candidate = Path(path_str)
+
+      if candidate.is_absolute() or self._is_windows_absolute_path(path_str):
+         return candidate
+
+      return (project_root / candidate).resolve()
 
    def _get_mapping(self, format_name: str, csv_path: Path = None) -> tuple[dict, str]:
       """Get format mapping, optionally with automatic version detection.
@@ -577,13 +598,7 @@ class AccountDataImporter:
       
       for row in rows:
          path_str = row["path"]
-         path = Path(path_str)
-         
-         # If path is relative, resolve it from project root
-         if not path.is_absolute():
-            path = (project_root / path).resolve()
-         else:
-            path = path.resolve()
+         path = self._resolve_import_path(path_str, project_root)
          
          jobs.append(
             ImportJob(
