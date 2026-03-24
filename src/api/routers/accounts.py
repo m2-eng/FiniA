@@ -344,6 +344,51 @@ async def get_account_detail(
     }
 
 
+@router.post("/")
+@handle_db_errors("create account")
+async def create_account(
+    account_data: AccountData = None,
+    connection = Depends(get_db_connection)
+):
+    """
+    Create a new account with optional import settings.
+    """
+    if not account_data:
+        raise HTTPException(status_code=400, detail="No data provided.")
+
+    repo = AccountRepository(connection.cursor(buffered=True))
+    cursor = connection.cursor(buffered=True)
+    try:
+        account_id = repo.create_account(
+            account_data.name,
+            account_data.iban_accountNumber,
+            account_data.bic_market,
+            account_data.type,
+            account_data.startAmount,
+            account_data.dateStart if account_data.dateStart else None,
+            account_data.dateEnd if account_data.dateEnd else None,
+            account_data.clearingAccount
+        )
+
+        if account_data.importPath and account_data.importFormat:
+            repo.insert_import_path(
+                account_data.importPath,
+                account_data.importFormat,
+                account_id
+            )
+
+        safe_commit(connection)
+        return await get_account_detail(account_id, cursor)
+    except Exception:
+        safe_rollback(connection, "create account")
+        raise
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+
+
 @router.put("/{account_id}")
 @handle_db_errors("update account")
 async def update_account(
