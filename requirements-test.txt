@@ -33,5 +33,5 @@ pytest-cov==7.1.0
 
 # Additional utilities
 python-dotenv==1.2.2
-pydantic==2.12.5
+pydantic==2.13.2
 timestamps==0.0.6
