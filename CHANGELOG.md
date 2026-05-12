@@ -17,6 +17,18 @@ Complete documentation available in `docs/`:
 
 ## [Unreleased]
 
+## [0.1.0-beta.5] - 2026-05-12
+
+- Enable change of the default version for the import formats
+- Improve the account list of the categorization tab
+- Add button to create new account
+
+**Fixed bugs:**
+- Fixed missing method in the import_sercie.py, which was renamed
+- Allow removing the parent category
+- No reset by adding a new condition to a categorization rule
+- Share history entry cannot be save
+
 ## [0.1.0-beta.4] - 2026-03-24
 
 **Fixed bugs:**
@@ -193,7 +205,8 @@ Updated key dependencies to latest stable versions:
 
 ## Links
 
-[Unreleased]: https://github.com/m2-eng/FiniA/compare/v0.1.0-beta.3...HEAD
+[Unreleased]: https://github.com/m2-eng/FiniA/compare/v0.1.0-beta.4...HEAD
+[0.1.0-beta.5]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.5
 [0.1.0-beta.4]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.4
 [0.1.0-beta.3]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.3
 [0.1.0-beta.2]: https://github.com/m2-eng/FiniA/releases/tag/v0.1.0-beta.2
