@@ -14,7 +14,7 @@ python-multipart>=0.0.6
 
 # Auth & Security
 cryptography>=41.0.0
-pyjwt>=2.8.0
+pyjwt>=2.12.1
 
 # Testing & Development
 pytest>=7.4.3
